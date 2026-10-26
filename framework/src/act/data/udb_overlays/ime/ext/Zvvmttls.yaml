@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: BSD-3-Clause-Clear OR Apache-2.0
+#
+# Zvvm (Integrated Matrix Extension) definition for the ACT UDB overlay.
+# Source: https://github.com/riscv/integrated-matrix-extension/blob/6effbcae3204e5a8a9c9d15ff53959918144870c/src/integrated-matrix.adoc
+
+$schema: "ext_schema.json#"
+kind: extension
+name: Zvvmttls
+long_name: Transposing matrix tile load and store for vector register groups
+description: |
+  The Zvvmttls extension provides the transposing tile load `vmttl.v` and
+  tile store `vmtts.v`. They transpose 2D arrays of SEW-bit storage
+  elements between memory and vector register groups. They use the
+  memory-layout, tile-geometry, masking, restart and legality rules of
+  Zvvmtls.
+type: unprivileged
+versions:
+  - version: "1.0.0"
+    state: development
+    repositories:
+      - url: https://github.com/riscv/integrated-matrix-extension
+        branch: main
+requirements:
+  extension:
+    name: Zve32x

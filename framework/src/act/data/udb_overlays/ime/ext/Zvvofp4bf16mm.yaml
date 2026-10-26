@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: BSD-3-Clause-Clear OR Apache-2.0
+#
+# Zvvm (Integrated Matrix Extension) definition for the ACT UDB overlay.
+# Source: https://github.com/riscv/integrated-matrix-extension/blob/6effbcae3204e5a8a9c9d15ff53959918144870c/src/integrated-matrix.adoc
+
+$schema: "ext_schema.json#"
+kind: extension
+name: Zvvofp4bf16mm
+long_name: Matrix multiply-accumulate, OFP4 (E2M1) inputs, BFloat16 accumulator
+description: |
+  Enables the Zvvfmm matrix multiply-accumulate encodings with
+  OFP4 (E2M1) A and B input elements and BFloat16 C accumulator
+  elements. The encoding maps in the specification name this extension in
+  the rows that it makes legal.
+
+  The specification lists Zve32f as the dependency of Zvvofp4bf16mm.
+type: unprivileged
+versions:
+  - version: "1.0.0"
+    state: development
+    repositories:
+      - url: https://github.com/riscv/integrated-matrix-extension
+        branch: main
+requirements:
+  extension:
+    allOf:
+      - name: Zvvfmm
+      - name: Zve32f

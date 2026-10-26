@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib.resources
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -88,6 +89,40 @@ def _ensure_udb_installed() -> None:
         raise RuntimeError("'bundle' command still not found after install.")
 
 
+_ARCH_OVERLAY_LINE = re.compile(r"^arch_overlay:.*$", re.MULTILINE)
+
+
+def _act_overlay_dir(udb_config_file: Path) -> Path | None:
+    """Return the ACT overlay directory that the config's `arch_overlay` names, if any.
+
+    ACT ships UDB overlays for extensions that UDB does not define yet under
+    act/data/udb_overlays/<name>/. A UDB config selects one with `arch_overlay: <name>`.
+    """
+    yaml = YAML(typ="safe", pure=True)
+    overlay = yaml.load(udb_config_file.read_text()).get("arch_overlay")
+    if not isinstance(overlay, str) or Path(overlay).is_absolute():
+        return None
+    overlay_dir = Path(str(importlib.resources.files("act"))) / "data" / "udb_overlays" / overlay
+    return overlay_dir if overlay_dir.is_dir() else None
+
+
+def _udb_tool_config(udb_config_file: Path, overlay_dir: Path | None, output_dir: Path) -> Path:
+    """Return the config file to pass to udb and udb-gen.
+
+    UDB resolves a relative `arch_overlay` against its own custom-spec directory, and udb-gen
+    cannot change that directory. For an ACT overlay, write a copy of the config with the
+    absolute overlay path. The copy keeps the original file name for UDB error messages.
+    """
+    if overlay_dir is None:
+        return udb_config_file
+    text = _ARCH_OVERLAY_LINE.sub(f'arch_overlay: "{overlay_dir.resolve()}"', udb_config_file.read_text())
+    tool_config = output_dir / udb_config_file.name
+    if not tool_config.exists() or tool_config.read_text() != text:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        tool_config.write_text(text)
+    return tool_config
+
+
 def validate_udb_config(udb_config_file: Path, marker: Path) -> None:
     """Run `udb validate cfg` and touch a sentinel marker on success.
 
@@ -141,7 +176,10 @@ def prepare_dut_outputs(configs: list[Config], workdir: Path, jobs: int, verbose
     for cfg in configs:
         config_dir = workdir / cfg.name
         env_dir = config_dir / "env"
-        src = cfg.udb_config
+        overlay_dir = _act_overlay_dir(cfg.udb_config)
+        src = _udb_tool_config(cfg.udb_config, overlay_dir, config_dir / "udb")
+        overlay_files = tuple(sorted(overlay_dir.rglob("*.yaml"))) if overlay_dir else ()
+        udb_inputs = (cfg.udb_config, *overlay_files)
         marker = config_dir / ".validated"
 
         # Validate the UDB config once per config; every UDB-derived file
@@ -150,13 +188,13 @@ def prepare_dut_outputs(configs: list[Config], workdir: Path, jobs: int, verbose
             BuildTask(
                 outputs=(marker,),
                 action=PythonAction(validate_udb_config, (src, marker)),
-                extra_inputs=(src,),
+                extra_inputs=udb_inputs,
                 label=f"UDB config validation ({cfg.name})",
             )
         )
 
         # UDB-derived per-config files: one BuildTask each, all gated on
-        # the validate marker and stale vs. the source UDB yaml.
+        # the validate marker and stale vs. the source UDB yaml and ACT overlay.
         udb_outputs: list[tuple[Path, PythonAction]] = [
             (
                 env_dir / "rvtest_config.h",
@@ -169,7 +207,7 @@ def prepare_dut_outputs(configs: list[Config], workdir: Path, jobs: int, verbose
             (env_dir / "extensions.txt", PythonAction(generate_extension_list, (src, env_dir))),
         ]
         for out, action in udb_outputs:
-            tasks.append(BuildTask(outputs=(out,), action=action, extra_inputs=(src,), deps=(marker,)))
+            tasks.append(BuildTask(outputs=(out,), action=action, extra_inputs=udb_inputs, deps=(marker,)))
 
         # rvmodel_macros.svh derives from the DUT's rvmodel_macros.h, not
         # from UDB, so it has no validate dep.
