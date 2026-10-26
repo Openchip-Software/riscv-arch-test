@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 512" width="100%" role="img" aria-labelledby="g1-title g1-desc">
+  <title id="g1-title">ime-test-gen: from test plan to verdict</title>
+  <desc id="g1-desc">On the host, ime-test-gen turns a test_plan! DSL into a TestPlan, expands it over VLEN, lambda, LMUL, SEW and sign/frm with a Rust golden model, lowers the IR through a backend and emits split C++ sources with expected values embedded as const arrays. Inside the SDK image the sources are compiled, run on qemu-riscv64, where the compare loop runs on the device, and the printed verdicts are checked against known issues.</desc>
+  <defs>
+    <marker id="g1-arrow-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/>
+    </marker>
+    <marker id="g1-arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/>
+    </marker>
+    <marker id="g1-arrow-rust" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--accent-2)"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="512" fill="var(--ground)"/>
+
+  <!-- Row 1: generator -->
+  <rect x="16" y="40" width="968" height="234" rx="8" fill="var(--surface-2)" stroke="var(--rule)" stroke-width="1.5"/>
+  <text x="28" y="60" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)">ime-test-gen (Rust, host)</text>
+
+  <g fill="var(--surface)" stroke="var(--ink)" stroke-width="1.2">
+    <rect x="27" y="72" width="146" height="158" rx="6"/>
+    <rect x="187" y="72" width="146" height="158" rx="6"/>
+    <rect x="347" y="72" width="146" height="158" rx="6"/>
+    <rect x="507" y="72" width="146" height="158" rx="6"/>
+    <rect x="667" y="72" width="146" height="158" rx="6"/>
+    <rect x="827" y="72" width="146" height="158" rx="6"/>
+  </g>
+  <g fill="none" stroke="var(--rule)" stroke-width="1">
+    <line x1="37" y1="142" x2="163" y2="142"/>
+    <line x1="197" y1="142" x2="323" y2="142"/>
+    <line x1="517" y1="142" x2="643" y2="142"/>
+    <line x1="677" y1="142" x2="803" y2="142"/>
+    <line x1="837" y1="142" x2="963" y2="142"/>
+  </g>
+
+  <!-- titles -->
+  <g font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">
+    <text x="100" y="94">DSL</text>
+    <text x="260" y="94">TestPlan</text>
+    <text x="420" y="94">Expand</text>
+    <text x="580" y="94">IR</text>
+    <text x="740" y="94">Backend +</text>
+    <text x="740" y="111">lowering</text>
+  </g>
+  <text x="900" y="94" font-family="var(--font-mono)" font-size="12" font-weight="700" fill="var(--ink)" text-anchor="middle">emit.rs --split</text>
+
+  <!-- file names -->
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ink)" text-anchor="middle">
+    <text x="100" y="114">test_plan!{…}</text>
+    <text x="100" y="130">dsl_plans.rs</text>
+    <text x="260" y="114">plan.rs</text>
+    <text x="420" y="114">expand_ir.rs</text>
+    <text x="580" y="114">ir.rs</text>
+    <text x="900" y="162">section_NNN_*.cxx</text>
+    <text x="900" y="178">test_main.cxx</text>
+    <text x="900" y="194">tests.txt</text>
+  </g>
+
+  <!-- details -->
+  <g font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">
+    <text x="100" y="162">proc macro,</text>
+    <text x="100" y="176">compile-time checks</text>
+    <text x="260" y="162">sections ×</text>
+    <text x="260" y="176">Test variants</text>
+    <text x="420" y="132">sweep VLEN × λ × LMUL</text>
+    <text x="420" y="146">× SEW × sign/frm</text>
+    <text x="580" y="162">sections → tests →</text>
+    <text x="580" y="176">actions</text>
+    <text x="740" y="162">hosted | baremetal</text>
+    <text x="740" y="176">asm | intrinsics</text>
+  </g>
+  <text x="580" y="202" font-family="var(--font-mono)" font-size="11" fill="var(--muted)" text-anchor="middle">--emit-ir JSON</text>
+
+  <!-- spec model and golden model inside Expand -->
+  <text x="378" y="166" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">spec/</text>
+  <text x="419" y="166" font-family="var(--font-sans)" font-size="11" fill="var(--ink)">model</text>
+  <rect x="355" y="176" width="130" height="46" rx="5" fill="var(--ref-soft)" stroke="var(--ref)" stroke-width="1.5"/>
+  <text x="420" y="194" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ref)" text-anchor="middle">golden model</text>
+  <text x="420" y="211" font-family="var(--font-mono)" font-size="11" fill="var(--ref)" text-anchor="middle">gold/ (arpfloat)</text>
+
+  <!-- annotation under IR -->
+  <g font-family="var(--font-sans)" font-size="11" fill="var(--ref)" text-anchor="middle">
+    <text x="580" y="250">expected values are embedded</text>
+    <text x="580" y="264">as const arrays (C_ref)</text>
+  </g>
+
+  <!-- row 1 arrows -->
+  <g fill="none" stroke="var(--ink)" stroke-width="1.5">
+    <line x1="173" y1="151" x2="185" y2="151" marker-end="url(#g1-arrow-ink)"/>
+    <line x1="333" y1="151" x2="345" y2="151" marker-end="url(#g1-arrow-ink)"/>
+    <line x1="493" y1="151" x2="505" y2="151" marker-end="url(#g1-arrow-ink)"/>
+    <line x1="653" y1="151" x2="665" y2="151" marker-end="url(#g1-arrow-ink)"/>
+    <line x1="813" y1="151" x2="825" y2="151" marker-end="url(#g1-arrow-ink)"/>
+  </g>
+
+  <!-- hand-off to the SDK image -->
+  <polyline points="900,230 900,292 133,292 133,340" fill="none" stroke="var(--ink)" stroke-width="1.5" marker-end="url(#g1-arrow-ink)"/>
+  <text x="516" y="286" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">.cxx sources + tests.txt</text>
+
+  <!-- Row 2: device side -->
+  <rect x="16" y="306" width="664" height="190" rx="8" fill="var(--surface-2)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="28" y="326" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--accent-2)">SDK image (apptainer)</text>
+
+  <g fill="var(--accent-2-soft)" stroke="var(--accent-2)" stroke-width="1.5">
+    <rect x="22" y="342" width="224" height="110" rx="6"/>
+    <rect x="280" y="342" width="180" height="110" rx="6"/>
+    <rect x="500" y="342" width="170" height="110" rx="6"/>
+  </g>
+  <rect x="720" y="342" width="264" height="110" rx="6" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+
+  <g font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">
+    <text x="133" y="362">Compile</text>
+    <text x="370" y="362">Run on QEMU</text>
+    <text x="585" y="362">Output</text>
+    <text x="852" y="362">Known-issue check</text>
+  </g>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--accent-2)" text-anchor="middle">
+    <text x="133" y="384">riscv64-openchip-linux-gnu-g++</text>
+    <text x="133" y="400">-march=rv64gcv_zvmma</text>
+    <text x="133" y="414">_zbb_zvfh_zvfbfmin</text>
+    <text x="133" y="430">-static</text>
+    <text x="370" y="384">qemu-riscv64</text>
+    <text x="370" y="400">-cpu rv64,v=true,</text>
+    <text x="370" y="414">vlen=N,x-zvvm=true,…</text>
+    <text x="585" y="400">[id] desc |</text>
+    <text x="585" y="414">PASS|FAIL|SKIP</text>
+    <text x="585" y="432">=== SUMMARY ===</text>
+  </g>
+  <text x="585" y="384" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">per test:</text>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ink)" text-anchor="middle">
+    <text x="852" y="384">ci/scripts/check.sh</text>
+    <text x="852" y="400">vs ci/known-issues.txt</text>
+    <text x="852" y="420">→ ok/known/UNEXPECTED/FIXED…</text>
+  </g>
+
+  <!-- row 2 arrows -->
+  <line x1="246" y1="397" x2="278" y2="397" fill="none" stroke="var(--accent-2)" stroke-width="1.5" marker-end="url(#g1-arrow-rust)"/>
+  <line x1="460" y1="397" x2="498" y2="397" fill="none" stroke="var(--accent-2)" stroke-width="1.5" marker-end="url(#g1-arrow-rust)"/>
+  <line x1="670" y1="397" x2="718" y2="397" fill="none" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#g1-arrow-muted)"/>
+  <g font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">
+    <text x="262" y="390">ELF</text>
+    <text x="479" y="390">stdout</text>
+    <text x="700" y="390">log</text>
+  </g>
+
+  <!-- annotation under qemu -->
+  <text x="370" y="474" font-family="var(--font-sans)" font-size="11" fill="var(--accent-2)" text-anchor="middle">compare loop runs on the device (bit-exact)</text>
+</svg>

@@ -1,0 +1,173 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 530" width="100%" role="img" aria-labelledby="f3-title f3-desc">
+  <title id="f3-title">Per-test build task graph (one test, one DUT configuration)</title>
+  <desc id="f3-desc">Four build tasks run in a chain: compile signature ELF, run reference model, convert signature, compile self-checking ELF. Debug-only side tasks hang below. The self-checking ELF then runs on the DUT in a separate run_tests.py step.</desc>
+  <defs>
+    <marker id="f3-arrow-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/>
+    </marker>
+    <marker id="f3-arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="530" fill="var(--ground)"/>
+
+  <!-- Inputs -->
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ink)" text-anchor="end">
+    <text x="166" y="124">tests/&lt;rel&gt;.S</text>
+    <text x="166" y="146">tests/env/*.h</text>
+    <text x="166" y="168">&lt;dut&gt;/rvmodel_macros.h</text>
+    <text x="166" y="190">&lt;dut&gt;/link.ld</text>
+    <text x="166" y="212">work/&lt;cfg&gt;/env/</text>
+    <text x="166" y="226">rvtest_config.h</text>
+  </g>
+  <text x="16" y="100" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">inputs</text>
+  <g fill="none" stroke="var(--muted)" stroke-width="1.5">
+    <line x1="168" y1="120" x2="174" y2="120"/>
+    <line x1="168" y1="142" x2="174" y2="142"/>
+    <line x1="168" y1="164" x2="174" y2="164"/>
+    <line x1="168" y1="186" x2="174" y2="186"/>
+    <line x1="168" y1="215" x2="174" y2="215"/>
+    <polyline points="174,215 174,70 780,70"/>
+  </g>
+  <line x1="174" y1="170" x2="184" y2="170" fill="none" stroke="var(--ink)" stroke-width="1.5" marker-end="url(#f3-arrow-ink)"/>
+  <line x1="780" y1="70" x2="780" y2="98" fill="none" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#f3-arrow-muted)"/>
+  <text x="600" y="63" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">same inputs into the self-checking build</text>
+
+  <!-- sail.json into task 2 -->
+  <text x="462" y="91" font-family="var(--font-mono)" font-size="11" fill="var(--ref)" text-anchor="end">&lt;dut&gt;/sail.json</text>
+  <line x1="470" y1="78" x2="470" y2="98" fill="none" stroke="var(--ref)" stroke-width="1.5" marker-end="url(#f3-arrow-ink)"/>
+
+  <!-- Task 1 -->
+  <rect x="186" y="100" width="140" height="170" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <g font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">
+    <text x="256" y="122">Compile</text>
+    <text x="256" y="139">signature ELF</text>
+  </g>
+  <text x="256" y="162" font-family="var(--font-mono)" font-size="11" fill="var(--accent)" text-anchor="middle">build/&lt;rel&gt;.sig.elf</text>
+  <line x1="196" y1="186" x2="316" y2="186" fill="none" stroke="var(--rule)" stroke-width="1"/>
+  <text x="256" y="202" font-family="var(--font-mono)" font-size="11" fill="var(--muted)" text-anchor="middle">-DSIGNATURE</text>
+  <text x="256" y="216" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">+ Sail platform defines</text>
+
+  <!-- Task 2 -->
+  <rect x="348" y="100" width="140" height="170" rx="6" fill="var(--ref-soft)" stroke="var(--ref)" stroke-width="1.5"/>
+  <g font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">
+    <text x="418" y="122">Run reference</text>
+    <text x="418" y="139">model</text>
+  </g>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ref)" text-anchor="middle">
+    <text x="418" y="162">build/&lt;rel&gt;.sig</text>
+    <text x="418" y="177">build/&lt;rel&gt;.sig.log</text>
+  </g>
+  <line x1="358" y1="186" x2="478" y2="186" fill="none" stroke="var(--rule)" stroke-width="1"/>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--muted)" text-anchor="middle">
+    <text x="418" y="202">sail_riscv_sim</text>
+    <text x="418" y="216">--test-signature</text>
+  </g>
+  <text x="418" y="230" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">stdout → .sig.log</text>
+
+  <!-- Task 3 -->
+  <rect x="510" y="100" width="180" height="170" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <g font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">
+    <text x="600" y="122">Convert</text>
+    <text x="600" y="139">signature</text>
+  </g>
+  <text x="600" y="162" font-family="var(--font-mono)" font-size="11" fill="var(--accent)" text-anchor="middle">build/&lt;rel&gt;.results</text>
+  <line x1="520" y1="186" x2="680" y2="186" fill="none" stroke="var(--rule)" stroke-width="1"/>
+  <text x="600" y="202" font-family="var(--font-mono)" font-size="11" fill="var(--muted)" text-anchor="middle">process_signature_file()</text>
+  <text x="600" y="216" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">(.quad lines)</text>
+
+  <!-- Task 4 (deliverable) -->
+  <rect x="710" y="100" width="140" height="170" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="3"/>
+  <g font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">
+    <text x="780" y="122">Compile</text>
+    <text x="780" y="139">self-checking ELF</text>
+  </g>
+  <text x="780" y="162" font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--accent)" text-anchor="middle">elfs/&lt;rel&gt;.elf</text>
+  <line x1="720" y1="186" x2="840" y2="186" fill="none" stroke="var(--rule)" stroke-width="1"/>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--muted)" text-anchor="middle">
+    <text x="780" y="202">-DRVTEST_SELFCHECK</text>
+    <text x="780" y="216">-DSIGNATURE_FILE=</text>
+    <text x="780" y="230">&lt;.results&gt;</text>
+  </g>
+  <rect x="744" y="242" width="72" height="18" rx="9" fill="var(--accent)" stroke="none"/>
+  <text x="780" y="255" font-family="var(--font-sans)" font-size="11" font-weight="600" fill="var(--surface)" text-anchor="middle">deliverable</text>
+
+  <!-- intermediate tags -->
+  <g fill="var(--surface)" stroke="var(--muted)" stroke-width="1">
+    <rect x="216" y="242" width="80" height="18" rx="9"/>
+    <rect x="378" y="242" width="80" height="18" rx="9"/>
+    <rect x="560" y="242" width="80" height="18" rx="9"/>
+  </g>
+  <g font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">
+    <text x="256" y="255">intermediate</text>
+    <text x="418" y="255">intermediate</text>
+    <text x="600" y="255">intermediate</text>
+  </g>
+
+  <!-- Main chain arrows -->
+  <g fill="none" stroke="var(--ink)" stroke-width="1.5">
+    <line x1="326" y1="170" x2="346" y2="170" marker-end="url(#f3-arrow-ink)"/>
+    <line x1="488" y1="170" x2="508" y2="170" marker-end="url(#f3-arrow-ink)"/>
+    <line x1="690" y1="170" x2="708" y2="170" marker-end="url(#f3-arrow-ink)"/>
+    <line x1="850" y1="170" x2="872" y2="170" marker-end="url(#f3-arrow-ink)"/>
+  </g>
+
+  <!-- Separate step: run on DUT -->
+  <line x1="866" y1="84" x2="866" y2="455" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <g font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">
+    <text x="929" y="100" font-family="var(--font-mono)">run_tests.py</text>
+    <text x="929" y="114">(separate step)</text>
+  </g>
+  <rect x="874" y="130" width="110" height="100" rx="6" fill="var(--accent-2-soft)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="929" y="153" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">Run on DUT</text>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--accent-2)" text-anchor="middle">
+    <text x="929" y="182">logs/&lt;rel&gt;.log</text>
+    <text x="929" y="198">summary.log</text>
+  </g>
+
+  <!-- Side tasks -->
+  <g fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3">
+    <line x1="251" y1="270" x2="251" y2="298" marker-end="url(#f3-arrow-muted)"/>
+    <line x1="411" y1="270" x2="411" y2="298" marker-end="url(#f3-arrow-muted)"/>
+    <line x1="780" y1="270" x2="780" y2="298" marker-end="url(#f3-arrow-muted)"/>
+    <polyline points="319,270 319,420 518,420" marker-end="url(#f3-arrow-muted)"/>
+    <polyline points="478,270 478,398 518,398" marker-end="url(#f3-arrow-muted)"/>
+  </g>
+  <g fill="var(--surface)" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="4 3">
+    <rect x="189" y="300" width="124" height="62" rx="5"/>
+    <rect x="352" y="300" width="118" height="76" rx="5"/>
+    <rect x="520" y="378" width="150" height="62" rx="5"/>
+    <rect x="700" y="300" width="160" height="62" rx="5"/>
+  </g>
+  <g font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="middle">
+    <text x="251" y="318">objdump</text>
+    <text x="595" y="398">Trap report</text>
+    <text x="780" y="318">objdump</text>
+  </g>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ink)" text-anchor="middle">
+    <text x="251" y="335">.sig.elf.objdump</text>
+    <text x="411" y="318">.sig.trace</text>
+    <text x="595" y="413">.sig.trap_report</text>
+    <text x="780" y="350">elfs/&lt;rel&gt;.elf.objdump</text>
+  </g>
+  <g font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">
+    <text x="251" y="352">DEBUG only</text>
+    <text x="411" y="334">same task,</text>
+    <text x="411" y="348">extra output</text>
+    <text x="411" y="364">DEBUG only</text>
+    <text x="595" y="430">DEBUG only</text>
+    <text x="780" y="333">(skipped with FAST)</text>
+  </g>
+  <text x="333" y="414" font-family="var(--font-mono)" font-size="11" fill="var(--muted)">.sig.elf</text>
+  <text x="486" y="392" font-family="var(--font-mono)" font-size="11" fill="var(--muted)">.sig</text>
+
+  <!-- Footer -->
+  <line x1="16" y1="468" x2="984" y2="468" fill="none" stroke="var(--rule)" stroke-width="1"/>
+  <rect x="16" y="478" width="80" height="18" rx="9" fill="var(--surface)" stroke="var(--muted)" stroke-width="1"/>
+  <text x="56" y="491" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">intermediate</text>
+  <text x="104" y="491" font-family="var(--font-sans)" font-size="11" fill="var(--ink)">deleted by <tspan font-family="var(--font-mono)">--clean-intermediates</tspan></text>
+  <rect x="330" y="480" width="28" height="14" rx="3" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <text x="366" y="491" font-family="var(--font-sans)" font-size="11" fill="var(--ink)">side task or extra output</text>
+  <text x="16" y="516" font-family="var(--font-sans)" font-size="11" fill="var(--ink)">Staleness = content hash of inputs + command + dependency hashes (<tspan font-family="var(--font-mono)">.act_build_cache.json</tspan>). No mtimes.</text>
+</svg>

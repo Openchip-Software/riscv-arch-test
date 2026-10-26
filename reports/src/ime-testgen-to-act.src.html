@@ -1,0 +1,2135 @@
+<title>IME Tests into ACT</title>
+<meta
+  name="description"
+  content="How the riscv-ime-arch-tests Rust generator works, how its philosophy differs from ACT4, and a verified path to run its tests inside ACT."
+/>
+<!--@REPO:https://github.com/Openchip-Software/riscv-ime-arch-tests/blob/46f378198e68d6f6f58193353f4f2535a131b602-->
+<!--@REPO2:https://github.com/riscv/riscv-arch-test/blob/aadb7424ac4ea3aac15ec58a2b3b4c477ffe1ede-->
+<!--@STYLE-->
+
+<div class="topbar">
+  <span class="t">IME Tests into ACT</span>
+  <button id="toc-toggle" type="button" aria-controls="side">Contents</button>
+</div>
+
+<div class="layout">
+  <aside class="side" id="side" aria-label="Contents">
+    <div class="doc-kicker">Technical report 2 of 2</div>
+    <div class="doc-name">IME test generator: analysis and ACT integration</div>
+    <nav class="toc">
+      <div class="part">
+        <button type="button">Orientation</button>
+        <ol>
+          <li>
+            <a href="#summary"><span class="n">—</span>Summary</a>
+          </li>
+          <li>
+            <a href="#terms"><span class="n">1</span>Terms</a>
+          </li>
+          <li>
+            <a href="#suite"><span class="n">2</span>What the suite contains</a>
+          </li>
+        </ol>
+      </div>
+      <div class="part">
+        <button type="button">How ime-test-gen works</button>
+        <ol>
+          <li>
+            <a href="#pipeline"><span class="n">3</span>Pipeline</a>
+          </li>
+          <li>
+            <a href="#dsl"><span class="n">4</span>Test plan language</a>
+          </li>
+          <li>
+            <a href="#expand"><span class="n">5</span>Expansion and sweeps</a>
+          </li>
+          <li>
+            <a href="#ir"
+              ><span class="n">6</span>Intermediate representation</a
+            >
+          </li>
+          <li>
+            <a href="#gold"><span class="n">7</span>Golden model</a>
+          </li>
+          <li>
+            <a href="#emit"
+              ><span class="n">8</span>Backends and emitted code</a
+            >
+          </li>
+          <li>
+            <a href="#ci"><span class="n">9</span>CI and verdicts</a>
+          </li>
+        </ol>
+      </div>
+      <div class="part">
+        <button type="button">Comparison</button>
+        <ol>
+          <li>
+            <a href="#philosophy"
+              ><span class="n">10</span>Philosophy compared with ACT</a
+            >
+          </li>
+        </ol>
+      </div>
+      <div class="part">
+        <button type="button">Integration</button>
+        <ol>
+          <li>
+            <a href="#blockers"
+              ><span class="n">11</span>Requirements and blockers</a
+            >
+          </li>
+          <li>
+            <a href="#options"><span class="n">12</span>Integration options</a>
+          </li>
+          <li>
+            <a href="#compat"
+              ><span class="n">12a</span>ACT version for the fork</a
+            >
+          </li>
+          <li>
+            <a href="#recommend"><span class="n">13</span>Recommendation</a>
+          </li>
+          <li>
+            <a href="#mapping"><span class="n">14</span>Concept mapping</a>
+          </li>
+          <li>
+            <a href="#poc"><span class="n">15</span>Proof of concept</a>
+          </li>
+          <li>
+            <a href="#ctile"><span class="n">16</span>C-tile disagreement</a>
+          </li>
+          <li>
+            <a href="#plan"><span class="n">17</span>Work plan</a>
+          </li>
+        </ol>
+      </div>
+      <div class="part">
+        <button type="button">Reference</button>
+        <ol>
+          <li>
+            <a href="#findings"
+              ><span class="n">18</span>Findings in the suite</a
+            >
+          </li>
+          <li>
+            <a href="#provenance"><span class="n">19</span>Provenance</a>
+          </li>
+        </ol>
+      </div>
+    </nav>
+    <div class="meta">
+      riscv-ime-arch-tests @ <code>46f3781</code><br />
+      riscv-arch-test <code>act4</code> @ <code>aadb742</code><br />
+      Sail IME fork @ <code>efd0d7dc</code><br />
+      SDK 2026.10.14 · QEMU 10.2.50<br />
+      Written 2026-10-23
+    </div>
+  </aside>
+
+  <main>
+    <div class="content">
+      <div
+        class="part-title"
+        style="margin-top: 0; border-top: 0; padding-top: 0"
+      >
+        Technical report 2 of 2
+      </div>
+      <h1>IME test generator: analysis and ACT integration</h1>
+      <p class="byline">
+        This report covers <code>riscv-ime-arch-tests</code> at commit
+        <code>46f3781</code>, which tests the RISC-V Integrated Matrix Extension
+        (IME). It reuses the terms of Report 1. Evidence tags:
+        <span class="ev run">run</span> observed in a run,
+        <span class="ev code">code</span> read in the source,
+        <span class="ev inf">inferred</span> deduced but not observed.
+      </p>
+
+      <section class="summary" id="summary">
+        <h2>Summary</h2>
+        <ol>
+          <li>
+            <strong>The generator.</strong> <code>ime-test-gen</code> is a Rust
+            generator.
+            <ul>
+              <li>
+                A compile-time test plan language feeds an exhaustive sweep over
+                legal configurations: VLEN × λ (lambda, the IME tile parameter)
+                × LMUL × SEW × signedness or rounding mode.
+              </li>
+              <li>
+                An independent Rust golden model computes every expected value
+                at generation time.
+              </li>
+              <li>
+                The output is self-checking C++, which runs under QEMU user mode
+                on Linux.
+              </li>
+            </ul>
+          </li>
+          <li>
+            <strong>The suite passes its own CI here.</strong> At VLEN=512, with
+            the pinned SDK image, the CI reproduction passed. The generator
+            emits 5372 tests, and every result matched
+            <code>ci/known-issues.txt</code>. <span class="ev run">run</span>
+          </li>
+          <li>
+            <strong
+              >The main difference from ACT is the source of expected
+              values.</strong
+            >
+            ACT takes them from Sail at build time, and the generators emit only
+            inputs. <code>ime-test-gen</code> embeds its own golden values,
+            which are tuned to match QEMU's rounding. ACT measures coverage with
+            covergroups. <code>ime-test-gen</code> enumerates configurations and
+            has no coverage model.
+          </li>
+          <li>
+            <strong
+              >The intermediate representation (IR) is the integration
+              point.</strong
+            >
+            For MACC (matrix multiply-accumulate) tests, the IR uses only
+            target-neutral operations: tile load, tile zero, mmacc, tile store
+            and compare. My proof of concept, <code>ir2act.py</code>, converts
+            that IR into ACT test files. ACT built them with the IME Sail fork
+            as reference model, and they ran on two DUTs.
+            <span class="ev run">run</span>
+          </li>
+          <li>
+            <strong>The proof of concept found a model disagreement.</strong>
+            <ul>
+              <li>With the Sail fork as DUT, all 6 test files pass.</li>
+              <li>With the SDK QEMU as DUT, all 6 fail.</li>
+              <li>
+                QEMU and the Rust golden model agree with each other; the Sail
+                fork stores the C tile transposed.
+              </li>
+              <li>
+                QEMU and the Rust golden model match the specification. The Sail
+                fork's <code>vmtl.v</code> and <code>vmts.v</code> index
+                register elements without <code>tile_reg_idx</code>.
+              </li>
+            </ul>
+            <span class="ev run">run</span> <span class="ev code">code</span>
+          </li>
+          <li>
+            <strong>Recommendation.</strong>
+            <ul>
+              <li>
+                <em>Bring-up:</em> import the IR into
+                <code>testgen</code> (option B).
+              </li>
+              <li>
+                <em>Target:</em> port the tests to native ACT testplans and
+                coverpoints (option C).
+              </li>
+              <li>
+                <em>Throughout:</em> keep the Rust golden model as a
+                differential check against Sail.
+              </li>
+            </ul>
+            Four blockers come first: the Sail version gate and schema, the UDB
+            extension definitions, the experimental-extension flag, and the
+            C-tile disagreement.
+          </li>
+        </ol>
+      </section>
+
+      <!-- ============================ ORIENTATION ============================ -->
+      <div class="part-title">Orientation</div>
+
+      <h2 id="terms"><span class="n">1</span>Terms</h2>
+      <p>
+        These terms add to the glossary of Report 1. A <em>test</em> in
+        <code>ime-test-gen</code> is not the same thing as an ACT test file.
+        This report says "IR test" for the generator's unit.
+      </p>
+      <dl class="gloss">
+        <dt>IME, Zvvm</dt>
+        <dd>
+          The Integrated Matrix Extension. Its subextensions are
+          <code>Zvvmm</code> (integer matrix multiply-accumulate),
+          <code>Zvvfmm</code> (floating-point), <code>Zvvmtls</code> (tile load
+          and store) and <code>Zvvmttls</code> (transposing tile load and
+          store). The SDK compiler spells the extension <code>zvmma</code> in
+          <code>-march</code>.
+        </dd>
+        <dt>λ (lambda)</dt>
+        <dd>
+          The tile parameter held in <code>vtype</code> bits 62:60. Encoding
+          <code>001</code> means λ=1, <code>010</code> λ=2, and so on up to
+          <code>111</code> λ=64. The line size of a tile is λ·LMUL.
+        </dd>
+        <dt>Tile</dt>
+        <dd>
+          A matrix operand held in a vector register group. In the asm lowering:
+          A in <code>v0</code>, B in <code>v8</code>, accumulator C in
+          <code>v16</code>.
+        </dd>
+        <dt>W</dt>
+        <dd>
+          The widening factor, accumulator width ÷ input width: 1, 2, 4 or 8. It
+          selects the mnemonic: <code>vmmacc.vv</code>, <code>vwmmacc.vv</code>,
+          <code>vqwmmacc.vv</code> or <code>v8wmmacc.vv</code>.
+        </dd>
+        <dt>Test plan</dt>
+        <dd>
+          One <code>test_plan!{…}</code> invocation in
+          <code>dsl_plans.rs</code>. Not to be confused with an ACT testplan,
+          which is a CSV file.
+        </dd>
+        <dt>Section</dt>
+        <dd>
+          A titled group of IR tests, for example "TC-MACC-01: Basic vmmacc.vv".
+          One section becomes one emitted source file.
+        </dd>
+        <dt>IR test</dt>
+        <dd>
+          One configuration of one family, for example
+          <code>TC-MACC-01.e32.L1.m1.SS.V256</code>. It has an action list and a
+          <code>vlen_guard</code>.
+        </dd>
+        <dt>Action</dt>
+        <dd>
+          One IR step, for example <code>TileLoadOp</code>,
+          <code>Mmacc</code> or <code>Compare</code>.
+        </dd>
+        <dt>Golden model</dt>
+        <dd>
+          The Rust code in <code>gold/</code> that computes each expected value.
+          It is independent of the code under test.
+        </dd>
+        <dt>Lowering</dt>
+        <dd>
+          How the backend renders the IME actions: <code>asm</code> (inline asm)
+          or <code>intrinsics</code> (<code>__riscv_*</code> calls).
+        </dd>
+        <dt>Verdict</dt>
+        <dd>
+          The CI classification of one result against
+          <code>known-issues.txt</code>: ok, known, skipped, UNEXPECTED,
+          CHANGED, FIXED, MISSING, UNLISTED or STALE.
+        </dd>
+      </dl>
+
+      <h2 id="suite"><span class="n">2</span>What the suite contains</h2>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Basic tests</th>
+              <th>Generated tests (<code>ime-test-gen</code>)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Source</td>
+              <td>Hand-written C++ in <code>src/test-*.cxx</code></td>
+              <td>
+                Rust generator in <code>ime-test-gen/</code>, emitting C++
+              </td>
+            </tr>
+            <tr>
+              <td>IME access</td>
+              <td>
+                Intrinsics (<code>__riscv_vmtl_v_*</code>,
+                <code>__riscv_vmmacc_*</code>)
+              </td>
+              <td>Inline asm with real mnemonics, or intrinsics</td>
+            </tr>
+            <tr>
+              <td>Expected values</td>
+              <td>A scalar C reference computed on the device at run time</td>
+              <td>Golden arrays computed in Rust at generation time</td>
+            </tr>
+            <tr>
+              <td>Scope</td>
+              <td>8 binaries ({{src:ci/basic-tests.tsv:5-12}})</td>
+              <td>5372 IR tests at VLEN=512 <span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td>Pass/fail</td>
+              <td>Exit code, plus <code>PASS</code>/<code>FAIL</code> lines</td>
+              <td>One line per test, plus <code>=== SUMMARY</code></td>
+            </tr>
+            <tr>
+              <td>Status at VLEN=512</td>
+              <td>
+                4 pass. 4 crash with <code>exit=133</code>: the known issue
+                <code>ime-entry-probe-trap</code>, an <code>ebreak</code> that
+                the SDK GCC emits at the start of <code>main</code>
+                <span class="ev run">run</span>
+              </td>
+              <td>
+                5372 pass with asm. With intrinsics, 5316 pass and 56 are
+                skipped, as expected <span class="ev run">run</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Only the generated tests are a candidate for ACT. The basic tests depend
+        on Linux, libc and an on-device reference, and they partly duplicate the
+        generated families.
+      </p>
+
+      <!-- ============================ MECHANISM ============================ -->
+      <div class="part-title">How ime-test-gen works</div>
+
+      <h2 id="pipeline"><span class="n">3</span>Pipeline</h2>
+      <figure class="wide">
+        <div class="frame"><!--@FIG:g1-ime-pipeline--></div>
+        <figcaption>
+          <b>Figure 1.</b> From test plan to verdict. Violet marks where
+          expected values are computed. Rust marks the device side.
+        </figcaption>
+      </figure>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Stage</th>
+              <th>Module</th>
+              <th>Input → output</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Parse plan</td>
+              <td>
+                <code>dsl_plans.rs</code>, <code>ime-test-gen-macros/</code>
+              </td>
+              <td>
+                <code>test_plan!{…}</code> → <code>TestPlan</code>, built when
+                the Rust crate compiles. The macro rejects unknown operations,
+                mismatched input widths and W ∉ {1,2,4,8} at compile time.
+              </td>
+            </tr>
+            <tr>
+              <td>Filter</td>
+              <td><code>extensions.rs</code>, <code>main.rs</code></td>
+              <td>
+                <code>--extensions</code> and <code>--test-pattern</code> select
+                subextensions and ID prefixes.
+              </td>
+            </tr>
+            <tr>
+              <td>Expand</td>
+              <td>
+                <code>expand_ir.rs</code>, <code>spec/</code>,
+                <code>gold/</code>
+              </td>
+              <td>
+                (VLEN × section) → IR tests, with golden arrays computed. Runs
+                in parallel with rayon, then restores the original order.
+              </td>
+            </tr>
+            <tr>
+              <td>Render</td>
+              <td><code>backend/</code></td>
+              <td>
+                IR → C++ text. The hosted backend is the default; there is a
+                bare-metal backend and an intrinsics wrapper.
+              </td>
+            </tr>
+            <tr>
+              <td>Emit</td>
+              <td><code>emit.rs</code></td>
+              <td>
+                <code>--split DIR</code> writes <code>section_NNN_*.cxx</code>,
+                <code>test_main.cxx</code>, <code>sources.mk</code> and the
+                manifest <code>tests.txt</code>.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The generated tree for VLEN=512 has 54 sections and 5372 tests, about
+        258 500 lines of C++. The static ELF is 39 MB. The generator takes 18.7
+        s to build in release mode. CI generates and compiles the sources for
+        both lowerings in 88 s on 16 CPUs. <span class="ev run">run</span>
+      </p>
+
+      <h2 id="dsl"><span class="n">4</span>Test plan language</h2>
+      <pre
+        data-label="ime-test-gen/src/dsl_plans.rs (abridged)"
+      >pub fn macc_int(vlens: &amp;[u32]) -&gt; TestPlan {
+    let mut plan = test_plan! {
+        vlen: [128, 256, 512, 1024],
+        stride: tight,
+        section "TC-MACC-01: Basic vmmacc.vv (C=0, positive)" {
+            macc!("TC-MACC-01", e32, SS, zero, positive, sweep: all)
+        }
+        section "TC-MACC-09: vwmmacc (2x widening, all signs)" {
+            macc!("TC-MACC-09", e16 x e16 -&gt; e32, [SS, SU, US, UU], zero, positive, sweep: all)
+        }
+    };
+    plan.vlens = vlens.to_vec();   <span class="c">// the macro cannot take runtime VLENs yet</span>
+    plan
+}</pre>
+      <p>
+        Each line reads like one row of a specification table: the family ID,
+        the formats (with widening written as <code>e16 x e16 -&gt; e32</code>),
+        the signedness, the C initialisation and the value generator. FP plans
+        add <code>frm: rne|rtz|rdn|rup|rmm|all</code> and
+        <code>check_flags: true</code> {{src:doc/dsl-reference.typ:39-240}}.
+      </p>
+      <div class="note warn">
+        <span class="tag">Code fact</span>
+        <p>
+          <code>sweep: all</code> is parsed but its value is discarded.
+          <code>macc!</code> and <code>fmacc!</code> always sweep.
+          <code>roundtrip!</code> hard-codes
+          <code>vl_modes: [Min, Half]</code> and
+          <code>stride_modes: [Tight, Padded]</code>.
+          <span class="ev code">code</span>
+        </p>
+      </div>
+
+      <h2 id="expand"><span class="n">5</span>Expansion and sweeps</h2>
+      <p>
+        Expansion enumerates every legal combination. No values are random, and
+        no RNG or seed exists anywhere in <code>ime-test-gen/src</code>. Integer
+        inputs come from <code>val = r·cols + k + 1 + offset</code>, so every
+        value is unique and a mismatch points to its source
+        {{src:ime-test-gen/src/gold/integer.rs:93-118}}.
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Family</th>
+              <th>Sweep</th>
+              <th>ID example</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                Tile load/store (<code>TC-LS</code>, <code>TC-VSE</code>,
+                <code>TC-TAIL</code>, <code>TC-ILL</code>)
+              </td>
+              <td>
+                SEW {8,16,32,64} × λ {1…64} × LMUL × VL mode {min, half} ×
+                stride {tight, padded}, keeping only the legal combinations
+              </td>
+              <td><code>TC-LS-01.e32.L1.m4.vlmin.pad</code></td>
+            </tr>
+            <tr>
+              <td>Integer MACC (<code>TC-MACC</code>)</td>
+              <td>
+                λ × LMUL at a fixed SEW and W, × signedness {SS, SU, US, UU}
+              </td>
+              <td><code>TC-MACC-09.e32.L1.m2.SU.V256</code></td>
+            </tr>
+            <tr>
+              <td>
+                FP MACC (<code>TC-FMACC</code>, <code>TC-FW</code>,
+                <code>TC-FQ</code>, <code>TC-MX16</code>,
+                <code>TC-FP8-MX</code>)
+              </td>
+              <td>
+                λ × LMUL × format (f16, bf16, f32, f64, e4m3, e5m2, and mixed
+                formats)
+              </td>
+              <td><code>TC-FMACC-F32.L2.m1.V512</code></td>
+            </tr>
+            <tr>
+              <td>
+                Rounding and stress (<code>TC-RM</code>, <code>TC-RND</code>,
+                <code>TC-SUB</code>, <code>TC-SPL</code>)
+              </td>
+              <td>
+                × rounding mode, adversarial values (ties, near overflow,
+                subnormals, NaN, 0×∞, cancellation)
+              </td>
+              <td><code>TC-RM-F32.L1.m1.rtz.V256</code></td>
+            </tr>
+            <tr>
+              <td>Exception flags (<code>TC-FLAG</code>)</td>
+              <td>Expected <code>fflags</code> per case</td>
+              <td><code>TC-FLAG-F32-NAN.L8.m8.V512</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Counts at VLEN=512, from <code>tests.txt</code>:
+        <code>TC-LS</code> 1952, <code>TC-VSE</code> 576,
+        <code>TC-TAIL</code> 576, <code>TC-ILL</code> 480,
+        <code>TC-RM</code> 300, <code>TC-RM-FW</code> 240,
+        <code>TC-MACC</code> 168, others 1080. Total: 5372.
+        <span class="ev run">run</span>
+      </p>
+
+      <h2 id="ir"><span class="n">6</span>Intermediate representation</h2>
+      <p>
+        The IR is a JSON-serialisable list: sections → IR tests → actions
+        {{src:ime-test-gen/src/ir.rs:13-251}}. <code>--emit-ir</code> writes it
+        to stdout. All golden data is computed before the IR is written. For
+        porting, the useful property is whether an action is target-neutral:
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Actions</th>
+              <th>Target-neutral?</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Semantic IME operations</td>
+              <td>
+                <code>TileLoadOp</code>, <code>TileStoreOp</code>,
+                <code>TileZero</code>, <code>Mmacc</code>, <code>AccPair</code>,
+                <code>AccUnpair</code>
+              </td>
+              <td>Yes. Registers are named by role (A, B, C, CLo, CHi).</td>
+            </tr>
+            <tr>
+              <td>Data</td>
+              <td>
+                <code>DeclareArray</code> (values as <code>i64</code>),
+                <code>DeclareOutput</code>
+              </td>
+              <td>Yes, apart from the C type names in <code>ctype</code>.</td>
+            </tr>
+            <tr>
+              <td>Vector state</td>
+              <td>
+                <code>ConfigureVtype</code>, <code>AltfmtSetup</code>,
+                <code>AltfmtClear</code>, <code>LambdaProbe</code>
+              </td>
+              <td>Yes.</td>
+            </tr>
+            <tr>
+              <td>FP state</td>
+              <td>
+                <code>SetFrm</code>, <code>RestoreFrm</code>,
+                <code>ClearFflags</code>, <code>CheckFflags</code>
+              </td>
+              <td>Yes.</td>
+            </tr>
+            <tr>
+              <td>Check</td>
+              <td><code>Compare</code> (Exact or FloatExact)</td>
+              <td>Yes.</td>
+            </tr>
+            <tr>
+              <td>Raw code</td>
+              <td>
+                <code>Asm</code>, <code>AsmBlock</code>, <code>FillRegs</code>,
+                <code>ExtractRegs</code>, <code>CheckVtypeField</code>
+              </td>
+              <td>
+                No. They carry GCC inline-asm constraint strings and C literals.
+              </td>
+            </tr>
+            <tr>
+              <td>Debug</td>
+              <td><code>Dump</code></td>
+              <td>Not needed in ACT.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The MACC families (integer and FP) use only target-neutral actions. The
+        tile-only families (round trip, vstart, address check, tail check) still
+        use raw <code>Asm</code> <span class="ev code">code</span>. One IR test,
+        abridged:
+      </p>
+      <pre
+        data-label="ime-test-gen --vlen 256 --test-pattern TC-MACC-01 --emit-ir (first IR test)"
+      >LambdaProbe    {"lambda": 1}
+DeclareArray   {"name": "A_mem",  "ctype": "int32_t", "data": [1, 2, 3, 4, 5, 6, …], "sew_bits": 32}
+DeclareArray   {"name": "B_mem",  "ctype": "int32_t", "data": [9, 10, 11, 12, …]}
+DeclareOutput  {"name": "C_result", "size": 64, "fill": {"Sentinel": 170}}
+DeclareArray   {"name": "C_ref",  "data": [9, 10, 11, 12, 13, 14, …]}
+ConfigureVtype {"esz": 4, "lambda": 1, "lmul": 1, "vl": 8, "label": "A_load"}
+TileLoadOp     {"dst": "A", "src": "A_mem", "ld": 1, "op": "Vmtl", "masked": false}
+<span class="c">…B_load, C_init (TileZero at lmul 8)…</span>
+Mmacc          {"c": "C", "a": "A", "b": "B", "kind": "Int", "src_lmul": 1, "acc_lmul": 8, "vl": 8}
+TileStoreOp    {"src": "C", "dst": "C_result", "ld": 8, "op": "Vmts"}
+Compare        {"output": "C_result", "reference": "C_ref", "size": 64, "compare_mode": "Exact"}</pre>
+
+      <h2 id="gold"><span class="n">7</span>Golden model</h2>
+      <ul>
+        <li>
+          <strong>Integer.</strong> <code>C[col·M+row] += Σk A·B</code>,
+          computed in <code>i128</code> and truncated to the accumulator SEW.
+          Overflow wraps; nothing saturates. Signedness reaches the hardware
+          through <code>altfmt_A</code> and
+          <code>altfmt_B</code> {{src:ime-test-gen/src/gold/integer.rs:45-87}}.
+        </li>
+        <li>
+          <strong>FP.</strong> FP uses a vendored arpfloat fork with OCP FP8
+          formats and FMA status flags.
+          <ul>
+            <li>Inputs are encoded with RNE (round-to-nearest-even).</li>
+            <li>Accumulation is sequential in k.</li>
+            <li>
+              <code>--fma</code> rounds once, at an internal format: the
+              accumulator format for W=1; f32 for inputs up to 16 bits with
+              W&gt;1; f64 otherwise.
+            </li>
+            <li>
+              The internal-format choice copies how QEMU evaluates widening FP
+              mmacc {{src:ime-test-gen/src/expand_ir.rs:784-798}}.
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>Layout.</strong> The model computes C column-major. It then
+          converts C to row-major, "to match <code>vmts.v</code>'s output"
+          {{src:doc/golden-model.typ:166-173}}.
+        </li>
+        <li>
+          <strong>Validation.</strong> Rust unit tests, plus agreement with QEMU
+          in CI.
+        </li>
+      </ul>
+      <div class="note warn">
+        <span class="tag">Spec versus convention</span>
+        <p>
+          The documents say both FP modes conform to the specification, because
+          rounding the partial sum is optional. A code comment says the FMA mode
+          "does NOT match the spec … but matches some QEMU implementations"
+          {{src:ime-test-gen/src/gold/fp_matmul.rs:164-165}}. CI uses
+          <code>--fma</code>. The golden model is therefore tuned to QEMU. It is
+          not a single specification-mandated rounding.
+          <code>--grouping</code> reaches only the IR metadata; every golden
+          call passes G=1 {{src:ime-test-gen/src/expand_ir.rs:799-811}}.
+          <span class="ev code">code</span>
+        </p>
+      </div>
+
+      <h2 id="emit"><span class="n">8</span>Backends and emitted code</h2>
+      <p>
+        Each IR test becomes one function,
+        <code>bool test_&lt;id&gt;(void)</code>. In the asm lowering, every IME
+        action is one <code>asm volatile</code> statement on fixed registers.
+        The function then compares element by element and calls
+        <code>record_pass</code> or <code>record_fail</code>:
+      </p>
+      <pre
+        data-label="generated C++ for TC-MACC-01.e32.L1.m1.SS.V256 (abridged)"
+      >if (effective_vlen() != 256u) { return true; }          <span class="c">// vlen_guard</span>
+const int32_t A_mem[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+const int32_t C_ref[64] = { 9, 10, 11, 12, 13, 14, 15, 16, 18, 20, … };
+uint64_t vl_A_load = vtype_configure_vl(4, 1, 1, (uint64_t)8);
+if ((int)vl_A_load &lt; 8) { record_skip(…, "hardware VL too small"); return true; }
+asm volatile ("vmtl.v v0, (%0), %1" : : "r"(A_mem), "r"((uint64_t)1) : "memory");
+…
+asm volatile ("vmmacc.vv v16, v0, v8" : :  : "memory");
+asm volatile ("vmts.v v16, (%0), %1" : : "r"(C_result), "r"((uint64_t)8) : "memory");
+for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…); pass = false; }</pre>
+      <div class="note warn">
+        <span class="tag">Bare-metal backend</span>
+        <p>
+          The bare-metal backend is not exercised. No CI job or Makefile target
+          builds it. Its header defines neither <code>test_matches</code> nor
+          <code>memcmp</code>, yet every emitted test calls them. It includes
+          <code>vtype.h</code>, which includes <code>&lt;stdio.h&gt;</code>. And
+          <code>emit_split</code> always uses the hosted templates. It is not a
+          ready starting point for ACT. <span class="ev code">code</span>
+        </p>
+      </div>
+
+      <h2 id="ci"><span class="n">9</span>CI and verdicts</h2>
+      <p>CI runs the same scripts on every VLEN from 128 to 32768:</p>
+      <ol>
+        <li><code>build.sh all</code></li>
+        <li><code>run.sh basic</code></li>
+        <li><code>run.sh gen … intrinsics</code></li>
+        <li><code>run.sh gen … asm</code></li>
+        <li><code>check.sh</code></li>
+      </ol>
+      <p>
+        <code>run.sh</code> never judges a result. <code>check.sh</code> gives
+        every result a verdict against <code>ci/known-issues.txt</code>. A test
+        that starts or stops failing turns CI red, and every SKIP must be
+        listed. The model is Rust compiletest's
+        <code>known-bug</code> {{src:ci/README.md:119-160}}.
+      </p>
+      <p>
+        I reproduced the CI job for VLEN=512 on <code>moon-oxn-n04</code>, with
+        the pinned SDK image and the workflow's exact script calls:
+      </p>
+      <pre
+        class="cmd"
+        data-label="~/tools/act4/jobs/ime-ci.sh (body)"
+      ><span class="line">ci/tests/check-test.sh</span>
+<span class="line">ci/scripts/meta.sh "$R" "moon $SLURM_JOB_ID"</span>
+<span class="line">ci/scripts/build.sh all "$R/build"</span>
+<span class="line">ci/scripts/run.sh basic "$R"</span>
+<span class="line">ci/scripts/run.sh gen "$R" intrinsics</span>
+<span class="line">ci/scripts/run.sh gen "$R" asm</span>
+<span class="line">ci/scripts/check.sh "$R"</span></pre>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Block</th>
+              <th class="num">PASS</th>
+              <th class="num">SKIP</th>
+              <th class="num">CRASH</th>
+              <th>Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>basic</td>
+              <td class="num">4</td>
+              <td class="num">0</td>
+              <td class="num">4</td>
+              <td>known: <code>ime-entry-probe-trap</code></td>
+            </tr>
+            <tr>
+              <td>gen, asm lowering</td>
+              <td class="num">5372</td>
+              <td class="num">0</td>
+              <td class="num">0</td>
+              <td>ok</td>
+            </tr>
+            <tr>
+              <td>gen, intrinsics lowering</td>
+              <td class="num">5316</td>
+              <td class="num">56</td>
+              <td class="num">0</td>
+              <td>
+                skipped as listed: <code>gcc-no-mixed-f16-bf16-mmacc</code>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Result: <strong>PASS</strong>. Build: 88 s. Each run step: 3 s. The SDK
+        is version 2026.10.14 with
+        <code>g++ (OpenChip-IME-f3ac260eca8f) 16.1.0</code> and
+        <code>qemu-riscv64 10.2.50</code>. <span class="ev run">run</span>
+      </p>
+      <div class="note">
+        <span class="tag">Environment notes</span>
+        <ul>
+          <li>
+            The SDK image has no <code>make</code>, and the compute nodes have
+            no host <code>make</code> or <code>cc</code>. I added a GNU make
+            build and built the generator on the login host.
+            <code>cargo</code> needs a host linker.
+          </li>
+          <li>
+            The job also needs the CI scripts' positional arguments (the results
+            directory, the runner label). Without them, every step exits with a
+            usage error.
+          </li>
+        </ul>
+      </div>
+
+      <!-- ============================ COMPARISON ============================ -->
+      <div class="part-title">Comparison</div>
+
+      <h2 id="philosophy">
+        <span class="n">10</span>Philosophy compared with ACT
+      </h2>
+      <figure class="wide">
+        <div class="frame"><!--@FIG:g2-philosophy--></div>
+        <figcaption>
+          <b>Figure 2.</b> The same four columns in both systems. They differ in
+          who computes the expected value and where the check runs.
+        </figcaption>
+      </figure>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Aspect</th>
+              <th>ACT4</th>
+              <th>ime-test-gen</th>
+              <th>Consequence for a port</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Source of expected values</td>
+              <td>Sail at build time (executable specification)</td>
+              <td>Rust golden model at generation time</td>
+              <td>
+                In ACT, Sail is the authority. The Rust golden model can stay as
+                a second, independent check.
+              </td>
+            </tr>
+            <tr>
+              <td>What the generator emits</td>
+              <td>Inputs and check sites only</td>
+              <td>Inputs, references and compare loops</td>
+              <td>
+                Drop <code>C_ref</code> and the compare loops. Emit one
+                <code>RVTEST_SIGUPD</code> per checked element.
+              </td>
+            </tr>
+            <tr>
+              <td>Where the check runs</td>
+              <td>Inside the self-checking ELF, on the DUT</td>
+              <td>Inside the hosted binary, on QEMU</td>
+              <td>
+                Same principle. ACT adds signature-count and canary checks.
+              </td>
+            </tr>
+            <tr>
+              <td>Unit of test</td>
+              <td>Testcase = one coverpoint bin</td>
+              <td>IR test = one legal configuration</td>
+              <td>
+                Map each configuration to a bin of a configuration coverpoint
+                (Section 14).
+              </td>
+            </tr>
+            <tr>
+              <td>Coverage</td>
+              <td>SystemVerilog covergroups measured from RVVI traces</td>
+              <td>
+                Exhaustive enumeration, plan documents and a "Coverage Gaps"
+                table
+              </td>
+              <td>
+                A native port needs IME coverpoints and covergroup templates.
+              </td>
+            </tr>
+            <tr>
+              <td>VLEN</td>
+              <td>
+                Tests are VLEN-agnostic or gated at compile time
+                (<code>ZVL*B_SUPPORTED</code>). <code>VLEN_MAX</code> is 1024.
+              </td>
+              <td>
+                One IR test per VLEN, with a runtime <code>vlen_guard</code>
+              </td>
+              <td>
+                Gate with the header parameter <code>VLEN: &lt;n&gt;</code>,
+                which the proof of concept uses, or generate VLEN-agnostic
+                tests.
+              </td>
+            </tr>
+            <tr>
+              <td>Environment</td>
+              <td>Bare metal, M-mode boot, tests in U/S-mode, T-SBI</td>
+              <td>Linux user mode, static glibc, <code>printf</code></td>
+              <td>Only straight-line instruction sequences carry over.</td>
+            </tr>
+            <tr>
+              <td>Determinism</td>
+              <td>Seeded random operands (hash of instruction + coverpoint)</td>
+              <td>Fully deterministic positional values</td>
+              <td>Both reproduce exactly.</td>
+            </tr>
+            <tr>
+              <td>Failure output</td>
+              <td>
+                Testcase label, instruction, register, bad and expected values
+              </td>
+              <td>Test ID, element index, expected and got values, with XOR</td>
+              <td>
+                Equivalent. In the proof of concept, the ACT label carries the
+                IR test ID.
+              </td>
+            </tr>
+            <tr>
+              <td>Known failures</td>
+              <td>No mechanism. A test passes or fails.</td>
+              <td><code>known-issues.txt</code> with verdicts</td>
+              <td>
+                ACT relies on bins staying uncovered.
+                <code>AGENTS.md</code> says to leave unreachable-by-tool cases
+                missing, not ignored.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============================ INTEGRATION ============================ -->
+      <div class="part-title">Integration</div>
+
+      <h2 id="blockers"><span class="n">11</span>Requirements and blockers</h2>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Requirement</th>
+              <th>Status</th>
+              <th>Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">1</td>
+              <td>Sail with IME support, as reference model</td>
+              <td>
+                <strong>Partial.</strong>
+                <ul>
+                  <li>
+                    The IME fork (<code>efd0d7dc</code>) is based on upstream
+                    Sail 0.14 plus 28 commits, dated 2026-09-30. Its reported
+                    version, <code>0.14.1</code>, is accurate.
+                  </li>
+                  <li>
+                    Sail 0.15 was released on 2026-10-06 and 0.16 on 2026-10-16.
+                    Both are newer than the fork's base.
+                  </li>
+                  <li>
+                    ACT at <code>aadb742</code> requires exactly
+                    <code>0.16</code>
+                    {{src2:framework/src/act/config.py:127-172}}. Section 12a
+                    shows which ACT commit fits the fork best.
+                  </li>
+                </ul>
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">2</td>
+              <td>The fork accepts ACT's <code>sail.json</code></td>
+              <td>
+                <strong>No.</strong> There are 7 schema errors:
+                <code>base.writable_misa</code>, two <code>Stateen</code> fields
+                and the four IME blocks. A conversion script fixes them (Section
+                15).
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">3</td>
+              <td>IME enabled in Sail</td>
+              <td>
+                <strong>Needs a flag.</strong>
+                <code>hartSupports(Ext_Zvvmm)</code> requires
+                <code>--enable-experimental-extensions</code>. Without it,
+                <code>vsetvl</code> sets <code>vill</code> and the first tile
+                load traps as an illegal instruction.
+                <code>act --enable-experimental-extensions</code> passes the
+                flag through.
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">4</td>
+              <td>UDB knows Zvvm</td>
+              <td>
+                <strong>No.</strong> UDB 0.1.18 has no Zvvm extension
+                definition. Test headers cannot require <code>Zvvmm</code>, and
+                <code>extensions.txt</code> cannot list it. The proof of concept
+                requires <code>V</code> and gates on <code>VLEN</code>.
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">5</td>
+              <td>Toolchain</td>
+              <td>
+                <strong>Yes</strong>, through wrappers. The SDK GCC 16.1 passes
+                ACT's GCC ≥ 15 check, and its assembler accepts
+                <code>zvmma</code> and every subextension name. ACT runs
+                <code>-print-prog-name=as</code> and then
+                <code>as -march=help</code> on the host, so the assembler needs
+                its own wrapper.
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">6</td>
+              <td>The reference model agrees with the other implementations</td>
+              <td>
+                <strong>No: blocking.</strong> The Sail fork stores the C tile
+                transposed relative to QEMU and the Rust golden model. Its
+                <code>vmtl.v</code> and <code>vmts.v</code> skip
+                <code>tile_reg_idx</code>, so they violate the specification
+                whenever LMUL&gt;1 (Section 16).
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">7</td>
+              <td>DUT simulator for IME</td>
+              <td>
+                <strong>Yes.</strong> The SDK
+                <code>qemu-system-riscv64</code> runs ACT ELFs with
+                <code>-cpu max,vlen=256,x-zvvm=true</code>. It lacks the
+                <code>smpmpmt</code> property that ACT's
+                <code>qemu-rv64-max</code> run command uses.
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">8</td>
+              <td>λ support as a DUT property</td>
+              <td>
+                <strong>Open.</strong> The generator probes λ at run time
+                (<code>LambdaProbe</code>). In ACT, supported λ values must
+                become a UDB parameter or a selection rule. Without that, a DUT
+                with a smaller set of λ values fails tests it should skip.
+              </td>
+              <td><span class="ev inf">inferred</span></td>
+            </tr>
+            <tr>
+              <td class="num">9</td>
+              <td>Coverage decoder</td>
+              <td>
+                <strong>No.</strong> <code>disassemble.svh</code> and
+                <code>RISCV_imported_decode_pkg.svh</code> (from riscv-opcodes)
+                lack the IME encodings. RVVI has no field for the IME
+                <code>vtype</code> state.
+              </td>
+              <td><span class="ev code">code</span></td>
+            </tr>
+            <tr>
+              <td class="num">10</td>
+              <td>VLEN above 1024</td>
+              <td>
+                <strong>No.</strong> ACT's <code>RVTEST_VLEN_MAX</code> is 1024
+                {{src2:generators/testgen/src/testgen/constants.py:90}}. IME CI
+                runs up to VLEN 32768.
+              </td>
+              <td><span class="ev code">code</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="options"><span class="n">12</span>Integration options</h2>
+      <figure class="wide">
+        <div class="frame"><!--@FIG:g3-integration-options--></div>
+        <figcaption>
+          <b>Figure 3.</b> Three paths into the same ACT build. In every path
+          the expected values come from Sail.
+        </figcaption>
+      </figure>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>A. ACT backend in ime-test-gen</th>
+              <th>B. IR importer in testgen</th>
+              <th>C. Native ACT port</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>What changes</td>
+              <td>
+                A new Rust <code>Backend</code> that emits ACT <code>.S</code>
+              </td>
+              <td>
+                A <code>testgen</code> module that reads checked-in IR JSON and
+                emits ACT <code>.S</code>
+              </td>
+              <td>
+                <code>testplans/Zvvmm.csv</code>, a formatter, coverpoint
+                generators, covergroup templates
+              </td>
+            </tr>
+            <tr>
+              <td>Keeps the DSL and sweeps</td>
+              <td>Yes</td>
+              <td>Yes (frozen in the JSON)</td>
+              <td>No. The sweeps are re-expressed as coverpoints.</td>
+            </tr>
+            <tr>
+              <td>Rust needed in <code>make tests</code></td>
+              <td>Yes</td>
+              <td>No, if the IR JSON is checked in</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td>Fits ACT conventions</td>
+              <td>
+                Partly. The files are generated outside <code>testgen</code>.
+              </td>
+              <td>
+                Partly. It uses registries, but the unit is a configuration, not
+                a bin.
+              </td>
+              <td>Fully: one testcase per bin, coverage measured</td>
+            </tr>
+            <tr>
+              <td>Coverage in ACT</td>
+              <td>None unless covergroups are added</td>
+              <td>None unless covergroups are added</td>
+              <td>Built in</td>
+            </tr>
+            <tr>
+              <td>Raw-<code>Asm</code> families (tile-only)</td>
+              <td>Must be re-lowered in Rust</td>
+              <td>Need IR changes to semantic actions first</td>
+              <td>Written directly</td>
+            </tr>
+            <tr>
+              <td>Effort</td>
+              <td>Medium</td>
+              <td>Low (the proof of concept exists)</td>
+              <td>High</td>
+            </tr>
+            <tr>
+              <td>Risk</td>
+              <td>Two generator languages in the repository</td>
+              <td>The IR becomes an interface contract</td>
+              <td>The golden-model expertise is not reused</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="compat">
+        <span class="n">12a</span>ACT version that fits the Sail fork
+      </h2>
+      <p>
+        ACT pins one exact Sail version, and each pin brings a matching
+        <code>sail.json</code> schema. Both IME branches of the fork have the
+        same upstream base:
+        <code>integrated-matrix-extension</code> (<code>73911c38</code>) and
+        <code>ime-tile-ls-decode-fix</code> (<code>efd0d7dc</code>). I validated
+        the fork against the <code>sail.json</code> of
+        <code>sail-rv64-max</code> at every ACT commit that changed it. The
+        table leaves out the four IME blocks, which every ACT version lacks.
+        <span class="ev run">run</span>
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ACT4 commits</th>
+              <th>Pinned Sail</th>
+              <th>Fields the fork rejects</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <code>ba3c382dc</code>…<code>71028bfb7</code> (2026-09-17 to
+                10-07)
+              </td>
+              <td>0.14.1</td>
+              <td>
+                4: <code>base.mcountinhibit</code>, <code>Smdbltrp</code>,
+                <code>Ssdbltrp</code>, <code>Ssstrict</code>. The fork already
+                has these 0.15-era changes.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>a215271ea</code>…<code>608f08b7a</code> (2026-10-07 to
+                10-16)
+              </td>
+              <td>0.15</td>
+              <td>
+                <strong>1:</strong> <code>base.writable_misa</code>. Sail 0.15
+                renamed it to <code>mutable_misa</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>711d9d903</code>…<code>aadb7424a</code> (2026-10-16 to
+                now)
+              </td>
+              <td>0.16</td>
+              <td>
+                3: <code>base.writable_misa</code>,
+                <code>Stateen.C_readonly_zero</code>,
+                <code>Stateen.SE0_readonly_zero</code>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The best fit is <code>608f08b7a</code> (2026-10-16), the last ACT commit
+        pinned to Sail 0.15.
+      </p>
+      <ul>
+        <li>
+          With <code>base.writable_misa</code> added and the four IME blocks
+          disabled, the fork accepts that commit's <code>sail.json</code>.
+        </li>
+        <li>
+          ACT at that commit built and ran the I suite with the fork as both
+          reference model and DUT: 206 build tasks, and all 51 tests passed.
+          <span class="ev run">run</span>
+        </li>
+        <li>
+          The version gate still differs (<code>0.15</code> against
+          <code>0.14.1</code>), so a shim or a version tag is still needed.
+        </li>
+      </ul>
+      <div class="note warn">
+        <span class="tag">Trade-off</span>
+        <p>
+          Pinning ACT to <code>608f08b7a</code> drops 79 later ACT commits.
+          Several of them matter for IME work:
+        </p>
+        <ul>
+          <li>
+            <code>028fa67fb</code> tests every vector instruction at every valid
+            SEW.
+          </li>
+          <li>
+            <code>59dbb0114</code> stops vector builds when VLEN exceeds the
+            generator limit.
+          </li>
+          <li>
+            <code>2be02e4c7</code> removes test workarounds for Sail limitations
+            that 0.16 fixed (scontext, Ssdbltrp <code>SDT</code>). With the
+            pre-0.15 fork, those suites at the ACT head may need the workarounds
+            back.
+          </li>
+        </ul>
+        <p>
+          The fork carries only 3 IME commits on top of its base
+          (<code>3eac5af4</code>, <code>73911c38</code>, <code>efd0d7dc</code>).
+          Rebasing those 3 commits onto Sail <code>0.16</code> is smaller work
+          than holding ACT back. It also makes the ACT head usable without a
+          shim.
+        </p>
+      </div>
+      <div class="note bad">
+        <span class="tag"
+          >Update 2026-10-26: rebased
+          <code>integrated-matrix-extension</code> (<code>3a5b4d1b</code>)</span
+        >
+        <p>
+          The branch now sits on upstream <code>master</code>
+          <code>eb3e896f</code> (2026-10-22): Sail <code>0.16</code> plus 8
+          upstream commits, then 7 IME commits. The binary reports
+          <code>0.16</code>, so ACT's version check passes without a shim.
+          <span class="ev run">run</span>
+        </p>
+        <ul>
+          <li>
+            <strong>Schema: not compatible.</strong> Three upstream commits
+            after the <code>0.16</code> tag add required configuration keys that
+            no ACT <code>sail.json</code> has, at <code>aadb742</code> or at
+            <code>origin/act4</code> <code>d41bdd86a</code>. The keys are
+            <code>base.misa_implemented</code> (#2037),
+            <code>H.hedeleg_zero_writable</code> (#2028) and
+            <code>Sdtrig.mcontrol6.supported_{address,data}_access_sizes</code>
+            (#2035). All 63 ACT configurations fail validation on these 4 keys
+            plus the 4 IME blocks. <span class="ev run">run</span>
+          </li>
+          <li>
+            <strong>Behaviour outside IME: matches 0.16.</strong> I filled the
+            missing keys from the fork's defaults with
+            <code>make_sail_json.py</code>. ACT at <code>aadb742</code> then
+            built and ran the I suite with the real binary: 51 of 51 passed, and
+            all 51 <code>.results</code> files are byte-identical to official
+            Sail 0.16. <span class="ev run">run</span>
+          </li>
+          <li>
+            <strong>IME: the tile load/store bug remains.</strong>
+            <code>ime_mem_insts.sail</code> lines 73–90 and 160 still use the
+            flat index. The proof of concept gives the same result as before:
+            the Sail fork as DUT passes 6 of 6, QEMU as DUT fails 6 of 6, and
+            4312 of 4480 checks differ from the Rust golden model.
+            <span class="ev run">run</span>
+          </li>
+          <li>
+            <strong>Still experimental.</strong>
+            <code>hartSupports(Ext_Zvv*)</code> still requires
+            <code>--enable-experimental-extensions</code>.
+            <span class="ev code">code</span>
+          </li>
+        </ul>
+        <p>
+          Fix: rebase the 7 IME commits onto the <code>0.16</code> tag
+          (<code>e5acebb0</code>) instead of <code>master</code>. Alternatively,
+          keep <code>master</code> and generate each DUT's
+          <code>sail.json</code> with <code>make_sail_json.py</code>.
+          Separately, fix the tile load/store indexing.
+        </p>
+      </div>
+      <h2 id="recommend"><span class="n">13</span>Recommendation</h2>
+      <ol class="steps">
+        <li>
+          <strong>Unblock the reference model.</strong>
+          <ul>
+            <li>Rebase the IME Sail fork onto the <code>0.16</code> tag.</li>
+            <li>Fix the tile load/store indexing (Section 16).</li>
+            <li>Decide whether the IME extensions stay experimental.</li>
+          </ul>
+          Without these steps, ACT's expected values for IME would be wrong or
+          unbuildable.
+        </li>
+        <li>
+          <strong>Bring up with option B.</strong> Check in the MACC IR for a
+          chosen VLEN set, and import it with a <code>testgen</code> module.
+          That module would be a production version of <code>ir2act.py</code>.
+          This gives ACT runnable IME tests quickly. It also exercises the DUT
+          configurations, wrappers and Sail.
+        </li>
+        <li>
+          <strong>Keep the Rust golden model as a differential check.</strong>
+          In the bring-up phase, compare each Sail signature with the Rust
+          references, as <code>crosscheck.py</code> does. That comparison found
+          the C-tile disagreement on its first run.
+        </li>
+        <li>
+          <strong>Converge on option C.</strong> Express each sweep dimension as
+          a coverpoint, for example <code>cp_lambda</code>,
+          <code>cp_lmul</code>, <code>cp_sew</code>, <code>cp_sign</code> and
+          <code>cr_lambda_lmul</code>, in <code>testplans/Zvvmm.csv</code>.
+          Write a formatter that emits the tile-load, mmacc and tile-store
+          sequence, and add covergroup templates for it. Coverage then shows
+          which configurations a DUT run exercised. That is the ACT convention.
+        </li>
+        <li>
+          <strong>Add UDB definitions.</strong> Define Zvvm and its
+          subextensions in UDB, with a parameter for the supported λ set. Test
+          headers can then use
+          <code>REQUIRED_EXTENSIONS: ['Zvvmm']</code> instead of <code>V</code>.
+        </li>
+      </ol>
+      <div class="note conv">
+        <span class="tag">Why not option A as the target</span>
+        <p>
+          Option A keeps two generator languages and puts Rust on ACT's critical
+          path. ACT's conventions want the generator in <code>testgen</code>,
+          discovered through registries, with the generated files checked in.
+          Option B already gives the benefit of A, reuse of the sweep, without
+          the build dependency.
+        </p>
+      </div>
+
+      <h2 id="mapping"><span class="n">14</span>Concept mapping</h2>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ime-test-gen</th>
+              <th>ACT4</th>
+              <th>Proof of concept</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Test plan section (family)</td>
+              <td>Test file, and a coverpoint in option C</td>
+              <td><code>Zvvmm-TC-MACC-01-V256-00.S</code></td>
+            </tr>
+            <tr>
+              <td>IR test (configuration)</td>
+              <td>Testcase, one bin</td>
+              <td>
+                Label
+                <code>Zvvmm_vmmacc_vv_cg_TC_MACC_01_e32_L1_m1_SS_V256</code>
+              </td>
+            </tr>
+            <tr>
+              <td><code>vlen_guard</code></td>
+              <td>
+                Test header <code>params: VLEN: &lt;n&gt;</code>, matched
+                against UDB
+              </td>
+              <td>Done</td>
+            </tr>
+            <tr>
+              <td><code>LambdaProbe</code></td>
+              <td>A UDB parameter for supported λ values (proposed)</td>
+              <td>Ignored: λ ∈ {1, 2} at VLEN 256</td>
+            </tr>
+            <tr>
+              <td><code>ConfigureVtype</code>, <code>AltfmtSetup</code></td>
+              <td>
+                <code>LI()</code> + <code>vsetvl</code>, with
+                <code>vtype</code> computed when the file is generated
+              </td>
+              <td>Done</td>
+            </tr>
+            <tr>
+              <td>
+                <code>TileLoadOp</code>, <code>TileStoreOp</code>,
+                <code>TileZero</code>, <code>Mmacc</code>
+              </td>
+              <td>Instructions in a formatter's <em>test</em> list</td>
+              <td>Done (integer)</td>
+            </tr>
+            <tr>
+              <td><code>DeclareArray</code> (inputs)</td>
+              <td>
+                Data in <code>RVTEST_DATA_BEGIN</code> …
+                <code>RVTEST_DATA_END</code>
+              </td>
+              <td>Done</td>
+            </tr>
+            <tr>
+              <td><code>DeclareArray</code> (references)</td>
+              <td>Not emitted. Sail supplies the expected values.</td>
+              <td>Kept as <code>*.golden.json</code> for the cross-check</td>
+            </tr>
+            <tr>
+              <td><code>Compare</code></td>
+              <td>
+                One scalar load + <code>RVTEST_SIGUPD</code> per element, or
+                <code>RVTEST_SIGUPD_V</code> per register group
+              </td>
+              <td>Scalar form</td>
+            </tr>
+            <tr>
+              <td><code>CheckFflags</code></td>
+              <td><code>write_sigupd(…, "fflags")</code></td>
+              <td>Not done</td>
+            </tr>
+            <tr>
+              <td><code>record_skip</code> (VL too small)</td>
+              <td>
+                Test selection: the header excludes DUTs that cannot run the
+                test
+              </td>
+              <td>Through <code>VLEN</code></td>
+            </tr>
+            <tr>
+              <td><code>known-issues.txt</code></td>
+              <td>Bins left uncovered. No ignore list.</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="poc"><span class="n">15</span>Proof of concept</h2>
+      <figure class="wide">
+        <div class="frame"><!--@FIG:g4-poc--></div>
+        <figcaption>
+          <b>Figure 4.</b> One IR, one ACT build, two DUTs, plus a cross-check
+          of Sail against the Rust golden model.
+        </figcaption>
+      </figure>
+      <h3>Files</h3>
+      <p>
+        All files are under <code>~/tools/act4/ime-poc/</code>, outside both
+        repositories.
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>File</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>ir2act.py</code></td>
+              <td>
+                IR → ACT test files: 220 lines of Python. It supports the
+                integer MACC actions and refuses other actions with a reason.
+              </td>
+            </tr>
+            <tr>
+              <td><code>make_sail_json.py</code></td>
+              <td>
+                Converts ACT's 0.16 <code>sail.json</code> to the fork's schema.
+                It enables <code>Zvvmm</code>, <code>Zvvmtls</code> and
+                <code>Zvvmttls</code> and sets <code>vlen_exp</code> to 8.
+              </td>
+            </tr>
+            <tr>
+              <td><code>bin/riscv64-ime-{gcc,as,objdump,nm}</code></td>
+              <td>
+                Run the SDK tools through <code>apptainer exec</code>. The
+                <code>gcc</code> wrapper answers
+                <code>-print-prog-name=as</code> with the path of the host-side
+                <code>as</code> wrapper.
+              </td>
+            </tr>
+            <tr>
+              <td><code>bin/sail_ime_sim</code></td>
+              <td>
+                Runs the IME Sail fork, which reports <code>0.14.1</code>, and
+                answers <code>--version</code> with <code>0.16</code>. This
+                bypasses ACT's version gate and is for the proof of concept
+                only.
+              </td>
+            </tr>
+            <tr>
+              <td><code>config/{sail,qemu}-ime-rv64/</code></td>
+              <td>
+                DUT configurations copied from <code>sail-rv64-max</code> and
+                <code>qemu-rv64-max</code>. UDB is set to
+                <code>VLEN: 256</code> with <code>Zvl512b</code> and
+                <code>Zvl1024b</code> removed; UDB validation rejects the
+                configuration otherwise.
+              </td>
+            </tr>
+            <tr>
+              <td><code>crosscheck.py</code></td>
+              <td>
+                Compares each Sail <code>.sig</code> with the Rust golden
+                values.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Commands</h3>
+      <pre
+        class="cmd"
+      ><span class="line">ime-test-gen --vlen 256 --fma --test-pattern TC-MACC --emit-ir &gt; macc-v256.ir.json</span>
+<span class="line">python3 ir2act.py macc-v256.ir.json -o tests          # tests/env -&gt; riscv-arch-test/tests/env</span>
+<span class="line">uv run act config/sail-ime-rv64/test_config.yaml --test-dir tests --workdir work --extensions Zvvmm --enable-experimental-extensions</span>
+<span class="line">./run_tests.py "$(cat config/sail-ime-rv64/run_cmd.txt)" work/sail-ime-rv64/elfs</span>
+<span class="line">uv run act config/qemu-ime-rv64/test_config.yaml --test-dir tests --workdir work --extensions Zvvmm --enable-experimental-extensions</span>
+<span class="line">./run_tests.py "$(cat config/qemu-ime-rv64/run_cmd.txt)" work/qemu-ime-rv64/elfs</span>
+<span class="line">python3 crosscheck.py tests work/sail-ime-rv64/build</span></pre>
+      <h3>Emitted ACT testcase</h3>
+      <pre
+        data-label="tests/rv64i/Zvvmm/Zvvmm-TC-MACC-01-V256-00.S (first testcase, abridged)"
+      ><span class="c">##### START_TEST_CONFIG #####
+# REQUIRED_EXTENSIONS: ['V']
+# params:
+#   MXLEN: 64
+#   VLEN: 256
+# MARCH: rv64iv_zicsr_zifencei_zvmma
+##### END_TEST_CONFIG #####</span>
+#define SIGUPD_COUNT 330
+#include "riscv_arch_test.h"
+RVTEST_BEGIN
+<span class="c"># Testcase TC-MACC-01.e32.L1.m1.SS.V256: TC-MACC-01 [e32 lambda=1 LMUL=1 SS]</span>
+  LI(x6, 8)
+  LI(x7, 0x1000000000000010)  <span class="c"># A_load: e32 m1 lambda=1</span>
+  vsetvl x9, x6, x7
+  LA(x8, TC_MACC_01_e32_L1_m1_SS_V256_A_mem)
+  LI(x9, 1)
+  vmtl.v v0, (x8), x9
+  <span class="c">…B_load, C_init…</span>
+<span class="hl">Zvvmm_vmmacc_vv_cg_TC_MACC_01_e32_L1_m1_SS_V256:</span>
+  vmmacc.vv v16, v0, v8
+  <span class="c">…C_store: vmts.v v16, (x8), x9 with ld=8…</span>
+  lw x10, 0(x8)
+  RVTEST_SIGUPD(x2, x5, x4, x10, Zvvmm_vmmacc_vv_cg_TC_MACC_01_e32_L1_m1_SS_V256, …_str)
+  addi x8, x8, 4
+  <span class="c">… 63 more element checks …</span></pre>
+      <h3>Results</h3>
+      <div class="kv">
+        <div>
+          <div class="k">IR tests</div>
+          <div class="v">112</div>
+        </div>
+        <div>
+          <div class="k">Test files</div>
+          <div class="v">6</div>
+        </div>
+        <div>
+          <div class="k">Checks</div>
+          <div class="v">4480</div>
+        </div>
+        <div>
+          <div class="k">Build tasks</div>
+          <div class="v">30</div>
+        </div>
+        <div>
+          <div class="k">Build time</div>
+          <div class="v">6.7 s</div>
+        </div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Convert</td>
+              <td>
+                112 of 112 IR tests converted, none skipped
+                <span class="ev run">run</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Build with the Sail fork as reference</td>
+              <td>
+                <code>✓ Build complete: 30 succeeded</code>. It needed
+                <code>--enable-experimental-extensions</code>; without it, the
+                signature run trapped on <code>vmtl.v</code>
+                <span class="ev run">run</span>
+              </td>
+            </tr>
+            <tr>
+              <td>DUT = Sail fork</td>
+              <td>
+                <span class="ev run">run</span>
+                <code>RESULT: All 6 tests passed.</code> This only shows that
+                Sail agrees with itself.
+              </td>
+            </tr>
+            <tr>
+              <td>DUT = SDK QEMU</td>
+              <td>
+                <span class="ev run">run</span>
+                <code>RESULT: 6 failed, 0 passed out of 6 tests.</code> First
+                failure: <code>Bad Value: 0x0a</code>,
+                <code>Expected Value: 0x12</code>
+              </td>
+            </tr>
+            <tr>
+              <td>Sail versus the Rust golden model</td>
+              <td>
+                <span class="ev run">run</span> 4312 of 4480 checks differ. For
+                the 8×8 case, Sail's C equals the exact transpose of the Rust C.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <pre
+        data-label="work/qemu-ime-rv64/logs/rv64i/Zvvmm/Zvvmm-TC-MACC-01-V256-00.log"
+      ><span class="bad">RVCP-SUMMARY: TEST FAILED - Test File "Zvvmm-TC-MACC-01-V256-00.S"</span>
+RVCP: Test Info: "test: TC-MACC-01.e32.L1.m1.SS.V256; cg: Zvvmm_vmmacc_vv_cg; cp: TC_MACC_01; bin: e32_L1_m1_SS_V256"
+RVCP: Instruction: 0xe2800857
+RVCP: Register: x10
+RVCP: Bad Value:      0x000000000000000a      <span class="c"># QEMU: A[0]·B[1] = 1·10</span>
+RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0] = 2·9</span></pre>
+      <p>The proof of concept shows three things:</p>
+      <ul>
+        <li>
+          ACT's existing machinery builds and checks IME tests without changes
+          to <code>act</code>. The changes are all outside: wrappers,
+          configurations and a Sail flag.
+        </li>
+        <li>The IR carries enough information to produce ACT tests.</li>
+        <li>
+          ACT's check correctly reports a reference-model disagreement as a DUT
+          failure. That disagreement must be resolved before any IME result from
+          ACT can be trusted.
+        </li>
+      </ul>
+
+      <h2 id="ctile"><span class="n">16</span>C-tile disagreement</h2>
+      <div class="note bad">
+        <span class="tag">Verdict</span>
+        <p>
+          <strong
+            >The Sail fork does not conform to the specification. QEMU and the
+            Rust golden model do.</strong
+          >
+          The cause is in the fork's tile load and store, not in
+          <code>vmmacc.vv</code>. The fork's <code>vmtl.v</code> and
+          <code>vmts.v</code> address register elements with the flat index
+          <code>i</code>. The specification requires
+          <code>tile_reg_idx(i, LMUL, λ, epr)</code>.
+          <span class="ev code">code</span>
+        </p>
+      </div>
+      <h3>What the specification says</h3>
+      <p>
+        The source is <code>riscv/integrated-matrix-extension</code> @
+        <code>6effbcae</code> (2026-08-04), file
+        <code>src/integrated-matrix.adoc</code>.
+      </p>
+      <ul>
+        <li>
+          <code
+            >tile_reg_idx(i, LMUL, λ, epr) = (eil/λ)·epr + line·λ + eil%λ</code
+          >, where <code>line = i/(λ·LMUL)</code> and
+          <code>eil = i%(λ·LMUL)</code> (lines 4249–4256).
+        </li>
+        <li>
+          <code
+            >mat_C_idx(i, j) = tile_reg_idx(i·N_max + j, EMUL_C, λ, epr_C)</code
+          >
+          (lines 4259–4276).
+        </li>
+        <li>
+          <code>vmtl.v</code> and <code>vmts.v</code> both compute
+          <code>flat_idx = tile_reg_idx(i, LMUL, λ, epr)</code> and
+          <code>mem_off = (i/linesize)·LD + i%linesize</code> (lines 5925–5929
+          and 6055–6059). The store is therefore the exact inverse of the load.
+        </li>
+      </ul>
+      <h3>Hand computation for TC-MACC-01 (VLEN 256, e32, λ=1, epr=8)</h3>
+      <ol>
+        <li>
+          Both loads run at LMUL=1, where
+          <code>tile_reg_idx(i,1,1,8) = i</code>. So
+          <code>v0[i] = A[i]</code> and <code>v8[j] = B[j]</code>.
+        </li>
+        <li>
+          The geometry is <code>K_eff = 1</code>, <code>M = N_max = 8</code>,
+          <code>EMUL_C = 8</code>. C occupies <code>v16</code>–<code>v23</code>.
+        </li>
+        <li>
+          <code>mat_C_idx(i, j) = tile_reg_idx(8i+j, 8, 1, 8) = 8j + i</code>,
+          so element <code>i</code> of register <code>v(16+j)</code> holds
+          A[i]·B[j].
+        </li>
+        <li>
+          <code>vmts.v</code> at LMUL=8 with <code>ld = 8</code> reads
+          <code>flat = (n%8)·8 + n/8</code> and writes <code>mem_off = n</code>.
+          So <code>C_mem[n] = A[n/8]·B[n%8]</code>.
+        </li>
+      </ol>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Implementation</th>
+              <th><code>C_mem[0..9]</code></th>
+              <th>Conforms</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                Specification @ <code>6effbcae</code> (and the SAIL code at
+                <code>c52ee38a</code>)
+              </td>
+              <td><code>9, 10, 11, 12, 13, 14, 15, 16, 18, 20</code></td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td>SDK QEMU (<code>x-zvvm=true</code>)</td>
+              <td>
+                <code>9, 10, 11, 12, 13, 14, 15, 16, 18, 20</code>
+                <span class="ev run">run</span>
+              </td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td>Rust golden model (<code>C_ref</code>)</td>
+              <td>
+                <code>9, 10, 11, 12, 13, 14, 15, 16, 18, 20</code>
+                <span class="ev run">run</span>
+              </td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td>Sail fork @ <code>efd0d7dc</code></td>
+              <td>
+                <code>9, 18, 27, 36, 45, 54, 63, 72, 10, 20</code>
+                <span class="ev run">run</span>
+              </td>
+              <td>No</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Cause in the Sail fork</h3>
+      <ul>
+        <li>
+          <code>model/extensions/IME/ime_mem_insts.sail</code>, lines 66–83:
+          <code>vmtl.v</code> calls
+          <code>write_single_element(SEW, i, vd, …)</code>.
+        </li>
+        <li>
+          Line 145 of the same file: <code>vmts.v</code> calls
+          <code>read_single_element(SEW, i, vs3)</code>.
+        </li>
+        <li>
+          Both should index with
+          <code>ime_tile_reg_idx(i, LMUL, λ, VLEN/SEW)</code>. That helper
+          exists at <code>ime_utils.sail:98-106</code> and matches the
+          specification.
+        </li>
+        <li>
+          The fork's <code>vmmacc.vv</code> (<code>ime_mat_C_idx</code>) also
+          matches the specification.
+        </li>
+        <li>
+          The flat index came in with <code>3eac5af4</code>. The later commit
+          <code>73911c38</code> changed only the FP A/B indexing for W&gt;1 and
+          is not involved.
+        </li>
+      </ul>
+      <p>
+        The bug is invisible when λ·LMUL = λ, which means LMUL=1. It is also
+        invisible when a test loads and stores with the same geometry, because
+        both sides then apply the same wrong mapping. The fork's first-party
+        tests load tiles at LMUL=1. <code>test_ime_vmmacc.S</code> reads C back
+        with <code>vse32.v</code> in flat register order (line 71), not with
+        <code>vmts.v</code>. So no fork test runs <code>vmts.v</code> at
+        LMUL&gt;1. <span class="ev code">code</span> Only a MACC result stored
+        at LMUL&gt;1 exposes the bug, and that is exactly what every C store in
+        the MACC families does.
+      </p>
+      <div class="note">
+        <span class="tag">History</span>
+        <ul>
+          <li>
+            <code>ca78f499</code> (2026-05-01) changed
+            <code>mat_C_idx</code> from <code>j·M+i</code> to
+            <code>i·M+j</code>, titled "C matrix is store in row-major order in
+            VRs".
+          </li>
+          <li>
+            <code>c52ee38a</code>, the commit <code>vtype.h</code> cites, has
+            the new SAIL code, but its prose still said "column-major register
+            layout".
+          </li>
+          <li><code>e9ce69a0</code>, 7 minutes later, aligned the prose.</li>
+        </ul>
+        <p>
+          Since then the specification has been unambiguous. The Sail fork's
+          output happens to equal the pre-<code>ca78f499</code> layout, but it
+          gets there through the load/store bug, not through
+          <code>mat_C_idx</code>.
+        </p>
+      </div>
+      <p>
+        Consequence for ACT: an ACT build with the fork as reference model
+        embeds wrong expected values for every MACC test with an accumulator
+        LMUL above 1. A conforming DUT then fails those tests. Fixing lines
+        66–83 and 145 of <code>ime_mem_insts.sail</code> is the first item of
+        the work plan.
+      </p>
+
+      <h2 id="plan"><span class="n">17</span>Work plan</h2>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Work item</th>
+              <th>Owner area</th>
+              <th>Depends on</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">1</td>
+              <td>
+                Use <code>ime_tile_reg_idx</code> in the Sail fork's
+                <code>vmtl.v</code> and <code>vmts.v</code> (<code
+                  >ime_mem_insts.sail</code
+                >
+                lines 66–83 and 145). Add a first-party test that runs a MACC
+                and then a store at LMUL&gt;1.
+              </td>
+              <td>Sail fork</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td class="num">2</td>
+              <td>
+                Rebase the Sail fork onto <code>0.16</code>, so that the 0.16
+                <code>sail.json</code> schema and the ACT version gate hold.
+              </td>
+              <td>Sail fork</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td class="num">3</td>
+              <td>
+                Define Zvvm, Zvvmm, Zvvfmm, Zvvmtls and Zvvmttls, plus a λ-set
+                parameter, in UDB, or through <code>UDB_LOCAL_PATH</code>.
+              </td>
+              <td>UDB</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td class="num">4</td>
+              <td>
+                Add an IME DUT configuration under <code>config/</code>: Sail
+                IME as reference, SDK QEMU as DUT, an SDK toolchain wrapper.
+              </td>
+              <td>ACT</td>
+              <td>2, 3</td>
+            </tr>
+            <tr>
+              <td class="num">5</td>
+              <td>
+                Write a <code>testgen</code> IR importer module, extending
+                <code>ir2act.py</code> to FP MACC, <code>CheckFflags</code> and
+                m16 accumulators.
+              </td>
+              <td>ACT testgen</td>
+              <td>1, 4</td>
+            </tr>
+            <tr>
+              <td class="num">6</td>
+              <td>
+                Replace the raw-<code>Asm</code> actions in the tile-only
+                families with semantic actions.
+              </td>
+              <td>ime-test-gen</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td class="num">7</td>
+              <td>
+                Write <code>testplans/Zvvmm.csv</code>, an IME formatter,
+                configuration coverpoints and covergroup templates (option C).
+              </td>
+              <td>ACT testgen, covergroupgen</td>
+              <td>5</td>
+            </tr>
+            <tr>
+              <td class="num">8</td>
+              <td>
+                Add the IME encodings to the coverage decoder, and the IME
+                <code>vtype</code> fields to RVVI.
+              </td>
+              <td>ACT fcov</td>
+              <td>7</td>
+            </tr>
+            <tr>
+              <td class="num">9</td>
+              <td>
+                Raise <code>RVTEST_VLEN_MAX</code> above 1024, or keep IME tests
+                at VLEN ≤ 1024.
+              </td>
+              <td>ACT</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ============================ REFERENCE ============================ -->
+      <div class="part-title">Reference</div>
+
+      <h2 id="findings">
+        <span class="n">18</span>Findings in riscv-ime-arch-tests
+      </h2>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Finding</th>
+              <th>Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">1</td>
+              <td>
+                The λ-preserve check uses the mask
+                <code>0x3800000000000000</code>, which covers bits 59–61.
+                <code>vtype.h</code> and the Sail fork put λ at bits 60–62, so
+                the check reads <code>bs</code> and two of the three λ bits.
+              </td>
+              <td>
+                <span class="ev code">code</span>
+                {{src:ime-test-gen/src/expand_ir.rs:1362-1365}}
+              </td>
+            </tr>
+            <tr>
+              <td class="num">2</td>
+              <td>
+                <code>--grouping</code> does not reach the golden model; every
+                call passes G=1.
+              </td>
+              <td>
+                <span class="ev code">code</span>
+                {{src:ime-test-gen/src/expand_ir.rs:799-811}}
+              </td>
+            </tr>
+            <tr>
+              <td class="num">3</td>
+              <td>
+                The README says VLEN=128 produces 3248 tests. The generator now
+                emits 3376.
+              </td>
+              <td><span class="ev run">run</span> {{src:README.md:181}}</td>
+            </tr>
+            <tr>
+              <td class="num">4</td>
+              <td>
+                4 of the 8 basic binaries never run a test case under the pinned
+                SDK, because of <code>ime-entry-probe-trap</code>.
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">5</td>
+              <td>
+                The bare-metal backend cannot compile its own output (<code
+                  >test_matches</code
+                >
+                and <code>memcmp</code> are undefined; it pulls in
+                <code>stdio.h</code>). The documents describe an HTIF exit that
+                the backend does not emit.
+              </td>
+              <td><span class="ev code">code</span></td>
+            </tr>
+            <tr>
+              <td class="num">6</td>
+              <td>
+                The documents contradict the code on whether FMA-mode rounding
+                conforms to the specification.
+              </td>
+              <td>
+                <span class="ev code">code</span>
+                {{src:ime-test-gen/src/gold/fp_matmul.rs:164-165}}
+              </td>
+            </tr>
+            <tr>
+              <td class="num">7</td>
+              <td>
+                The README says the SDK is a public OCI image converted to
+                <code>.sif</code>. <code>ci/sdk-image</code> pins a private ORAS
+                <code>.sif</code>.
+              </td>
+              <td>
+                <span class="ev code">code</span> {{src:ci/sdk-image:19-22}}
+              </td>
+            </tr>
+            <tr>
+              <td class="num">8</td>
+              <td>
+                The Makefile target <code>generate</code> calls
+                <code>test-gen/ime_test_generator.py</code>, which no longer
+                exists.
+              </td>
+              <td><span class="ev code">code</span> {{src:Makefile:85-90}}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2 id="provenance"><span class="n">19</span>Provenance</h2>
+      <ul>
+        <li>
+          <strong>Suite:</strong>
+          <code>Openchip-Software/riscv-ime-arch-tests</code> @
+          <code>46f378198e68</code> (branch <code>openchip</code>). Source links
+          point at this commit. Links to <code>riscv-arch-test</code> files
+          point at <code>aadb7424a</code>.
+        </li>
+        <li>
+          <strong>Sail fork:</strong> <code>Openchip-Software/sail-riscv</code>,
+          branch <code>ime-tile-ls-decode-fix</code> @ <code>efd0d7dc</code>,
+          prebuilt at
+          <code>sail-riscv/build-moon/c_emulator/sail_riscv_sim</code>.
+        </li>
+        <li>
+          <strong>SDK:</strong> <code>sdk-2026.10.14.sif</code>,
+          <code
+            >riscv64-openchip-linux-gnu-g++ (OpenChip-IME-f3ac260eca8f)
+            16.1.0</code
+          >, QEMU 10.2.50. Rust 1.93.1 on the host.
+        </li>
+        <li>
+          <strong>CI reproduction:</strong> SLURM job 46767 on
+          <code>moon-oxn-n04</code>, 2026-10-23. Results are in
+          <code>riscv-ime-arch-tests/ci/results/moon-v512-20261023-120510/</code
+          >.
+        </li>
+        <li>
+          <strong>Proof of concept:</strong> <code>~/tools/act4/ime-poc/</code>.
+        </li>
+      </ul>
+      <p class="totop"><a href="#summary">Back to summary</a></p>
+    </div>
+  </main>
+</div>
+<!--@SCRIPT-->

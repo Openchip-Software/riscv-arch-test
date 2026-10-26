@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 600" width="100%" role="img" aria-labelledby="f6-title">
+  <title id="f6-title">Test selection for one DUT configuration: all test files pass through suite, harts, privileged, experimental, extension, parameter and optional certificate filters, using extensions.txt and parameters from the UDB configuration, and the result is written to work/&lt;cfg&gt;/test_list.md as the build plan.</title>
+  <defs>
+    <marker id="f6-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+    <marker id="f6-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+    <marker id="f6-arrow-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent-2)"/></marker>
+  </defs>
+  <rect x="200" y="24" width="520" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="24" y="51" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">0</text>
+  <text x="44" y="51" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">All test files</text>
+  <text x="460" y="43" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">tests/**/*.S, *.c</text>
+  <text x="460" y="59" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">excluding tests/env/</text>
+  <line x1="460" y1="68" x2="460" y2="82" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow-accent)"/>
+  <rect x="216" y="84" width="488" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="24" y="111" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">1</text>
+  <text x="44" y="111" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">Suite filter</text>
+  <text x="460" y="103" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">EXTENSIONS / EXCLUDE_EXTENSIONS</text>
+  <text x="460" y="119" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">matched against suite directory names</text>
+  <line x1="460" y1="128" x2="460" y2="142" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow-accent)"/>
+  <rect x="232" y="144" width="456" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="24" y="171" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">2</text>
+  <text x="44" y="171" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">Harts</text>
+  <text x="460" y="171" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">harts &gt;= MIN_HARTS</text>
+  <line x1="460" y1="188" x2="460" y2="202" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow-accent)"/>
+  <rect x="248" y="204" width="424" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="24" y="231" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">3</text>
+  <text x="44" y="231" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">Privileged</text>
+  <text x="460" y="223" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">include_priv_tests</text>
+  <text x="460" y="239" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">when false: skip tests that need Sm, S, U or H</text>
+  <line x1="460" y1="248" x2="460" y2="262" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow-accent)"/>
+  <rect x="264" y="264" width="392" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="24" y="291" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">4</text>
+  <text x="44" y="291" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">Experimental</text>
+  <text x="460" y="291" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">Zibi unless --enable-experimental-extensions</text>
+  <line x1="460" y1="308" x2="460" y2="322" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow-accent)"/>
+  <rect x="280" y="324" width="360" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="24" y="351" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">5</text>
+  <text x="44" y="351" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">Extensions</text>
+  <text x="460" y="343" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">REQUIRED_EXTENSIONS ⊆ extensions.txt</text>
+  <text x="460" y="359" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">FORBIDDEN_EXTENSIONS ∩ extensions.txt = ∅</text>
+  <line x1="460" y1="368" x2="460" y2="382" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow-accent)"/>
+  <rect x="296" y="384" width="328" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="24" y="411" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">6</text>
+  <text x="44" y="411" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">Parameters</text>
+  <text x="460" y="403" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">header params vs UDB params</text>
+  <text x="460" y="419" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">e.g. MXLEN: 64, '&gt;=64'</text>
+  <line x1="460" y1="428" x2="460" y2="442" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow-accent)"/>
+  <rect x="312" y="444" width="296" height="44" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="24" y="471" font-family="var(--font-mono)" font-size="12" fill="var(--muted)">7</text>
+  <text x="44" y="471" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">Certificate (optional)</text>
+  <text x="460" y="463" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">--certificate RVA23</text>
+  <text x="460" y="479" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">keep tests the certificate extensions cover</text>
+  <rect x="760" y="318" width="224" height="56" rx="4" fill="var(--accent-2-soft)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="772" y="336" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)">UDB config</text>
+  <text x="772" y="351" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">→ udb list extensions</text>
+  <text x="772" y="366" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">→ extensions.txt</text>
+  <line x1="760" y1="346" x2="642" y2="346" stroke="var(--accent-2)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow-ref)"/>
+  <rect x="760" y="390" width="224" height="40" rx="4" fill="var(--accent-2-soft)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="772" y="406" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)">UDB params</text>
+  <text x="772" y="421" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">MXLEN: 64, …</text>
+  <line x1="760" y1="406" x2="626" y2="406" stroke="var(--accent-2)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow-ref)"/>
+  <line x1="460" y1="488" x2="460" y2="512" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow-accent)"/>
+  <rect x="350" y="514" width="220" height="32" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="460" y="534" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">work/&lt;cfg&gt;/test_list.md</text>
+  <line x1="570" y1="530" x2="628" y2="530" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#f6-arrow)"/>
+  <rect x="630" y="514" width="110" height="32" rx="4" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <text x="685" y="534" text-anchor="middle" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">build plan</text>
+  <text x="460" y="570" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--muted)">sail-rv64-max, EXTENSIONS=I → 51 tests</text>
+</svg>

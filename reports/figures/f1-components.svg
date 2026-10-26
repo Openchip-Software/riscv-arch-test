@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 540" width="100%" role="img" aria-labelledby="f1-title">
+  <title id="f1-title">ACT components and data flow: make tests generates test sources and covergroups, act builds self-checking ELFs from a DUT configuration with UDB, GCC and the Sail reference model, and run_tests.py runs the ELFs on the DUT and writes logs and a summary.</title>
+  <defs>
+    <marker id="f1-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+    <marker id="f1-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+    <marker id="f1-arrow-2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent-2)"/></marker>
+    <marker id="f1-arrow-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ref)"/></marker>
+  </defs>
+
+  <!-- Bands -->
+  <rect x="16" y="16" width="324" height="456" rx="8" fill="var(--surface-2)" stroke="var(--rule)" stroke-width="1"/>
+  <rect x="352" y="16" width="360" height="456" rx="8" fill="var(--surface-2)" stroke="var(--rule)" stroke-width="1"/>
+  <rect x="724" y="16" width="260" height="456" rx="8" fill="var(--surface-2)" stroke="var(--rule)" stroke-width="1"/>
+  <text x="96" y="40" font-family="var(--font-sans)" font-size="14" font-weight="600" fill="var(--accent)">Generate</text>
+  <text x="173" y="40" font-family="var(--font-mono)" font-size="13" fill="var(--accent)">(make tests)</text>
+  <text x="488" y="40" font-family="var(--font-sans)" font-size="14" font-weight="600" fill="var(--accent)">Build</text>
+  <text x="533" y="40" font-family="var(--font-mono)" font-size="13" fill="var(--accent)">(act)</text>
+  <text x="780" y="40" font-family="var(--font-sans)" font-size="14" font-weight="600" fill="var(--accent-2)">Run</text>
+  <text x="814" y="40" font-family="var(--font-mono)" font-size="13" fill="var(--accent-2)">(run_tests.py)</text>
+
+  <!-- Band 1: inputs -->
+  <rect x="26" y="60" width="144" height="40" rx="4" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <text x="98" y="76" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">generators/coverage/</text>
+  <text x="98" y="91" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">…/templates/*.sv</text>
+  <rect x="186" y="60" width="144" height="40" rx="4" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <text x="258" y="76" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">testplans/</text>
+  <text x="258" y="91" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">&lt;suite&gt;.csv</text>
+
+  <!-- Band 1: programs -->
+  <rect x="26" y="136" width="144" height="30" rx="4" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="98" y="155" text-anchor="middle" font-family="var(--font-mono)" font-size="12" font-weight="600" fill="var(--ink)">covergroupgen</text>
+  <rect x="186" y="136" width="144" height="30" rx="4" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="258" y="155" text-anchor="middle" font-family="var(--font-mono)" font-size="12" font-weight="600" fill="var(--ink)">testgen</text>
+  <line x1="98" y1="100" x2="98" y2="134" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-accent)"/>
+  <line x1="258" y1="100" x2="258" y2="134" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-accent)"/>
+  <line x1="206" y1="100" x2="152" y2="134" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-accent)"/>
+
+  <!-- Band 1: outputs -->
+  <rect x="26" y="202" width="144" height="40" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
+  <text x="98" y="218" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">coverpoints/unpriv/</text>
+  <text x="98" y="233" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">&lt;Suite&gt;_coverage.svh</text>
+  <rect x="186" y="202" width="144" height="40" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1"/>
+  <text x="258" y="218" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">tests/rv64i/I/*.S</text>
+  <text x="258" y="233" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--muted)">+ tests/priv/…</text>
+  <line x1="98" y1="166" x2="98" y2="200" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-accent)"/>
+  <line x1="258" y1="166" x2="258" y2="200" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-accent)"/>
+
+  <!-- Band 1: framework headers -->
+  <rect x="120" y="300" width="210" height="56" rx="4" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <text x="225" y="316" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">tests/env/*.h</text>
+  <text x="225" y="331" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">framework macros:</text>
+  <text x="225" y="346" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--muted)">RVTEST_*, signature.h</text>
+
+  <!-- Band 1 to band 2 -->
+  <polyline points="258,242 258,262 362,262" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-accent)"/>
+  <text x="300" y="257" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">sources</text>
+  <line x1="330" y1="328" x2="362" y2="328" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow)"/>
+
+  <!-- Band 2: DUT configuration -->
+  <rect x="364" y="60" width="164" height="148" rx="6" fill="var(--accent-2-soft)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="446" y="78" text-anchor="middle" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)">DUT configuration</text>
+  <text x="446" y="94" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--accent-2)">config/&lt;vendor&gt;/&lt;dut&gt;/</text>
+  <line x1="374" y1="102" x2="518" y2="102" stroke="var(--accent-2)" stroke-width="1" fill="none"/>
+  <text x="376" y="118" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">test_config.yaml</text>
+  <text x="376" y="133" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">&lt;dut&gt;.yaml (UDB)</text>
+  <text x="376" y="148" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">rvmodel_macros.h</text>
+  <text x="376" y="163" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">link.ld</text>
+  <text x="376" y="178" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">sail.json</text>
+  <text x="376" y="193" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">run_cmd.txt</text>
+  <line x1="420" y1="208" x2="420" y2="238" stroke="var(--accent-2)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-2)"/>
+
+  <!-- Band 2: act -->
+  <rect x="364" y="240" width="112" height="134" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="420" y="303" text-anchor="middle" font-family="var(--font-mono)" font-size="14" font-weight="600" fill="var(--ink)">act</text>
+  <text x="420" y="320" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">build DAG</text>
+
+  <!-- Band 2: side tools -->
+  <rect x="540" y="150" width="166" height="56" rx="4" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <text x="623" y="166" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">work/&lt;cfg&gt;/env/</text>
+  <text x="623" y="181" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">rvtest_config.h</text>
+  <text x="623" y="196" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">extensions.txt</text>
+  <rect x="540" y="240" width="166" height="40" rx="4" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <text x="623" y="256" text-anchor="middle" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">UDB gems</text>
+  <text x="623" y="271" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--muted)">udb, udb-gen</text>
+  <line x1="623" y1="240" x2="623" y2="208" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow)"/>
+  <text x="630" y="228" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">writes</text>
+  <rect x="540" y="292" width="166" height="30" rx="4" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <text x="623" y="311" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">riscv64-unknown-elf-gcc</text>
+  <rect x="540" y="334" width="166" height="40" rx="4" fill="var(--ref-soft)" stroke="var(--ref)" stroke-width="1.5"/>
+  <text x="623" y="350" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">sail_riscv_sim 0.16</text>
+  <text x="623" y="365" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--ref)">reference model</text>
+  <line x1="476" y1="260" x2="538" y2="260" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow)"/>
+  <text x="507" y="255" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">config</text>
+  <line x1="476" y1="307" x2="538" y2="307" stroke="var(--muted)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow)"/>
+  <text x="507" y="302" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">compile</text>
+  <line x1="476" y1="354" x2="538" y2="354" stroke="var(--ref)" stroke-width="1.5" fill="none" marker-start="url(#f1-arrow-ref)" marker-end="url(#f1-arrow-ref)"/>
+  <text x="507" y="349" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--ref)">signature</text>
+
+  <!-- Band 2: output -->
+  <rect x="364" y="410" width="200" height="40" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="464" y="426" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">work/&lt;cfg&gt;/elfs/**/*.elf</text>
+  <text x="464" y="441" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">self-checking ELFs</text>
+  <line x1="420" y1="374" x2="420" y2="408" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-accent)"/>
+  <text x="428" y="396" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">writes</text>
+
+  <!-- Band 3 -->
+  <polyline points="528,84 862,84 862,238" stroke="var(--accent-2)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-2)"/>
+  <text x="623" y="78" text-anchor="middle" font-family="var(--font-mono)" font-size="11" fill="var(--accent-2)">run_cmd.txt</text>
+  <polyline points="564,430 731,430 731,260 780,260" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-accent)"/>
+  <text x="650" y="424" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">ELF paths</text>
+  <rect x="782" y="240" width="160" height="40" rx="4" fill="var(--accent-2-soft)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="862" y="265" text-anchor="middle" font-family="var(--font-mono)" font-size="12" font-weight="600" fill="var(--ink)">run_tests.py</text>
+  <line x1="862" y1="280" x2="862" y2="318" stroke="var(--accent-2)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-2)"/>
+  <text x="870" y="303" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">cmd + ELF</text>
+  <rect x="782" y="320" width="160" height="36" rx="4" fill="var(--surface)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="862" y="342" text-anchor="middle" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)">DUT / simulator</text>
+  <line x1="862" y1="356" x2="862" y2="394" stroke="var(--accent-2)" stroke-width="1.5" fill="none" marker-end="url(#f1-arrow-2)"/>
+  <text x="870" y="379" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">console output</text>
+  <rect x="740" y="396" width="240" height="64" rx="4" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <text x="748" y="413" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">work/&lt;cfg&gt;/logs/*.log</text>
+  <text x="748" y="428" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">summary.log</text>
+  <text x="748" y="449" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">RVCP-SUMMARY: TEST <tspan fill="var(--ok)">PASSED</tspan>|<tspan fill="var(--bad)">FAILED</tspan></text>
+
+  <!-- Optional coverage path -->
+  <polyline points="98,242 98,277 40,277 40,486" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#f1-arrow)"/>
+  <line x1="464" y1="450" x2="464" y2="486" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#f1-arrow)"/>
+  <text x="472" y="473" font-family="var(--font-mono)" font-size="11" fill="var(--muted)">--coverage</text>
+  <rect x="26" y="488" width="560" height="32" rx="4" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="82" y="508" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">make coverage: <tspan fill="var(--muted)">Sail trace → RVVI → Questa/VCS covergroups →</tspan> reports/</text>
+</svg>

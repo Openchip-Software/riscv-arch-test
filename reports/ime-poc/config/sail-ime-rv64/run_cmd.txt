@@ -1,0 +1,1 @@
+/srv/nfs/shared/home/constantino.gomez/tools/act4/ime-poc/bin/sail_ime_sim --enable-experimental-extensions {debug:--trace --trace-output __TRACEFILE__} --config /srv/nfs/shared/home/constantino.gomez/tools/act4/ime-poc/config/sail-ime-rv64/sail.json

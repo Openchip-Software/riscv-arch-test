@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 452" width="100%" role="img" aria-labelledby="g4-title g4-desc">
+  <title id="g4-title">Proof of concept: one IR, two DUTs</title>
+  <desc id="g4-desc">ime-test-gen emits a TC-MACC IR for VLEN 256 with 6 sections and 112 tests. ir2act.py turns it into 6 ACT .S files with 112 testcases and 4480 checks. act builds them against the Sail IME fork efd0d7dc. On the Sail IME fork as DUT all 6 pass. On the SDK qemu-system-riscv64 with x-zvvm=true all 6 fail because the C tile is transposed. A cross-check of the Rust golden values against the Sail signature finds 4312 of 4480 checks differ. QEMU agrees with the Rust golden model; the Sail fork disagrees.</desc>
+  <defs>
+    <marker id="g4-arrow-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/>
+    </marker>
+    <marker id="g4-arrow-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ref)"/>
+    </marker>
+    <marker id="g4-arrow-rust" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--accent-2)"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="452" fill="var(--ground)"/>
+
+  <!-- ime-test-gen command -->
+  <rect x="16" y="92" width="130" height="116" rx="6" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <text x="81" y="112" font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--ink)" text-anchor="middle">ime-test-gen</text>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--muted)" text-anchor="middle">
+    <text x="81" y="130">--vlen 256</text>
+    <text x="81" y="144">--fma</text>
+    <text x="81" y="158">--test-pattern</text>
+    <text x="81" y="172">TC-MACC</text>
+    <text x="81" y="190">--emit-ir</text>
+  </g>
+
+  <!-- IR JSON -->
+  <rect x="172" y="120" width="140" height="60" rx="6" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <text x="242" y="143" font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--ink)" text-anchor="middle">macc-v256.ir.json</text>
+  <text x="242" y="163" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">6 sections, 112 tests</text>
+
+  <!-- ir2act -->
+  <rect x="338" y="130" width="90" height="40" rx="6" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <text x="383" y="154" font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--ink)" text-anchor="middle">ir2act.py</text>
+
+  <!-- .S files -->
+  <rect x="454" y="100" width="140" height="100" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <g font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--accent)" text-anchor="middle">
+    <text x="524" y="122">tests/rv64i/</text>
+    <text x="524" y="137">Zvvmm/*.S</text>
+  </g>
+  <line x1="464" y1="148" x2="584" y2="148" fill="none" stroke="var(--rule)" stroke-width="1"/>
+  <g font-family="var(--font-sans)" font-size="11" fill="var(--ink)" text-anchor="middle">
+    <text x="524" y="164">6 files,</text>
+    <text x="524" y="178">112 testcases,</text>
+    <text x="524" y="192">4480 checks</text>
+  </g>
+
+  <!-- act -->
+  <rect x="620" y="80" width="150" height="140" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--accent)" text-anchor="middle">
+    <text x="695" y="100" font-weight="700">act --enable-</text>
+    <text x="695" y="114">experimental-</text>
+    <text x="695" y="128">extensions</text>
+  </g>
+  <rect x="630" y="140" width="130" height="70" rx="5" fill="var(--ref-soft)" stroke="var(--ref)" stroke-width="1.5"/>
+  <text x="695" y="158" font-family="var(--font-sans)" font-size="11" fill="var(--ref)" text-anchor="middle">reference:</text>
+  <text x="695" y="175" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ref)" text-anchor="middle">Sail IME fork</text>
+  <text x="695" y="193" font-family="var(--font-mono)" font-size="11" fill="var(--ref)" text-anchor="middle">efd0d7dc</text>
+
+  <!-- main chain arrows -->
+  <g fill="none" stroke="var(--ink)" stroke-width="1.5">
+    <line x1="146" y1="150" x2="170" y2="150" marker-end="url(#g4-arrow-ink)"/>
+    <line x1="312" y1="150" x2="336" y2="150" marker-end="url(#g4-arrow-ink)"/>
+    <line x1="428" y1="150" x2="452" y2="150" marker-end="url(#g4-arrow-ink)"/>
+    <line x1="594" y1="150" x2="618" y2="150" marker-end="url(#g4-arrow-ink)"/>
+  </g>
+
+  <!-- branches to DUTs -->
+  <g fill="none" stroke="var(--accent-2)" stroke-width="1.5">
+    <polyline points="770,120 785,120 785,61 798,61" marker-end="url(#g4-arrow-rust)"/>
+    <polyline points="770,181 798,181" marker-end="url(#g4-arrow-rust)"/>
+  </g>
+
+  <!-- upper DUT -->
+  <rect x="800" y="40" width="184" height="42" rx="6" fill="var(--accent-2-soft)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="892" y="66" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="middle">DUT: Sail IME fork</text>
+  <line x1="892" y1="82" x2="892" y2="92" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+  <rect x="832" y="92" width="120" height="24" rx="12" fill="var(--surface)" stroke="var(--ok)" stroke-width="2"/>
+  <text x="892" y="108" font-family="var(--font-sans)" font-size="12" font-weight="700" fill="var(--ok)" text-anchor="middle">6/6 PASSED</text>
+
+  <!-- lower DUT -->
+  <rect x="800" y="150" width="184" height="62" rx="6" fill="var(--accent-2-soft)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="892" y="168" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)" text-anchor="middle">DUT: SDK</text>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--accent-2)" text-anchor="middle">
+    <text x="892" y="184">qemu-system-riscv64</text>
+    <text x="892" y="200">x-zvvm=true</text>
+  </g>
+  <line x1="892" y1="212" x2="892" y2="222" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+  <rect x="800" y="222" width="184" height="70" rx="6" fill="var(--surface)" stroke="var(--bad)" stroke-width="2"/>
+  <text x="892" y="240" font-family="var(--font-sans)" font-size="12" font-weight="700" fill="var(--bad)" text-anchor="middle">6/6 FAILED:</text>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--bad)" text-anchor="middle">
+    <text x="892" y="256">Bad Value 0x0a,</text>
+    <text x="892" y="270">Expected 0x12</text>
+  </g>
+  <text x="892" y="285" font-family="var(--font-sans)" font-size="11" fill="var(--bad)" text-anchor="middle">(C tile transposed)</text>
+
+  <!-- side branch: golden cross-check -->
+  <line x1="524" y1="200" x2="524" y2="328" fill="none" stroke="var(--ref)" stroke-width="1.5" marker-end="url(#g4-arrow-ref)"/>
+  <text x="516" y="268" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="end">also written by ir2act.py</text>
+  <rect x="454" y="330" width="140" height="50" rx="6" fill="var(--ref-soft)" stroke="var(--ref)" stroke-width="1.5"/>
+  <text x="524" y="350" font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--ref)" text-anchor="middle">*.golden.json</text>
+  <text x="524" y="368" font-family="var(--font-sans)" font-size="11" fill="var(--ref)" text-anchor="middle">(Rust C_ref)</text>
+
+  <line x1="695" y1="220" x2="695" y2="328" fill="none" stroke="var(--ref)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#g4-arrow-ref)"/>
+  <text x="703" y="278" font-family="var(--font-mono)" font-size="11" fill="var(--ref)">.sig</text>
+
+  <rect x="620" y="330" width="150" height="50" rx="6" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <text x="695" y="350" font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--ink)" text-anchor="middle">crosscheck.py</text>
+  <text x="695" y="368" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">vs Sail .sig</text>
+  <g fill="none" stroke="var(--ink)" stroke-width="1.5">
+    <line x1="594" y1="355" x2="618" y2="355" marker-end="url(#g4-arrow-ink)"/>
+    <line x1="770" y1="355" x2="798" y2="355" marker-end="url(#g4-arrow-ink)"/>
+  </g>
+
+  <rect x="800" y="320" width="184" height="70" rx="6" fill="var(--surface)" stroke="var(--bad)" stroke-width="2"/>
+  <text x="892" y="340" font-family="var(--font-sans)" font-size="11" font-weight="700" fill="var(--bad)" text-anchor="middle">4312 / 4480 checks differ;</text>
+  <text x="892" y="358" font-family="var(--font-sans)" font-size="11" fill="var(--bad)" text-anchor="middle">8×8 case: Sail C =</text>
+  <text x="892" y="376" font-family="var(--font-mono)" font-size="11" fill="var(--bad)" text-anchor="middle">transpose(Rust C)</text>
+
+  <!-- footer -->
+  <line x1="16" y1="410" x2="984" y2="410" fill="none" stroke="var(--rule)" stroke-width="1"/>
+  <text x="16" y="434" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">QEMU agrees with the Rust golden model; the Sail fork disagrees.</text>
+</svg>

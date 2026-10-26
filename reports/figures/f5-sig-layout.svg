@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="100%" role="img" aria-labelledby="f5-title f5-desc">
+  <title id="f5-title">Signature region layout (signature build)</title>
+  <desc id="f5-desc">Memory map from begin_signature to end_signature: a canary, the SIGUPD slots, the final signature offset and final trap signature offset with their canaries, the trap canary and trap slots, and an end canary. RVMODEL_DATA_SECTION follows after end_signature.</desc>
+  <defs>
+    <marker id="f5-arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="640" fill="var(--ground)"/>
+
+  <!-- Address direction -->
+  <line x1="40" y1="40" x2="40" y2="520" fill="none" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#f5-arrow-muted)"/>
+  <text x="32" y="280" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle" transform="rotate(-90 32 280)">increasing address</text>
+
+  <!-- Region rows -->
+  <rect x="310" y="40" width="260" height="36" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="310" y="76" width="260" height="160" fill="var(--surface-2)" stroke="var(--rule)" stroke-width="1"/>
+  <rect x="310" y="236" width="260" height="28" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <rect x="310" y="264" width="260" height="28" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="310" y="292" width="260" height="28" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <rect x="310" y="320" width="260" height="28" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <rect x="310" y="348" width="260" height="36" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <rect x="310" y="384" width="260" height="100" fill="var(--surface-2)" stroke="var(--rule)" stroke-width="1"/>
+  <rect x="310" y="484" width="260" height="36" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <!-- redraw accent borders on top of neighbours -->
+  <rect x="310" y="40" width="260" height="36" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="310" y="264" width="260" height="28" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
+
+  <rect x="310" y="556" width="260" height="36" fill="var(--surface)" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 3"/>
+
+  <!-- Row contents -->
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ink)" text-anchor="middle">
+    <text x="440" y="254">final_sig_offset canary</text>
+    <text x="440" y="282" font-weight="700">final_sig_offset</text>
+    <text x="440" y="310">final_trap_sig_offset canary</text>
+    <text x="440" y="338">final_trap_sig_offset</text>
+    <text x="440" y="506" font-weight="700">CANARY</text>
+    <text x="440" y="578" font-weight="700">RVMODEL_DATA_SECTION</text>
+  </g>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ink)">
+    <text x="358" y="62"><tspan font-weight="700">CANARY</tspan> 0x6F5CA309E7D4B281</text>
+    <text x="341" y="370"><tspan font-weight="700">TRAP CANARY</tspan> 0xD3A91F6C8B47E25D</text>
+  </g>
+  <text x="440" y="134" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">SIGUPD slots</text>
+  <text x="440" y="156" font-family="var(--font-mono)" font-size="11" fill="var(--ink)" text-anchor="middle">SIGUPD_COUNT × SIG_STRIDE</text>
+  <text x="376" y="176" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">initialized <tspan font-family="var(--font-mono)">0xdeadbeef</tspan></text>
+  <text x="440" y="418" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">trap slots</text>
+  <text x="440" y="440" font-family="var(--font-mono)" font-size="11" fill="var(--ink)" text-anchor="middle">TRAP_SIGUPD_COUNT × 4 words</text>
+  <text x="440" y="458" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">(×6 with H)</text>
+
+  <!-- Symbols (left) -->
+  <g fill="none" stroke="var(--ink)" stroke-width="1">
+    <line x1="300" y1="40" x2="310" y2="40"/>
+    <line x1="300" y1="236" x2="310" y2="236"/>
+    <line x1="300" y1="264" x2="310" y2="264"/>
+    <line x1="300" y1="292" x2="310" y2="292"/>
+    <line x1="300" y1="320" x2="310" y2="320"/>
+    <line x1="300" y1="348" x2="310" y2="348"/>
+    <line x1="300" y1="384" x2="310" y2="384"/>
+    <line x1="300" y1="484" x2="310" y2="484"/>
+    <line x1="300" y1="520" x2="310" y2="520"/>
+  </g>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ink)" text-anchor="end">
+    <text x="296" y="36" font-weight="700">begin_signature</text>
+    <text x="296" y="50" fill="var(--muted)">= signature_base</text>
+    <text x="296" y="240">final_sig_offset_canary</text>
+    <text x="296" y="268">final_sig_offset</text>
+    <text x="296" y="296">final_trap_sig_offset_canary</text>
+    <text x="296" y="324">final_trap_sig_offset</text>
+    <text x="296" y="352">tsig_begin_canary</text>
+    <text x="296" y="388" font-weight="700">trap_sigptr</text>
+    <text x="296" y="488">sig_end_canary</text>
+    <text x="296" y="524" font-weight="700">end_signature</text>
+  </g>
+
+  <!-- Annotations (right) -->
+  <g fill="none" stroke="var(--accent)" stroke-width="1">
+    <line x1="570" y1="58" x2="594" y2="58"/>
+    <line x1="570" y1="278" x2="594" y2="278"/>
+  </g>
+  <g fill="none" stroke="var(--muted)" stroke-width="1">
+    <line x1="570" y1="434" x2="594" y2="434"/>
+    <line x1="570" y1="502" x2="594" y2="502"/>
+    <line x1="570" y1="574" x2="594" y2="574"/>
+  </g>
+  <text x="600" y="62" font-family="var(--font-sans)" font-size="11" fill="var(--accent)">checked at start (first word = <tspan font-family="var(--font-mono)">CANARY</tspan>)</text>
+  <text x="600" y="274" font-family="var(--font-sans)" font-size="11" fill="var(--accent)">checked at end:</text>
+  <text x="600" y="290" font-family="var(--font-mono)" font-size="11" fill="var(--accent)">sigptr − signature_base == final_sig_offset</text>
+  <text x="600" y="430" font-family="var(--font-sans)" font-size="11" fill="var(--ink)">trap entries: mode/bytes/xIE/xIP/xstatus,</text>
+  <text x="600" y="446" font-family="var(--font-sans)" font-size="11" fill="var(--ink)">xcause, xepc, xtval[, mtval2, mtinst]</text>
+  <text x="600" y="506" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">end canary: detects writes past the trap slots</text>
+  <text x="600" y="578" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">model-specific data, placed after <tspan font-family="var(--font-mono)">end_signature</tspan></text>
+
+  <!-- Legend -->
+  <rect x="310" y="610" width="22" height="14" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="340" y="621" font-family="var(--font-sans)" font-size="11" fill="var(--ink)">checked by the test framework</text>
+</svg>

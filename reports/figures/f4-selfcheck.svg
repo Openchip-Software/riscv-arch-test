@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 582" width="100%" role="img" aria-labelledby="f4-title f4-desc">
+  <title id="f4-title">Two-pass self-checking: where the expected values come from</title>
+  <desc id="f4-desc">The same source I-add-00.S is compiled twice. In pass 1, RVTEST_SIGUPD stores results and Sail dumps the signature region to a .sig file. sig_modify converts it to .results, which pass 2 includes at signature_base. In pass 2, RVTEST_SIGUPD loads the expected value, compares, and branches to a failure handler on mismatch.</desc>
+  <defs>
+    <marker id="f4-arrow-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/>
+    </marker>
+    <marker id="f4-arrow-ok" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+    </marker>
+    <marker id="f4-arrow-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--bad)"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="582" fill="var(--ground)"/>
+
+  <!-- Lanes -->
+  <rect x="16" y="16" width="968" height="180" rx="8" fill="var(--ref-soft)" stroke="var(--ref)" stroke-width="1"/>
+  <rect x="16" y="312" width="968" height="254" rx="8" fill="var(--accent-2-soft)" stroke="var(--accent-2)" stroke-width="1"/>
+  <g font-family="var(--font-sans)" font-size="12" font-weight="700">
+    <text x="722" y="40" fill="var(--ref)">Pass 1 — signature build</text>
+    <text x="722" y="334" fill="var(--accent-2)">Pass 2 — self-checking build</text>
+  </g>
+  <g font-family="var(--font-sans)" font-size="12">
+    <text x="722" y="56" fill="var(--ref)">(reference model)</text>
+    <text x="722" y="350" fill="var(--accent-2)">(DUT)</text>
+  </g>
+
+  <!-- Top lane: A expansion -->
+  <rect x="32" y="52" width="210" height="128" rx="6" fill="var(--surface)" stroke="var(--ref)" stroke-width="1.5"/>
+  <text x="44" y="74" font-family="var(--font-sans)" font-size="12" fill="var(--ink)"><tspan font-family="var(--font-mono)" font-weight="700">RVTEST_SIGUPD</tspan> expands to</text>
+  <text x="44" y="94" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">store result to</text>
+  <text x="44" y="110" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">signature region</text>
+  <rect x="44" y="124" width="186" height="30" rx="4" fill="var(--surface-2)" stroke="none"/>
+  <text x="54" y="143" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">SREG rd, 0(sigptr)</text>
+
+  <!-- Top lane: B ELF on Sail -->
+  <rect x="272" y="52" width="180" height="128" rx="6" fill="var(--surface)" stroke="var(--ref)" stroke-width="1.5"/>
+  <text x="362" y="108" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">signature ELF</text>
+  <text x="362" y="126" font-family="var(--font-sans)" font-size="12" fill="var(--ink)" text-anchor="middle">runs on Sail</text>
+
+  <!-- Top lane: C dump -->
+  <rect x="482" y="52" width="220" height="128" rx="6" fill="var(--surface)" stroke="var(--ref)" stroke-width="1.5"/>
+  <text x="494" y="78" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">Sail dumps <tspan font-family="var(--font-mono)" font-size="11">begin_signature</tspan></text>
+  <text x="494" y="98" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">..<tspan font-family="var(--font-mono)" font-size="11">end_signature</tspan> into <tspan font-family="var(--font-mono)" font-weight="700">.sig</tspan></text>
+  <rect x="494" y="116" width="196" height="54" rx="4" fill="var(--surface-2)" stroke="none"/>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ref)">
+    <text x="504" y="133">6f5ca309e7d4b281</text>
+    <text x="504" y="148">c288db44b76ca525</text>
+    <text x="504" y="163">…</text>
+  </g>
+
+  <g fill="none" stroke="var(--ink)" stroke-width="1.5">
+    <line x1="242" y1="116" x2="270" y2="116" marker-end="url(#f4-arrow-ink)"/>
+    <line x1="452" y1="116" x2="480" y2="116" marker-end="url(#f4-arrow-ink)"/>
+  </g>
+
+  <!-- Middle band: source -->
+  <rect x="32" y="222" width="210" height="64" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="137" y="249" font-family="var(--font-mono)" font-size="13" font-weight="700" fill="var(--ink)" text-anchor="middle">I-add-00.S</text>
+  <text x="137" y="269" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">same source, compiled twice</text>
+  <g fill="none" stroke="var(--ink)" stroke-width="1.5">
+    <line x1="137" y1="222" x2="137" y2="182" marker-end="url(#f4-arrow-ink)"/>
+    <line x1="137" y1="286" x2="137" y2="360" marker-end="url(#f4-arrow-ink)"/>
+  </g>
+  <text x="145" y="210" font-family="var(--font-mono)" font-size="11" fill="var(--ref)">-DSIGNATURE</text>
+  <text x="145" y="330" font-family="var(--font-mono)" font-size="11" fill="var(--accent-2)">-DRVTEST_SELFCHECK</text>
+
+  <!-- Middle band: sig_modify -->
+  <rect x="482" y="210" width="220" height="88" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="494" y="230" font-family="var(--font-mono)" font-size="12" fill="var(--ink)"><tspan font-weight="700">sig_modify</tspan> → .results</text>
+  <rect x="494" y="240" width="196" height="50" rx="4" fill="var(--surface)" stroke="none"/>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--accent)">
+    <text x="504" y="256">.quad 0x6f5ca309e7d4b281</text>
+    <text x="504" y="271">.quad 0xc288db44b76ca525</text>
+    <text x="504" y="285">…</text>
+  </g>
+  <line x1="592" y1="180" x2="592" y2="208" fill="none" stroke="var(--ink)" stroke-width="1.5" marker-end="url(#f4-arrow-ink)"/>
+
+  <!-- Middle band: include -->
+  <rect x="272" y="210" width="180" height="88" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="362" y="238" font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--ink)" text-anchor="middle">#include SIGNATURE_FILE</text>
+  <text x="306" y="256" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">at <tspan font-family="var(--font-mono)" font-size="11">signature_base</tspan></text>
+  <text x="362" y="280" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">expected values</text>
+  <line x1="482" y1="254" x2="454" y2="254" fill="none" stroke="var(--ink)" stroke-width="1.5" marker-end="url(#f4-arrow-ink)"/>
+  <line x1="362" y1="298" x2="362" y2="360" fill="none" stroke="var(--ink)" stroke-width="1.5" marker-end="url(#f4-arrow-ink)"/>
+  <text x="370" y="334" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">preloads signature region</text>
+
+  <!-- Middle band: note -->
+  <rect x="722" y="214" width="262" height="80" rx="6" fill="var(--surface-2)" stroke="var(--rule)" stroke-width="1"/>
+  <g font-family="var(--font-sans)" font-size="11" fill="var(--ink)">
+    <text x="734" y="236">Both ELFs keep identical code addresses</text>
+    <text x="734" y="252">(same instruction counts in both SIGUPD</text>
+    <text x="734" y="268">variants; <tspan font-family="var(--font-mono)">.text.rvmodel</tspan> after <tspan font-family="var(--font-mono)">.data</tspan>).</text>
+  </g>
+
+  <!-- Bottom lane: A expansion -->
+  <rect x="32" y="362" width="210" height="130" rx="6" fill="var(--surface)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="44" y="384" font-family="var(--font-sans)" font-size="12" fill="var(--ink)"><tspan font-family="var(--font-mono)" font-weight="700">RVTEST_SIGUPD</tspan> expands to</text>
+  <text x="44" y="404" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">load expected, compare, branch</text>
+  <rect x="44" y="414" width="186" height="66" rx="4" fill="var(--surface-2)" stroke="none"/>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ink)">
+    <text x="54" y="432">LREG t, 0(sigptr)</text>
+    <text x="54" y="450">beq t, rd, 1f</text>
+    <text x="54" y="468">jal failedtest_…</text>
+  </g>
+
+  <!-- Bottom lane: B ELF on DUT -->
+  <rect x="272" y="362" width="180" height="110" rx="6" fill="var(--surface)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <text x="362" y="410" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">self-checking ELF</text>
+  <text x="362" y="428" font-family="var(--font-sans)" font-size="12" fill="var(--ink)" text-anchor="middle">runs on the DUT</text>
+  <line x1="242" y1="417" x2="270" y2="417" fill="none" stroke="var(--ink)" stroke-width="1.5" marker-end="url(#f4-arrow-ink)"/>
+
+  <!-- Outcomes -->
+  <line x1="452" y1="388" x2="720" y2="388" fill="none" stroke="var(--ok)" stroke-width="1.5" marker-end="url(#f4-arrow-ok)"/>
+  <text x="587" y="380" font-family="var(--font-sans)" font-size="11" fill="var(--ok)" text-anchor="middle">every SIGUPD matches</text>
+  <line x1="452" y1="452" x2="720" y2="452" fill="none" stroke="var(--bad)" stroke-width="1.5" marker-end="url(#f4-arrow-bad)"/>
+  <text x="587" y="444" font-family="var(--font-sans)" font-size="11" fill="var(--bad)" text-anchor="middle">first mismatch</text>
+
+  <rect x="722" y="362" width="262" height="54" rx="6" fill="var(--surface)" stroke="var(--ok)" stroke-width="2"/>
+  <text x="734" y="384" font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--ok)">RVCP-SUMMARY: TEST PASSED</text>
+  <text x="734" y="404" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">→ <tspan font-family="var(--font-mono)" font-size="11">RVMODEL_HALT_PASS</tspan></text>
+
+  <rect x="722" y="432" width="262" height="118" rx="6" fill="var(--surface)" stroke="var(--bad)" stroke-width="2"/>
+  <text x="734" y="454" font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--bad)">RVCP-SUMMARY: TEST FAILED</text>
+  <text x="734" y="472" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">debug info:</text>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--ink)">
+    <text x="746" y="488">Register</text>
+    <text x="746" y="503">Bad Value</text>
+    <text x="746" y="518">Expected Value</text>
+  </g>
+  <text x="734" y="540" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">→ <tspan font-family="var(--font-mono)" font-size="11">RVMODEL_HALT_FAIL</tspan></text>
+</svg>

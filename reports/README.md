@@ -1,0 +1,39 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
+# Technical reports
+
+| Report                                              | File                      |
+| --------------------------------------------------- | ------------------------- |
+| 1. ACT4: components, workflow and examples          | `act-architecture.html`   |
+| 2. IME test generator: analysis and ACT integration | `ime-testgen-to-act.html` |
+
+Each report is one self-contained HTML file. Open it in a browser.
+
+## Rebuild
+
+The sources are in `src/` and the SVG figures in `figures/`. To rebuild:
+
+```sh
+python3 reports/build.py act-architecture ime-testgen-to-act
+python3 reports/check_cites.py reports/src/act-architecture.src.html .
+python3 reports/check_cites.py reports/src/ime-testgen-to-act.src.html ../riscv-ime-arch-tests .
+```
+
+`build.py` inlines `src/report.css`, `src/report.js` and the figures. It also turns
+each `{{src:path:lines}}` placeholder into a link pinned to the commit named in the
+source file. `check_cites.py` checks that every cited file exists and that every
+cited line range is inside the file.
+
+## Proof of concept (`ime-poc/`)
+
+These files back Report 2, Section 15. The DUT configurations contain absolute paths
+to the author's home directory and the SDK image. Adjust them before use. The toolchain
+wrappers and job scripts that the configurations name are machine-specific and are not
+checked in. Report 2 describes them.
+
+| Path                | Purpose                                                                    |
+| ------------------- | -------------------------------------------------------------------------- |
+| `ir2act.py`         | Converts `ime-test-gen --emit-ir` JSON (integer MACC) into ACT test files. |
+| `make_sail_json.py` | Converts an ACT 0.16 `sail.json` to the schema of the IME Sail fork.       |
+| `crosscheck.py`     | Compares Sail signatures with the Rust golden values.                      |
+| `config/`           | DUT configurations: the IME Sail fork as DUT, and the SDK QEMU as DUT.     |

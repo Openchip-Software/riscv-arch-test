@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 632" width="100%" role="img" aria-labelledby="g3-title g3-desc">
+  <title id="g3-title">Three ways to bring ime-test-gen tests into ACT</title>
+  <desc id="g3-desc">Option A adds an ACT backend to ime-test-gen in Rust. Option B imports the ime-test-gen IR JSON into a testgen generator in Python; it is the bring-up path. Option C is a native ACT port with a test plan, formatters, coverpoint generators and covergroup templates; it is the target. All three write tests/rv64i/Zvvmm/*.S, which act builds against the Sail IME reference model into self-checking ELFs for the DUT. The Rust golden model stays as a differential check against Sail.</desc>
+  <defs>
+    <marker id="g3-arrow-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/>
+    </marker>
+    <marker id="g3-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+    </marker>
+    <marker id="g3-arrow-ref" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ref)"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1000" height="632" fill="var(--ground)"/>
+
+  <!-- column backgrounds -->
+  <g fill="var(--surface-2)" stroke="var(--rule)" stroke-width="1">
+    <rect x="16" y="30" width="304" height="390" rx="8"/>
+    <rect x="348" y="30" width="304" height="390" rx="8"/>
+    <rect x="680" y="30" width="304" height="390" rx="8"/>
+  </g>
+
+  <!-- headers -->
+  <g fill="var(--surface)" stroke="var(--ink)" stroke-width="1.5">
+    <circle cx="36" cy="57" r="13"/>
+    <circle cx="368" cy="57" r="13"/>
+    <circle cx="700" cy="57" r="13"/>
+  </g>
+  <g font-family="var(--font-sans)" font-size="14" font-weight="700" fill="var(--ink)" text-anchor="middle">
+    <text x="36" y="62">A</text>
+    <text x="368" y="62">B</text>
+    <text x="700" y="62">C</text>
+  </g>
+  <g font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">
+    <text x="58" y="52">ACT backend in</text>
+    <text x="58" y="69">ime-test-gen (Rust)</text>
+    <text x="390" y="52">IR importer in</text>
+    <text x="390" y="69">testgen (Python)</text>
+    <text x="722" y="62">Native ACT port</text>
+  </g>
+  <!-- tags -->
+  <rect x="566" y="44" width="72" height="20" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="910" y="44" width="60" height="20" rx="10" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+  <g font-family="var(--font-sans)" font-size="11" font-weight="700" fill="var(--accent)" text-anchor="middle">
+    <text x="602" y="58">bring-up</text>
+    <text x="940" y="58">target</text>
+  </g>
+
+  <!-- Column A -->
+  <rect x="36" y="96" width="264" height="40" rx="6" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <rect x="36" y="158" width="264" height="40" rx="6" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <rect x="36" y="220" width="264" height="46" rx="6" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+  <g font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">
+    <text x="168" y="113">DSL</text>
+    <text x="168" y="175">IR</text>
+  </g>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--muted)" text-anchor="middle">
+    <text x="168" y="129">test_plan!{…}</text>
+    <text x="168" y="191">ir.rs</text>
+  </g>
+  <text x="117" y="240" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)">new</text>
+  <text x="149" y="240" font-family="var(--font-mono)" font-size="12" font-weight="700" fill="var(--accent)">ActBackend</text>
+  <text x="168" y="257" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">Rust, emits ACT .S</text>
+
+  <!-- Column B -->
+  <rect x="368" y="96" width="264" height="56" rx="6" fill="var(--surface)" stroke="var(--muted)" stroke-width="1.5"/>
+  <rect x="368" y="174" width="264" height="46" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="500" y="118" font-family="var(--font-mono)" font-size="12" font-weight="700" fill="var(--ink)" text-anchor="middle">ime-test-gen --emit-ir</text>
+  <text x="500" y="138" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">pinned JSON, checked in</text>
+  <text x="500" y="194" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">testgen generator module</text>
+  <text x="500" y="211" font-family="var(--font-sans)" font-size="11" fill="var(--muted)" text-anchor="middle">reads IR</text>
+
+  <!-- Column C -->
+  <rect x="700" y="96" width="264" height="104" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="832" y="120" font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--ink)" text-anchor="middle">testplans/Zvvmm.csv</text>
+  <g font-family="var(--font-sans)" font-size="12" fill="var(--ink)" text-anchor="middle">
+    <text x="832" y="142">+ formatters</text>
+    <text x="832" y="160">+ coverpoint generators (Python)</text>
+    <text x="832" y="178">+ covergroup templates</text>
+  </g>
+
+  <!-- tests boxes -->
+  <g fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2">
+    <rect x="36" y="300" width="264" height="56" rx="6"/>
+    <rect x="368" y="300" width="264" height="56" rx="6"/>
+    <rect x="700" y="300" width="264" height="56" rx="6"/>
+  </g>
+  <g font-family="var(--font-mono)" font-size="11" font-weight="700" fill="var(--accent)" text-anchor="middle">
+    <text x="168" y="332">tests/rv64i/Zvvmm/*.S</text>
+    <text x="500" y="332">tests/rv64i/Zvvmm/*.S</text>
+    <text x="832" y="318">tests/rv64i/Zvvmm/*.S</text>
+  </g>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--accent)" text-anchor="middle">
+    <text x="832" y="334">+ coverpoints/unpriv/</text>
+    <text x="832" y="348">Zvvmm_coverage.svh</text>
+  </g>
+
+  <!-- in-column arrows -->
+  <g fill="none" stroke="var(--ink)" stroke-width="1.5">
+    <line x1="168" y1="136" x2="168" y2="156" marker-end="url(#g3-arrow-ink)"/>
+    <line x1="168" y1="198" x2="168" y2="218" marker-end="url(#g3-arrow-ink)"/>
+    <line x1="168" y1="266" x2="168" y2="298" marker-end="url(#g3-arrow-ink)"/>
+    <line x1="500" y1="152" x2="500" y2="172" marker-end="url(#g3-arrow-ink)"/>
+    <line x1="500" y1="220" x2="500" y2="298" marker-end="url(#g3-arrow-ink)"/>
+    <line x1="832" y1="200" x2="832" y2="298" marker-end="url(#g3-arrow-ink)"/>
+  </g>
+  <g font-family="var(--font-mono)" font-size="11" fill="var(--muted)">
+    <text x="176" y="286">make tests</text>
+    <text x="508" y="167">IR JSON</text>
+    <text x="508" y="264">make tests</text>
+    <text x="840" y="254">make tests</text>
+  </g>
+
+  <!-- notes -->
+  <g font-family="var(--font-sans)" font-size="11" fill="var(--muted)">
+    <text x="36" y="378">Rust toolchain needed in make tests</text>
+    <text x="36" y="394">keeps DSL and sweeps</text>
+    <text x="368" y="378">proof of concept: ir2act.py</text>
+    <text x="368" y="394">no Rust at ACT build time</text>
+    <text x="368" y="408">if IR JSON is checked in</text>
+    <text x="700" y="378">coverage-driven; most work</text>
+  </g>
+
+  <!-- converge into act -->
+  <g fill="none" stroke="var(--accent)" stroke-width="1.5">
+    <line x1="288" y1="356" x2="288" y2="442" marker-end="url(#g3-arrow-accent)"/>
+    <line x1="620" y1="356" x2="620" y2="442" marker-end="url(#g3-arrow-accent)"/>
+    <line x1="952" y1="356" x2="952" y2="442" marker-end="url(#g3-arrow-accent)"/>
+  </g>
+
+  <!-- shared box -->
+  <rect x="16" y="444" width="968" height="96" rx="8" fill="var(--surface-2)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="28" y="463" font-family="var(--font-mono)" font-size="12" font-weight="700" fill="var(--accent)">act</text>
+  <rect x="40" y="474" width="260" height="52" rx="6" fill="var(--ref-soft)" stroke="var(--ref)" stroke-width="1.5"/>
+  <rect x="340" y="474" width="140" height="52" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="520" y="474" width="200" height="52" rx="6" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <rect x="760" y="474" width="200" height="52" rx="6" fill="var(--accent-2-soft)" stroke="var(--accent-2)" stroke-width="1.5"/>
+  <g font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ink)" text-anchor="middle">
+    <text x="170" y="505">Sail (IME) reference model</text>
+    <text x="620" y="505">self-checking ELF</text>
+    <text x="860" y="505">DUT</text>
+  </g>
+  <text x="410" y="505" font-family="var(--font-mono)" font-size="12" font-weight="700" fill="var(--accent)" text-anchor="middle">.results</text>
+  <g fill="none" stroke="var(--ink)" stroke-width="1.5">
+    <line x1="300" y1="500" x2="338" y2="500" marker-end="url(#g3-arrow-ink)"/>
+    <line x1="480" y1="500" x2="518" y2="500" marker-end="url(#g3-arrow-ink)"/>
+    <line x1="720" y1="500" x2="758" y2="500" marker-end="url(#g3-arrow-ink)"/>
+  </g>
+
+  <!-- side box: Rust golden model -->
+  <rect x="40" y="570" width="300" height="48" rx="6" fill="var(--ref-soft)" stroke="var(--ref)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="190" y="590" font-family="var(--font-sans)" font-size="13" font-weight="600" fill="var(--ref)" text-anchor="middle">Rust golden model</text>
+  <text x="190" y="607" font-family="var(--font-sans)" font-size="11" fill="var(--ref)" text-anchor="middle">kept as a differential check against Sail</text>
+  <line x1="170" y1="570" x2="170" y2="528" fill="none" stroke="var(--ref)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#g3-arrow-ref)"/>
+  <polyline points="340,594 410,594 410,528" fill="none" stroke="var(--ref)" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#g3-arrow-ref)"/>
+  <text x="418" y="566" font-family="var(--font-sans)" font-size="11" fill="var(--ref)">C_ref vs .sig</text>
+</svg>

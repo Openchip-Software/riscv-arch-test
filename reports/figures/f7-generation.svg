@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 510" width="100%" role="img" aria-labelledby="f7-title">
+  <title id="f7-title">From a testplan row to a test file and a covergroup: testgen maps each coverpoint column to a registered generator and formatter and writes I-add-00.S, covergroupgen fills templates to write I_coverage.svh, and each testcase label is the covergroup name, coverpoint name and bin joined by underscores.</title>
+  <defs>
+    <marker id="f7-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+    <marker id="f7-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>
+  </defs>
+
+  <!-- Testplan row -->
+  <rect x="40" y="20" width="440" height="62" rx="4" fill="var(--surface)" stroke="var(--rule)" stroke-width="1"/>
+  <text x="52" y="36" font-family="var(--font-mono)" font-size="11" fill="var(--muted)">testplans/I.csv</text>
+  <text x="52" y="54" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">Instruction,Type,RV32,RV64,cp_rs1,cp_rd,cr_rs1_rs2_edges,…</text>
+  <text x="52" y="70" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">add,R,x,x,x,x,x,…</text>
+
+  <!-- Upper branch: testgen -->
+  <text x="172" y="106" font-family="var(--font-mono)" font-size="13" font-weight="600" fill="var(--accent)">testgen</text>
+  <line x1="164" y1="82" x2="164" y2="114" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f7-arrow-accent)"/>
+
+  <rect x="40" y="116" width="256" height="76" rx="4" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="50" y="136" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)">Coverpoint registry</text>
+  <text x="50" y="153" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">longest-prefix match</text>
+  <text x="50" y="176" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">@add_coverpoint_generator("cp_rd")</text>
+
+  <rect x="336" y="116" width="170" height="76" rx="4" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="346" y="136" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)">Coverpoint generator</text>
+  <text x="346" y="153" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">one <tspan font-family="var(--font-mono)" fill="var(--ink)">TestChunk</tspan> per bin</text>
+
+  <rect x="546" y="116" width="232" height="76" rx="4" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="556" y="136" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)">Instruction formatter</text>
+  <text x="556" y="155" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">@add_instruction_formatter("R")</text>
+  <text x="556" y="176" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">returns <tspan font-family="var(--font-mono)" fill="var(--ink)">(setup, test, check)</tspan></text>
+
+  <rect x="818" y="116" width="160" height="76" rx="4" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="828" y="136" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)">Writer</text>
+  <text x="828" y="153" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">1000 testcases per file</text>
+  <text x="828" y="169" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">fills header template</text>
+
+  <line x1="296" y1="154" x2="334" y2="154" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f7-arrow-accent)"/>
+  <line x1="506" y1="154" x2="544" y2="154" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f7-arrow-accent)"/>
+  <line x1="778" y1="154" x2="816" y2="154" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f7-arrow-accent)"/>
+  <line x1="898" y1="192" x2="898" y2="224" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f7-arrow-accent)"/>
+
+  <!-- Test file excerpt -->
+  <rect x="720" y="226" width="248" height="96" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="732" y="244" font-family="var(--font-mono)" font-size="11" font-weight="600" fill="var(--ink)">tests/rv64i/I/I-add-00.S</text>
+  <line x1="728" y1="252" x2="960" y2="252" stroke="var(--rule)" stroke-width="1" fill="none"/>
+  <text x="732" y="268" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">RVTEST_TESTDATA_LOAD_INT(x3, x11)</text>
+  <text x="732" y="283" font-family="var(--font-mono)" font-size="11" fill="var(--ink)"><tspan fill="var(--accent)">I_add_cg</tspan>_<tspan fill="var(--ref)">cp_rs1</tspan>_<tspan fill="var(--accent-2)">b0</tspan>:</text>
+  <text x="752" y="298" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">add x28, x0, x11</text>
+  <text x="732" y="313" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">RVTEST_SIGUPD(x2, x5, x4, x28, …)</text>
+
+  <!-- Lower branch: covergroupgen -->
+  <text x="56" y="370" font-family="var(--font-mono)" font-size="13" font-weight="600" fill="var(--accent)">covergroupgen</text>
+  <polyline points="40,60 28,60 28,410 54,410" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f7-arrow-accent)"/>
+
+  <rect x="56" y="380" width="254" height="60" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="66" y="400" font-family="var(--font-sans)" font-size="12" font-weight="600" fill="var(--ink)">Templates</text>
+  <text x="66" y="421" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">instruction.sv, cp_rd.sv, sample_R.sv</text>
+
+  <rect x="350" y="380" width="210" height="60" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="360" y="402" font-family="var(--font-mono)" font-size="12" font-weight="600" fill="var(--ink)">@INSTR@/@ARCH@</text>
+  <text x="360" y="421" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">substitution</text>
+
+  <line x1="310" y1="410" x2="348" y2="410" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f7-arrow-accent)"/>
+  <line x1="560" y1="410" x2="718" y2="410" stroke="var(--accent)" stroke-width="1.5" fill="none" marker-end="url(#f7-arrow-accent)"/>
+  <text x="639" y="404" text-anchor="middle" font-family="var(--font-sans)" font-size="11" fill="var(--muted)">writes</text>
+
+  <!-- Covergroup excerpt -->
+  <rect x="720" y="372" width="248" height="80" rx="4" fill="var(--surface)" stroke="var(--accent)" stroke-width="1.5"/>
+  <text x="732" y="390" font-family="var(--font-mono)" font-size="11" font-weight="600" fill="var(--ink)">coverpoints/unpriv/I_coverage.svh</text>
+  <line x1="728" y1="398" x2="960" y2="398" stroke="var(--rule)" stroke-width="1" fill="none"/>
+  <text x="732" y="414" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">covergroup <tspan fill="var(--accent)">I_add_cg</tspan> …</text>
+  <text x="752" y="429" font-family="var(--font-mono)" font-size="11" fill="var(--ink)"><tspan fill="var(--ref)">cp_rs1</tspan> : coverpoint …</text>
+  <text x="752" y="444" font-family="var(--font-mono)" font-size="11" fill="var(--ink)">cp_rd : coverpoint …</text>
+
+  <!-- Label link -->
+  <polyline points="864,279 982,279 982,410 880,410" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="2 3" fill="none" marker-end="url(#f7-arrow)"/>
+  <polyline points="982,425 912,425" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="2 3" fill="none" marker-end="url(#f7-arrow)"/>
+  <text x="972" y="352" text-anchor="end" font-family="var(--font-mono)" font-size="11" fill="var(--muted)">label = &lt;covergroup&gt;_&lt;coverpoint&gt;_&lt;bin&gt;</text>
+
+  <!-- Note -->
+  <text x="24" y="488" font-family="var(--font-sans)" font-size="12" fill="var(--ink)">Python emits inputs and check sites only. Expected values come from <tspan fill="var(--ref)" font-weight="600">Sail</tspan> at build time.</text>
+</svg>
