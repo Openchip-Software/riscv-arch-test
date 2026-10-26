@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Run the Sail model with the Integrated Matrix Extension (IME). SAIL_IME_SIM must name its
+# sail_riscv_sim binary. The model enables Zvvm* only with --enable-experimental-extensions.
+set -euo pipefail
+: "${SAIL_IME_SIM:?set SAIL_IME_SIM to the sail_riscv_sim binary built with IME support}"
+exec "$SAIL_IME_SIM" --enable-experimental-extensions "$@"

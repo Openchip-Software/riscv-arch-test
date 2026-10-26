@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+# The executables are wrappers in config/ime/bin. Put that directory on $PATH (see ../README.md).
+name: qemu-ime-rv64
+compiler_exe: riscv64-openchip-linux-gnu-gcc
+objdump_exe: riscv64-openchip-linux-gnu-objdump
+ref_model_exe: sail_riscv_sim_ime
+udb_config: qemu-ime-rv64.yaml
+linker_script: link.ld
+dut_include_dir: . # Directory containing DUT specific rvmodel_macros.h header

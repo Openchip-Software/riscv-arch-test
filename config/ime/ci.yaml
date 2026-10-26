@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# CI configuration for the Integrated Matrix Extension (IME) configurations
+#
+# IME is not run in CI. The DUT and toolchain come from the OpenChip SDK image, and the reference
+# model is a Sail fork with IME support. Neither is available to public CI. See README.md.
+
+ci_enabled: false

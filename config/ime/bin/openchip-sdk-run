@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Run a command inside the OpenChip SDK image. SDK_SIF must name the SDK .sif file.
+set -euo pipefail
+: "${SDK_SIF:?set SDK_SIF to the OpenChip SDK .sif image}"
+exec apptainer exec "$SDK_SIF" "$@"

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Run riscv64-openchip-linux-gnu-nm from the OpenChip SDK image.
+exec "$(dirname "$(realpath "$0")")/openchip-sdk-run" riscv64-openchip-linux-gnu-nm "$@"

@@ -1,0 +1,1 @@
+openchip-sdk-run qemu-system-riscv64 {debug:-d in_asm,int,mmu,unimp,cpu,fpu,vpu,exec,nochain -D __TRACEFILE__} -nographic -semihosting -icount shift=1 -machine virt,aia=aplic-imsic,aia-guests=7 -cpu max,vlen=256,x-zvvm=true,svade=true,pmu-mask=0xfffffff8,smdbltrp=true,ssdbltrp=true -bios

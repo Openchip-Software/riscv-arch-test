@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Run riscv64-openchip-linux-gnu-gcc from the OpenChip SDK image.
+# ACT runs "gcc -print-prog-name=as" and then "as -march=help" on the host. Inside the image, gcc
+# reports a path that does not exist on the host, so this wrapper names the host-side as wrapper.
+bin_dir="$(dirname "$(realpath "$0")")"
+if [ "$#" -eq 1 ] && [ "$1" = "-print-prog-name=as" ]; then
+  echo "$bin_dir/riscv64-openchip-linux-gnu-as"
+  exit 0
+fi
+exec "$bin_dir/openchip-sdk-run" riscv64-openchip-linux-gnu-gcc "$@"
