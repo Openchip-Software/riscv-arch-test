@@ -37,3 +37,23 @@ checked in. Report 2 describes them.
 | `make_sail_json.py` | Converts an ACT 0.16 `sail.json` to the schema of the IME Sail fork.       |
 | `crosscheck.py`     | Compares Sail signatures with the Rust golden values.                      |
 | `config/`           | DUT configurations: the IME Sail fork as DUT, and the SDK QEMU as DUT.     |
+
+## Sail issue draft (`issues/sail-ime-tile-ls-index/`)
+
+These files back Report 2, Sections 16 and 16a. They document that the IME Sail fork's `vmtl.v` and
+`vmts.v` use the flat element index instead of `tile_reg_idx`. The issue is a draft and is not filed.
+
+| Path                          | Purpose                                                                      |
+| ----------------------------- | ---------------------------------------------------------------------------- |
+| `ISSUE.md`                    | Issue text for Openchip-Software/sail-riscv.                                 |
+| `sail-ime-tile-ls-index.html` | The issue rendered as one HTML file.                                         |
+| `repro.c`, `start.S`          | Bare-metal reproducer at VLEN=256, SEW=32, LMUL=2, lambda=1.                 |
+| `link.ld`, `sail-ime.json`    | Linker script and Sail configuration override for the reproducer.            |
+| `run.sh`                      | Builds the reproducer with the SDK GCC and runs it on Sail and the SDK QEMU. |
+| `sail-fix.diff`               | Patch for `ime_mem_insts.sail` at `c69e3e22`.                                |
+| `qemu.out`, `sail.out`        | Output of `run.sh` on the SDK QEMU and on Sail `c69e3e22`.                   |
+| `sail-fixed.out`              | Output of `run.sh` on Sail with `sail-fix.diff`, when `SAIL_FIXED` is set.   |
+| `repro.elf`, `repro.objdump`  | Build outputs of `run.sh`.                                                   |
+
+`run.sh` takes `SDK_SIF`, `SAIL` and, optionally, `SAIL_FIXED` from the environment. The defaults
+are paths on the author's machine.

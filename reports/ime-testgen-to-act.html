@@ -797,6 +797,9 @@
             <a href="#ctile"><span class="n">16</span>C-tile disagreement</a>
           </li>
           <li>
+            <a href="#bringup"><span class="n">16a</span>Bring-up in ACT</a>
+          </li>
+          <li>
             <a href="#plan"><span class="n">17</span>Work plan</a>
           </li>
         </ol>
@@ -818,9 +821,11 @@
     <div class="meta">
       riscv-ime-arch-tests @ <code>46f3781</code><br />
       riscv-arch-test <code>act4</code> @ <code>aadb742</code><br />
-      Sail IME fork @ <code>efd0d7dc</code><br />
+      Sail IME fork @ <code>efd0d7dc</code>, <code>c69e3e22</code><br />
+      IME spec @ <code>6effbcae</code><br />
+      ACT import branch @ <code>732f78d72</code><br />
       SDK 2026.10.14 · QEMU 10.2.50<br />
-      Written 2026-10-23
+      Written 2026-10-23, updated 2026-10-26
     </div>
   </aside>
 
@@ -926,9 +931,30 @@
                 differential check against Sail.
               </li>
             </ul>
-            Four blockers come first: the Sail version gate and schema, the UDB
-            extension definitions, the experimental-extension flag, and the
-            C-tile disagreement.
+            One blocker remains: the C-tile disagreement. A reproducer, a draft
+            issue and a tested Sail patch are ready. The fix is not yet merged
+            in the fork. The other blockers are resolved (Section 16a):
+            <ul>
+              <li>
+                Sail version gate and schema: branch
+                <code>cgomez/0.16-plus-ime</code> puts the IME commits on the
+                <code>0.16</code> tag (Section 12a).
+              </li>
+              <li>
+                UDB extension definitions: an ACT UDB overlay defines the 65 IME
+                extensions and the supported λ sets (<code>d8e2f05ca</code>).
+              </li>
+              <li>
+                Experimental-extension flag: ACT marks the IME extensions
+                experimental and assembles them through <code>.insn</code>
+                macros (<code>24c90741c</code>).
+              </li>
+              <li>
+                DUT configuration: <code>config/ime/qemu-ime-rv64</code>, with
+                the SDK QEMU as DUT and the Sail fork as reference model
+                (<code>732f78d72</code>).
+              </li>
+            </ul>
           </li>
         </ol>
       </section>
@@ -949,8 +975,11 @@
           <code>Zvvmm</code> (integer matrix multiply-accumulate),
           <code>Zvvfmm</code> (floating-point), <code>Zvvmtls</code> (tile load
           and store) and <code>Zvvmttls</code> (transposing tile load and
-          store). The SDK compiler spells the extension <code>zvmma</code> in
-          <code>-march</code>.
+          store). In the specification, Zvvm is the family name, not an
+          extension name. Each of these four family extensions has type
+          extensions, such as <code>Zvvi32mm</code>. The SDK compiler also
+          accepts <code>zvmma</code> in <code>-march</code>; the specification
+          does not define it.
         </dd>
         <dt>λ (lambda)</dt>
         <dd>
@@ -968,7 +997,9 @@
         <dd>
           The widening factor, accumulator width ÷ input width: 1, 2, 4 or 8. It
           selects the mnemonic: <code>vmmacc.vv</code>, <code>vwmmacc.vv</code>,
-          <code>vqwmmacc.vv</code> or <code>v8wmmacc.vv</code>.
+          <code>vqmmacc.vv</code> or <code>v8wmmacc.vv</code>. The SDK GCC and
+          <code>ime-test-gen</code> name the W=4 instruction
+          <code>vqwmmacc.vv</code> (Section 18).
         </dd>
         <dt>Test plan</dt>
         <dd>
@@ -2647,16 +2678,23 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <td class="num">1</td>
               <td>Sail with IME support, as reference model</td>
               <td>
-                <strong>Partial.</strong>
+                <strong>Yes, for the version gate.</strong>
                 <ul>
                   <li>
-                    The IME fork (<code>efd0d7dc</code>) is based on upstream
-                    Sail 0.14 plus 28 commits, dated 2026-09-30. Its reported
-                    version, <code>0.14.1</code>, is accurate.
+                    Branch
+                    <code>cgomez/0.16-plus-ime</code> (<code>c69e3e22</code>) is
+                    the Sail <code>0.16</code> tag plus the IME commits. Its
+                    binary reports <code>0.16</code> and passes ACT's exact
+                    version check (Section 12a).
+                  </li>
+                  <li>
+                    The earlier IME fork (<code>efd0d7dc</code>) is based on
+                    upstream Sail 0.14 plus 28 commits, dated 2026-09-30. Its
+                    reported version, <code>0.14.1</code>, is accurate.
                   </li>
                   <li>
                     Sail 0.15 was released on 2026-10-06 and 0.16 on 2026-10-16.
-                    Both are newer than the fork's base.
+                    Both are newer than that fork's base.
                   </li>
                   <li>
                     ACT at <code>aadb742</code> requires exactly
@@ -2667,7 +2705,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                       target="_blank"
                       rel="noopener"
                       >framework/src/act/config.py:127-172</a
-                    >. Section 12a shows which ACT commit fits the fork best.
+                    >.
                   </li>
                 </ul>
               </td>
@@ -2677,10 +2715,13 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <td class="num">2</td>
               <td>The fork accepts ACT's <code>sail.json</code></td>
               <td>
-                <strong>No.</strong> There are 7 schema errors:
-                <code>base.writable_misa</code>, two <code>Stateen</code> fields
-                and the four IME blocks. A conversion script fixes them (Section
-                15).
+                <strong>Yes, with the four IME blocks added.</strong> On
+                <code>c69e3e22</code>, the <code>sail-rv64-max</code>
+                <code>sail.json</code> fails only on the missing
+                <code>Zvvmm</code>, <code>Zvvfmm</code>,
+                <code>Zvvmtls</code> and <code>Zvvmttls</code> blocks. The fork
+                from <code>efd0d7dc</code> had 7 schema errors.
+                <code>make_sail_json.py</code> adds the IME blocks (Section 15).
               </td>
               <td><span class="ev run">run</span></td>
             </tr>
@@ -2688,24 +2729,45 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <td class="num">3</td>
               <td>IME enabled in Sail</td>
               <td>
-                <strong>Needs a flag.</strong>
-                <code>hartSupports(Ext_Zvvmm)</code> requires
-                <code>--enable-experimental-extensions</code>. Without it,
-                <code>vsetvl</code> sets <code>vill</code> and the first tile
-                load traps as an illegal instruction.
-                <code>act --enable-experimental-extensions</code> passes the
-                flag through.
+                <strong>Yes, as an experimental extension.</strong>
+                <ul>
+                  <li>
+                    <code>hartSupports(Ext_Zvvmm)</code> requires
+                    <code>--enable-experimental-extensions</code>. Without it,
+                    <code>vsetvl</code> sets <code>vill</code> and the first
+                    tile load traps as an illegal instruction.
+                  </li>
+                  <li>
+                    ACT now lists the 65 IME extensions in
+                    <code>EXPERIMENTAL_EXTENSIONS</code>
+                    (<code>24c90741c</code>). ACT selects an IME test only with
+                    <code>--enable-experimental-extensions</code>, or
+                    <code>ENABLE_EXPERIMENTAL_EXTENSIONS=True</code> in Make.
+                    Without it, ACT skips the test.
+                  </li>
+                  <li>
+                    The wrapper <code>sail_riscv_sim_ime</code> passes the flag
+                    to Sail (<code>732f78d72</code>).
+                  </li>
+                </ul>
               </td>
-              <td><span class="ev run">run</span></td>
+              <td>
+                <span class="ev run">run</span>
+                <span class="ev code">code</span>
+              </td>
             </tr>
             <tr>
               <td class="num">4</td>
               <td>UDB knows Zvvm</td>
               <td>
-                <strong>No.</strong> UDB 0.1.18 has no Zvvm extension
-                definition. Test headers cannot require <code>Zvvmm</code>, and
-                <code>extensions.txt</code> cannot list it. The proof of concept
-                requires <code>V</code> and gates on <code>VLEN</code>.
+                <strong>Yes, through an ACT overlay.</strong> UDB 0.1.18 has no
+                IME extension definition. The overlay
+                <code>framework/src/act/data/udb_overlays/ime/</code>
+                (<code>d8e2f05ca</code>) defines the 65 extensions of the
+                specification at <code>6effbcae</code>. A UDB configuration
+                selects it with <code>arch_overlay: ime</code>. Test headers can
+                now require <code>Zvvmm</code> and its type extensions (Section
+                16a).
               </td>
               <td><span class="ev run">run</span></td>
             </tr>
@@ -2718,7 +2780,11 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                 <code>zvmma</code> and every subextension name. ACT runs
                 <code>-print-prog-name=as</code> and then
                 <code>as -march=help</code> on the host, so the assembler needs
-                its own wrapper.
+                its own wrapper. ACT removes experimental extensions from
+                <code>-march</code>, so IME instructions assemble through the
+                <code>.insn</code> macros in
+                <code>tests/env/rvtest_experimental.h</code>
+                (<code>24c90741c</code>).
               </td>
               <td><span class="ev run">run</span></td>
             </tr>
@@ -2730,7 +2796,14 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                 transposed relative to QEMU and the Rust golden model. Its
                 <code>vmtl.v</code> and <code>vmts.v</code> skip
                 <code>tile_reg_idx</code>, so they violate the specification
-                whenever LMUL&gt;1 (Section 16).
+                whenever LMUL&gt;1 (Section 16). The bug is still present at
+                <code>c69e3e22</code>. A reproducer, a draft issue and a patch
+                are in
+                <a
+                  href="issues/sail-ime-tile-ls-index/sail-ime-tile-ls-index.html"
+                  ><code>issues/sail-ime-tile-ls-index/</code></a
+                >. The patched Sail matches QEMU on every step of the
+                reproducer. The fix is not merged in the fork (Section 16a).
               </td>
               <td><span class="ev run">run</span></td>
             </tr>
@@ -2742,7 +2815,9 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                 <code>qemu-system-riscv64</code> runs ACT ELFs with
                 <code>-cpu max,vlen=256,x-zvvm=true</code>. It lacks the
                 <code>smpmpmt</code> property that ACT's
-                <code>qemu-rv64-max</code> run command uses.
+                <code>qemu-rv64-max</code> run command uses. The ACT
+                configuration <code>config/ime/qemu-ime-rv64</code>
+                (<code>732f78d72</code>) uses it as DUT (Section 16a).
               </td>
               <td><span class="ev run">run</span></td>
             </tr>
@@ -2750,12 +2825,33 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <td class="num">8</td>
               <td>λ support as a DUT property</td>
               <td>
-                <strong>Open.</strong> The generator probes λ at run time
-                (<code>LambdaProbe</code>). In ACT, supported λ values must
-                become a UDB parameter or a selection rule. Without that, a DUT
-                with a smaller set of λ values fails tests it should skip.
+                <strong>Yes, as UDB parameters.</strong>
+                <ul>
+                  <li>
+                    The overlay defines
+                    <code>SUPPORTED_LAMBDA_SEW8</code> to
+                    <code>SUPPORTED_LAMBDA_SEW64</code>: the λ values the
+                    implementation supports for each accumulator element width.
+                    A constraint rejects a λ for which VLEN/(SEW·λ²) is not in
+                    {1, 2, 4, 8, 16}. A test header requires a λ value through
+                    <code>params</code>.
+                  </li>
+                  <li>
+                    A <code>params</code> key can require only one value. A test
+                    that uses λ=1 and λ=2 at SEW 32 can require only one of
+                    them.
+                  </li>
+                  <li>
+                    The Sail fork accepts any λ ≤ VLEN/SEW, and its λ set is not
+                    configurable. It therefore cannot model a DUT that supports
+                    fewer λ values. QEMU accepts every λ.
+                  </li>
+                </ul>
               </td>
-              <td><span class="ev inf">inferred</span></td>
+              <td>
+                <span class="ev run">run</span>
+                <span class="ev code">code</span>
+              </td>
             </tr>
             <tr>
               <td class="num">9</td>
@@ -3631,10 +3727,119 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
         </ul>
         <p>
           Fix: rebase the 7 IME commits onto the <code>0.16</code> tag
-          (<code>e5acebb0</code>) instead of <code>master</code>. Alternatively,
-          keep <code>master</code> and generate each DUT's
-          <code>sail.json</code> with <code>make_sail_json.py</code>.
-          Separately, fix the tile load/store indexing.
+          (<code>e5acebb0</code>) instead of <code>master</code>.
+          <strong>Done</strong> on branch <code>cgomez/0.16-plus-ime</code>; see
+          the next update. Separately, fix the tile load/store indexing.
+        </p>
+      </div>
+      <div class="note">
+        <span class="tag"
+          >Update 2026-10-26:
+          <code>cgomez/0.16-plus-ime</code> (<code>c69e3e22</code>) on the
+          <code>0.16</code> tag</span
+        >
+        <p>
+          The branch is the <code>0.16</code> tag <code>e5acebb0</code> plus 8
+          commits: 7 IME commits and the merge commit of
+          <code>zvvm-tile-ls-decode</code>. It contains no upstream commit after
+          <code>0.16</code>. It is pushed as
+          <code>origin/cgomez/0.16-plus-ime</code>.
+          <span class="ev run">run</span>
+        </p>
+        <ul>
+          <li>
+            <strong>IME commits.</strong> <code>git range-diff</code> against
+            <code>3a5b4d1b</code> matches all 7 commits.
+            <ul>
+              <li>
+                <code>3d7909d1</code> replaces <code>3eac5af4</code> (IME tile
+                and matrix operations). Only one conflict resolution differs:
+                <code>vsetvl</code> writes <code>X(rd) = vl</code>, as Sail 0.16
+                does.
+              </li>
+              <li>
+                <code>95164a9a</code> replaces <code>73911c38</code> (FP GEMM
+                indexing). The patch is unchanged.
+              </li>
+              <li>
+                <code>b07dc25e</code> supersedes <code>efd0d7dc</code>. Both fix
+                bit 28 of the tile load/store encodings to 1. The two
+                <code>ime_mem_insts.sail</code> versions differ only in comments
+                and a variable name.
+              </li>
+              <li>
+                <code>0c10929c</code>, <code>5fccc4c2</code>,
+                <code>6dc98245</code> and <code>44b46c6b</code> add tile
+                load/store assembly mappings, <code>vm=0</code> disassembly, the
+                <code>vstart</code> ≥ VLMAX check and the ISA-string order.
+              </li>
+            </ul>
+            <code>model/extensions/IME/</code> is identical to
+            <code>3a5b4d1b</code>. <span class="ev run">run</span>
+          </li>
+          <li>
+            <strong>Binary.</strong>
+            <code>build-016/c_emulator/sail_riscv_sim</code> reports
+            <code>0.16</code>. <code>--build-info</code> reports git
+            <code>0.16-8-gc69e3e22</code>, without a dirty suffix. ACT requires
+            exactly <code>0.16</code>
+            <a
+              class="src"
+              href="https://github.com/riscv/riscv-arch-test/blob/aadb7424ac4ea3aac15ec58a2b3b4c477ffe1ede/framework/src/act/config.py#L127-L150"
+              target="_blank"
+              rel="noopener"
+              >framework/src/act/config.py:127-150</a
+            >.
+            <span class="ev run">run</span>
+          </li>
+          <li>
+            <strong>Schema: compatible.</strong> The unmodified
+            <code>sail-rv64-max</code> <code>sail.json</code> at
+            <code>d41bdd86a</code> fails only on the 4 missing IME blocks.
+            <code>make_sail_json.py --no-ime</code> adds exactly those 4 blocks,
+            and the file then validates. 63 of the 64 non-symlink ACT
+            <code>sail.json</code> files pass the same check, at
+            <code>d41bdd86a</code> and at <code>origin/act4</code>
+            <code>c509bcd60</code>. The exception,
+            <code>cores/cva6/cv32a65x</code>, fails with the same 28 errors on
+            official Sail 0.16. Its <code>sail.json</code> is out of date in
+            ACT. <span class="ev run">run</span>
+          </li>
+          <li>
+            <strong>Behaviour outside IME: matches 0.16.</strong> ACT at
+            <code>d41bdd86a</code> built the I suite with the fork as reference
+            model: 255 build tasks succeeded. With the fork as DUT, 51 of 51
+            tests passed. All 51 <code>.results</code> files are byte-identical
+            to the ones official Sail 0.16 produces. SLURM job 46954.
+            <span class="ev run">run</span>
+          </li>
+          <li>
+            <strong>IME: the tile load/store bug remains.</strong>
+            <code>vmtl.v</code> and <code>vmts.v</code> still index register
+            elements with the flat index <code>i</code> (<code
+              >ime_mem_insts.sail</code
+            >
+            lines 73–90 and 160), not with <code>ime_tile_reg_idx</code>.
+            <span class="ev code">code</span>
+          </li>
+          <li>
+            <strong>Still experimental.</strong>
+            <code>hartSupports</code> for <code>Ext_Zvvmm</code>,
+            <code>Ext_Zvvfmm</code>, <code>Ext_Zvvmtls</code> and
+            <code>Ext_Zvvmttls</code> requires
+            <code>sys_enable_experimental_extensions()</code>
+            (<code>model/core/extensions.sail</code> lines 418–427). ACT must
+            still pass <code>--enable-experimental-extensions</code>.
+            <span class="ev code">code</span>
+          </li>
+        </ul>
+        <p>
+          Work item 2 is done. ACT can use this binary without a version shim.
+          Each DUT's <code>sail.json</code> needs only the 4 IME blocks. The
+          <code>act4</code> head <code>c509bcd60</code> is one commit after
+          <code>d41bdd86a</code> and changes neither
+          <code>framework/src/act/config.py</code> nor
+          <code>config/sail/</code>. <span class="ev run">run</span>
         </p>
       </div>
       <h2 id="recommend"><span class="n">13</span>Recommendation</h2>
@@ -3642,19 +3847,32 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
         <li>
           <strong>Unblock the reference model.</strong>
           <ul>
-            <li>Rebase the IME Sail fork onto the <code>0.16</code> tag.</li>
-            <li>Fix the tile load/store indexing (Section 16).</li>
-            <li>Decide whether the IME extensions stay experimental.</li>
+            <li>
+              Rebase the IME Sail fork onto the <code>0.16</code> tag. Done:
+              <code>cgomez/0.16-plus-ime</code> (<code>c69e3e22</code>).
+            </li>
+            <li>
+              Fix the tile load/store indexing (Section 16). A reproducer, a
+              draft issue and a tested patch are ready (Section 16a). The fix is
+              not yet merged in the fork.
+            </li>
+            <li>
+              Keep the IME extensions experimental. Done in ACT:
+              <code>24c90741c</code>. Every IME build needs
+              <code>--enable-experimental-extensions</code>.
+            </li>
           </ul>
-          Without these steps, ACT's expected values for IME would be wrong or
-          unbuildable.
+          Until the fix is merged, ACT's expected values are wrong for every IME
+          test that stores a tile at LMUL&gt;1.
         </li>
         <li>
           <strong>Bring up with option B.</strong> Check in the MACC IR for a
           chosen VLEN set, and import it with a <code>testgen</code> module.
           That module would be a production version of <code>ir2act.py</code>.
           This gives ACT runnable IME tests quickly. It also exercises the DUT
-          configurations, wrappers and Sail.
+          configurations, wrappers and Sail. The first DUT configuration,
+          <code>config/ime/qemu-ime-rv64</code>, exists
+          (<code>732f78d72</code>).
         </li>
         <li>
           <strong>Keep the Rust golden model as a differential check.</strong>
@@ -3672,10 +3890,14 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
           which configurations a DUT run exercised. That is the ACT convention.
         </li>
         <li>
-          <strong>Add UDB definitions.</strong> Define Zvvm and its
-          subextensions in UDB, with a parameter for the supported λ set. Test
-          headers can then use
-          <code>REQUIRED_EXTENSIONS: ['Zvvmm']</code> instead of <code>V</code>.
+          <strong>Add UDB definitions.</strong> <strong>Done</strong> in ACT as
+          a UDB overlay (<code>d8e2f05ca</code>), with one λ-set parameter per
+          accumulator SEW. Test headers now use
+          <code
+            >REQUIRED_EXTENSIONS: ['V', 'Zvvmm', 'Zvvmtls', 'Zvvi32mm']</code
+          >
+          and <code>SUPPORTED_LAMBDA_SEW32: 1</code>. The overlay files are
+          dual-licensed, so they can move into riscv-unified-db later.
         </li>
       </ol>
       <div class="note conv">
@@ -3706,6 +3928,18 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <td><code>Zvvmm-TC-MACC-01-V256-00.S</code></td>
             </tr>
             <tr>
+              <td><code>--extensions</code> filter</td>
+              <td>
+                Test header
+                <code>REQUIRED_EXTENSIONS</code>: the family and type
+                extensions, matched against UDB
+              </td>
+              <td>
+                Done:
+                <code>['V', 'Zvvmm', 'Zvvmtls', 'Zvvi32mm']</code>
+              </td>
+            </tr>
+            <tr>
               <td>IR test (configuration)</td>
               <td>Testcase, one bin</td>
               <td>
@@ -3723,8 +3957,15 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
             </tr>
             <tr>
               <td><code>LambdaProbe</code></td>
-              <td>A UDB parameter for supported λ values (proposed)</td>
-              <td>Ignored: λ ∈ {1, 2} at VLEN 256</td>
+              <td>
+                UDB parameters <code>SUPPORTED_LAMBDA_SEW8</code> to
+                <code>SUPPORTED_LAMBDA_SEW64</code> (<code>d8e2f05ca</code>),
+                required in the header <code>params</code>
+              </td>
+              <td>
+                Done: <code>SUPPORTED_LAMBDA_SEW32: 1</code>. One value per key,
+                so a file that also uses λ=2 requires only λ=1.
+              </td>
             </tr>
             <tr>
               <td><code>ConfigureVtype</code>, <code>AltfmtSetup</code></td>
@@ -3767,6 +4008,15 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <td><code>CheckFflags</code></td>
               <td><code>write_sigupd(…, "fflags")</code></td>
               <td>Not done</td>
+            </tr>
+            <tr>
+              <td>IME mnemonics in the C++</td>
+              <td>
+                <code>.insn</code> macros in <code>rvtest_experimental.h</code>;
+                IME is removed from
+                <code>-march</code>
+              </td>
+              <td>Done (<code>24c90741c</code>)</td>
             </tr>
             <tr>
               <td><code>record_skip</code> (VL too small)</td>
@@ -4789,6 +5039,347 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         the work plan.
       </p>
 
+      <h2 id="bringup">
+        <span class="n">16a</span>Bring-up in the ACT repository, 2026-10-26
+      </h2>
+      <p>
+        Branch <code>cgomez/import-ime-tests-to-act4</code> adds three commits
+        on <code>act4</code> <code>d41bdd86a</code>. They complete work items 3
+        and 4 and mark the IME extensions experimental. No IME test is checked
+        in yet. <span class="ev run">run</span>
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Commit</th>
+              <th>Change</th>
+              <th>Work item</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>d8e2f05ca</code></td>
+              <td>Add a UDB overlay for the Integrated Matrix Extension</td>
+              <td>3</td>
+            </tr>
+            <tr>
+              <td><code>24c90741c</code></td>
+              <td>
+                Mark the Integrated Matrix Extension extensions experimental
+              </td>
+              <td>3a</td>
+            </tr>
+            <tr>
+              <td><code>732f78d72</code></td>
+              <td>Add an IME DUT configuration with the SDK QEMU</td>
+              <td>4</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>UDB overlay (<code>d8e2f05ca</code>)</h3>
+      <ul>
+        <li>
+          <code>framework/src/act/data/udb_overlays/ime/</code> defines the 65
+          extensions of the IME specification at <code>6effbcae</code>: 4 family
+          extensions (<code>Zvvmm</code>, <code>Zvvfmm</code>,
+          <code>Zvvmtls</code>, <code>Zvvmttls</code>), 31 computational
+          extensions and 30 microscaling extensions. Each computational
+          extension requires its family extension, as in GCC 16.1.
+          <span class="ev code">code</span>
+        </li>
+        <li>
+          The parameters <code>SUPPORTED_LAMBDA_SEW8</code>,
+          <code>SUPPORTED_LAMBDA_SEW16</code>,
+          <code>SUPPORTED_LAMBDA_SEW32</code> and
+          <code>SUPPORTED_LAMBDA_SEW64</code> list the λ values the
+          implementation supports for each accumulator SEW. A constraint rejects
+          a λ for which VLEN/(SEW·λ²) is not in {1, 2, 4, 8, 16}.
+        </li>
+        <li>
+          A UDB configuration selects the overlay with
+          <code>arch_overlay: ime</code>. UDB resolves a relative overlay path
+          against its own data directory.
+          <code>parse_udb_config.py</code> therefore writes a copy of the
+          configuration with the absolute overlay path to
+          <code>work/&lt;config&gt;/udb/</code>.
+        </li>
+        <li>
+          <code>UDB_LOCAL_PATH</code> was not used. It needs a full
+          riscv-unified-db checkout, and bundler then rewrites
+          <code>Gemfile.lock</code>.
+        </li>
+        <li>
+          License: <code>BSD-3-Clause-Clear OR Apache-2.0</code>. UDB uses
+          BSD-3-Clause-Clear, and ACT accepts Apache-2.0. The license text is in
+          <code>udb_overlays/LICENSE.BSD-3-Clause-Clear</code>.
+        </li>
+        <li>
+          Validation: UDB rejects an invalid λ, a missing λ list, an empty λ
+          list, a type extension without its family extension, and a missing
+          overlay. For <code>sail-rv64-max</code>, which has no overlay,
+          <code>extensions.txt</code>, <code>rvtest_config.h</code> and
+          <code>rvtest_config.svh</code> are byte-identical to the outputs
+          before the change. <span class="ev run">run</span>
+        </li>
+      </ul>
+      <div class="note warn">
+        <span class="tag">Environment</span>
+        <p>
+          UDB locks files under <code>$XDG_DATA_HOME</code> with
+          <code>flock</code>. On the NFS home directory,
+          <code>flock</code> fails with <code>EBADF</code> and UDB crashes.
+          Workaround: set <code>XDG_DATA_HOME</code> to a directory on a local
+          disk.
+          <span class="ev run">run</span>
+        </p>
+      </div>
+
+      <h3>Experimental extensions (<code>24c90741c</code>)</h3>
+      <ul>
+        <li>
+          <code>EXPERIMENTAL_EXTENSIONS</code> in
+          <code>framework/src/act/toolchain.py</code> holds
+          <code>Zibi</code> and the 65 overlay extensions.
+          <code>toolchain.py</code> reads the names from the overlay file names.
+          <code>testgen</code> does not depend on <code>act</code>, so
+          <code>generators/testgen/src/testgen/constants.py</code> lists the
+          same names explicitly. <span class="ev code">code</span>
+        </li>
+        <li>
+          ACT selects an IME test only with
+          <code>--enable-experimental-extensions</code>, or
+          <code>ENABLE_EXPERIMENTAL_EXTENSIONS=True</code> in Make. Without the
+          flag, ACT skips the test.
+        </li>
+        <li>
+          <code>march_flags</code> removes experimental extensions from
+          <code>-march</code>.
+          <code>tests/env/rvtest_experimental.h</code> defines one
+          <code>.insn</code> macro for each IME instruction. For 2,496
+          instructions covering every mnemonic, register and λ operand, the
+          macros produce the same instruction words as the SDK GNU assembler.
+          <span class="ev run">run</span>
+        </li>
+        <li>
+          For the W=4 instructions, the macros define both the specification
+          names and the GCC names (Section 18).
+        </li>
+        <li>
+          λ cannot be written in <code>vsetvli</code>: it sits in
+          <code>vtype</code> bits 62:60, outside the immediate. Tests set
+          <code>vtype</code> with <code>LI()</code> and <code>vsetvl</code>.
+        </li>
+      </ul>
+
+      <h3>DUT configuration (<code>732f78d72</code>)</h3>
+      <ul>
+        <li>
+          <code>config/ime/qemu-ime-rv64</code>: the SDK QEMU 10.2.50 as DUT,
+          with <code>-cpu max,vlen=256,x-zvvm=true</code>, and the IME Sail fork
+          as reference model. The wrappers are in <code>config/ime/bin</code>.
+          The environment variables <code>SDK_SIF</code> and
+          <code>SAIL_IME_SIM</code> name the image and the Sail binary.
+          <code>config/ime/ci.yaml</code> sets <code>ci_enabled: false</code>.
+          <code>config/ime/README.md</code>
+          documents the setup.
+        </li>
+        <li>
+          The UDB configuration is <code>qemu-rv64-max</code> without
+          <code>Q</code>, with VLEN 256 and <code>arch_overlay: ime</code>. The
+          run command drops <code>smpmpmt=false</code> and adds
+          <code>svade=true</code>.
+        </li>
+        <li>
+          It declares only the IME extensions that both QEMU and the Sail fork
+          implement:
+          <ul>
+            <li>
+              <code>Zvvmm</code>, <code>Zvvfmm</code> and <code>Zvvmtls</code>.
+              Not <code>Zvvmttls</code>: this QEMU decodes only
+              <code>mop=00</code>, so it has no <code>vmttl.v</code> or
+              <code>vmtts.v</code>.
+            </li>
+            <li>
+              All 13 integer extensions, <code>Zvvi4i8mm</code> to
+              <code>Zvvi64mm</code>.
+            </li>
+            <li>
+              8 FP extensions, the rows the Sail fork implements:
+              <code>Zvvfp16mm</code>, <code>Zvvfp32mm</code>,
+              <code>Zvvfp64mm</code>, <code>Zvvfp16fp32mm</code>,
+              <code>Zvvbf16fp32mm</code>, <code>Zvvfp32fp64mm</code>,
+              <code>Zvvfp16fp64mm</code> and <code>Zvvbf16fp64mm</code>. The
+              Sail fork has no OFP4, no OFP8, no <code>Zvvbf16mm</code> and no
+              microscaling extensions.
+            </li>
+          </ul>
+        </li>
+        <li>
+          λ lists: <code>SUPPORTED_LAMBDA_SEW8: [2, 4]</code>,
+          <code>SUPPORTED_LAMBDA_SEW16: [1, 2, 4]</code>,
+          <code>SUPPORTED_LAMBDA_SEW32: [1, 2]</code>,
+          <code>SUPPORTED_LAMBDA_SEW64: [1, 2]</code>. These are the values the
+          specification permits at VLEN 256.
+        </li>
+      </ul>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Run on <code>qemu-ime-rv64</code></th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>I suite</td>
+              <td>51 of 51 pass <span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td>Zvbc64</td>
+              <td>4 of 4 pass <span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td>Svade and Svadu</td>
+              <td>
+                63 of 66 pass. The 3 failures are the known QEMU bug qemu#4636,
+                which <code>config/qemu/ci.yaml</code> already excludes.
+                <span class="ev run">run</span>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>Zvvmm-min-lmul1-00.S</code>: tile load and store at
+                LMUL=1, <code>vmmacc.vv</code>, C read with
+                <code>vse32.v</code>, 80 checks
+              </td>
+              <td><strong>Pass</strong> <span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td>
+                <code>Zvvmm-TC-MACC-01-V256-00.S</code> (proof of concept): C
+                stored with <code>vmts.v</code> at LMUL=8
+              </td>
+              <td>
+                <strong>Fail</strong>, as expected from the Sail tile-index bug
+                (Section 16) <span class="ev run">run</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Both IME tests are out of tree, in
+        <code>~/tools/act4/ime-poc/act-min</code>.
+        <code>tests/rv64i/Zv*</code> is ignored by git in ACT. Their headers
+        require <code>['V', 'Zvvmm', 'Zvvmtls', 'Zvvi32mm']</code> and
+        <code>SUPPORTED_LAMBDA_SEW32: 1</code>.
+      </p>
+      <pre
+        class="cmd"
+        data-label="riscv-arch-test, branch cgomez/import-ime-tests-to-act4"
+      ><span class="line">export PATH=$PWD/config/ime/bin:$PATH</span>
+<span class="line">export SDK_SIF=/path/to/sdk-2026.10.14.sif SAIL_IME_SIM=/path/to/build-016/c_emulator/sail_riscv_sim</span>
+<span class="line">export XDG_DATA_HOME=/tmp/$USER-xdg-data</span>
+<span class="line">EXTENSIONS=I make qemu-ime-rv64</span>
+<span class="line">uv run act config/ime/qemu-ime-rv64/test_config.yaml --test-dir ~/tools/act4/ime-poc/act-min --workdir work-ime --extensions Zvvmm --enable-experimental-extensions</span>
+<span class="line">./run_tests.py "$(cat config/ime/qemu-ime-rv64/run_cmd.txt)" work-ime/qemu-ime-rv64/elfs</span></pre>
+      <div class="note">
+        <span class="tag">λ acceptance in the models</span>
+        <ul>
+          <li>
+            QEMU accepts every λ. Its property <code>zvvm-lambda</code> defaults
+            to <code>0x7f</code>.
+          </li>
+          <li>
+            The Sail fork accepts any λ ≤ VLEN/SEW. That includes values the
+            specification does not permit, for example λ=4 and λ=8 at VLEN 256
+            and SEW 32. Its λ set is not configurable.
+          </li>
+        </ul>
+        <p>
+          Neither model rejects a λ that a DUT configuration leaves out. Test
+          selection through <code>SUPPORTED_LAMBDA_SEW&lt;n&gt;</code> is the
+          only protection. <span class="ev code">code</span>
+        </p>
+      </div>
+
+      <h3>Sail tile-index bug: reproducer and patch (work item 1)</h3>
+      <p>
+        The folder
+        <a href="issues/sail-ime-tile-ls-index/sail-ime-tile-ls-index.html"
+          ><code>issues/sail-ime-tile-ls-index/</code></a
+        >
+        holds a draft GitHub issue (<a
+          href="issues/sail-ime-tile-ls-index/ISSUE.md"
+          ><code>ISSUE.md</code></a
+        >, rendered as <code>sail-ime-tile-ls-index.html</code>), the reproducer
+        (<code>run.sh</code>), the patch (<code>sail-fix.diff</code>) and the
+        outputs. The issue is not filed yet.
+      </p>
+      <ul>
+        <li>
+          The bug is still present at <code>c69e3e22</code>.
+          <code>ime_mem_insts.sail</code> writes loaded elements at the flat
+          index on lines 73, 77, 81 and 85. Line 90 writes inactive elements;
+          that branch must be removed, because inactive tile-load elements stay
+          undisturbed. Line 160 reads the stored element at the flat index.
+          <span class="ev code">code</span>
+        </li>
+        <li>
+          The reproducer runs at VLEN=256, SEW=32, LMUL=2, λ=1. A round trip
+          through <code>vmtl.v</code> and <code>vmts.v</code> hides the bug, so
+          the reproducer reads the registers with <code>vse32.v</code>.
+        </li>
+        <li>
+          The patch indexes the four load writes and the store read with
+          <code>ime_tile_reg_idx</code>, and drops the inactive-element branch.
+          The patched Sail was built and matches QEMU on every step.
+          <span class="ev run">run</span>
+        </li>
+      </ul>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>SDK QEMU</th>
+              <th>Sail <code>c69e3e22</code></th>
+              <th>Sail + <code>sail-fix.diff</code></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <code>vmtl.v</code> A=0..15, then <code>vse32.v</code> of
+                <code>v8</code>, <code>v9</code>
+              </td>
+              <td><code>0 2 4 … 14 | 1 3 … 15</code></td>
+              <td><code>0 1 … 7 | 8 … 15</code></td>
+              <td><code>0 2 4 … 14 | 1 3 … 15</code></td>
+            </tr>
+            <tr>
+              <td>
+                <code>vid.v</code> into <code>v16</code>, <code>v17</code>, then
+                <code>vmts.v</code>
+              </td>
+              <td><code>0 8 1 9 … | 4 12 … 15</code></td>
+              <td><code>0 1 … 7 | 8 … 15</code></td>
+              <td><code>0 8 1 9 … | 4 12 … 15</code></td>
+            </tr>
+            <tr>
+              <td><code>vmtl.v</code> then <code>vmts.v</code></td>
+              <td><code>0 1 … 15</code></td>
+              <td><code>0 1 … 15</code></td>
+              <td><code>0 1 … 15</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <h2 id="plan"><span class="n">17</span>Work plan</h2>
       <div class="tablewrap">
         <table>
@@ -4808,8 +5399,12 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
                 <code>vmtl.v</code> and <code>vmts.v</code> (<code
                   >ime_mem_insts.sail</code
                 >
-                lines 66–83 and 145). Add a first-party test that runs a MACC
-                and then a store at LMUL&gt;1.
+                lines 73–90 and 160 on <code>c69e3e22</code>). Add a first-party
+                test that runs a MACC and then a store at LMUL&gt;1.
+                <strong>Ready, not merged:</strong> reproducer, draft issue and
+                tested patch in
+                <code>issues/sail-ime-tile-ls-index/</code> (Section 16a). The
+                issue is not filed yet.
               </td>
               <td>Sail fork</td>
               <td>—</td>
@@ -4819,6 +5414,8 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>
                 Rebase the Sail fork onto <code>0.16</code>, so that the 0.16
                 <code>sail.json</code> schema and the ACT version gate hold.
+                <strong>Done:</strong> <code>cgomez/0.16-plus-ime</code>
+                (<code>c69e3e22</code>), Section 12a.
               </td>
               <td>Sail fork</td>
               <td>—</td>
@@ -4828,15 +5425,31 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>
                 Define Zvvm, Zvvmm, Zvvfmm, Zvvmtls and Zvvmttls, plus a λ-set
                 parameter, in UDB, or through <code>UDB_LOCAL_PATH</code>.
+                <strong>Done:</strong> ACT UDB overlay <code>ime</code>
+                (<code>d8e2f05ca</code>) with 65 extensions and
+                <code>SUPPORTED_LAMBDA_SEW&lt;n&gt;</code>. Not through
+                <code>UDB_LOCAL_PATH</code>.
               </td>
               <td>UDB</td>
               <td>—</td>
+            </tr>
+            <tr>
+              <td class="num">3a</td>
+              <td>
+                Mark the IME extensions experimental in ACT, and add
+                <code>.insn</code> macros for every IME instruction.
+                <strong>Done:</strong> <code>24c90741c</code>.
+              </td>
+              <td>ACT</td>
+              <td>3</td>
             </tr>
             <tr>
               <td class="num">4</td>
               <td>
                 Add an IME DUT configuration under <code>config/</code>: Sail
                 IME as reference, SDK QEMU as DUT, an SDK toolchain wrapper.
+                <strong>Done:</strong> <code>config/ime/qemu-ime-rv64</code>
+                (<code>732f78d72</code>).
               </td>
               <td>ACT</td>
               <td>2, 3</td>
@@ -4846,10 +5459,12 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>
                 Write a <code>testgen</code> IR importer module, extending
                 <code>ir2act.py</code> to FP MACC, <code>CheckFflags</code> and
-                m16 accumulators.
+                m16 accumulators. Emit the header from the overlay: family and
+                type extensions in <code>REQUIRED_EXTENSIONS</code>, λ in
+                <code>params</code>.
               </td>
               <td>ACT testgen</td>
-              <td>1, 4</td>
+              <td>1 (open); 3, 3a and 4 are done</td>
             </tr>
             <tr>
               <td class="num">6</td>
@@ -5036,6 +5651,85 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           </tbody>
         </table>
       </div>
+      <h3>Specification, toolchain and model discrepancies</h3>
+      <p>
+        Found during the ACT bring-up (Section 16a). The specification is
+        <code>riscv/integrated-matrix-extension</code> @ <code>6effbcae</code>.
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Finding</th>
+              <th>Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">9</td>
+              <td>
+                The SDK GCC names the W=4 instructions
+                <code>vqwmmacc.vv</code>, <code>vfqwmmacc.vv</code> and
+                <code>vfqwimmacc.vv</code>. The specification names them
+                <code>vqmmacc.vv</code>, <code>vfqmmacc.vv</code> and
+                <code>vfqimmacc.vv</code>. QEMU uses the GCC names, and the Sail
+                fork uses the specification names.
+                <code>ime-test-gen</code> emits <code>vqwmmacc.vv</code>, the
+                GCC name.
+              </td>
+              <td>
+                <span class="ev run">run</span>
+                <span class="ev code">code</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="num">10</td>
+              <td>
+                GCC rejects the <code>v0.scale</code> operand on
+                <code>vf*immacc.vv</code>.
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">11</td>
+              <td>
+                GCC accepts <code>v0.scale</code> on <code>vfmmacc.vv</code>.
+                The specification reserves <code>vm=0</code> for that
+                instruction.
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">12</td>
+              <td>
+                GCC accepts <code>zvmma</code>, <code>zvvxofp8mm</code> and
+                <code>zvvxnofp8mm</code> in <code>-march</code>. The
+                specification defines none of them.
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">13</td>
+              <td>
+                <code>ime-test-gen</code> treats a family extension as implying
+                all of its type extensions. In the specification and in GCC, a
+                type extension implies its family extension.
+              </td>
+              <td><span class="ev code">code</span></td>
+            </tr>
+            <tr>
+              <td class="num">14</td>
+              <td>
+                The Sail fork accepts any λ ≤ VLEN/SEW. That includes λ values
+                the specification does not permit, such as λ=4 and λ=8 at VLEN
+                256 and SEW 32. The λ set is not configurable.
+              </td>
+              <td><span class="ev code">code</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <h2 id="provenance"><span class="n">19</span>Provenance</h2>
       <ul>
@@ -5050,10 +5744,43 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           <strong>Sail fork:</strong> <code>Openchip-Software/sail-riscv</code>,
           branch <code>ime-tile-ls-decode-fix</code> @ <code>efd0d7dc</code>,
           prebuilt at
-          <code>sail-riscv/build-moon/c_emulator/sail_riscv_sim</code>.
+          <code>sail-riscv/build-moon/c_emulator/sail_riscv_sim</code>. The
+          proof of concept in Section 15 used this build.
+        </li>
+        <li>
+          <strong>Sail fork on 0.16:</strong> branch
+          <code>cgomez/0.16-plus-ime</code> @ <code>c69e3e22</code>, the
+          <code>0.16</code> tag <code>e5acebb0</code> plus 8 commits. Built at
+          <code>sail-riscv/build-016/c_emulator/sail_riscv_sim</code> on
+          2026-10-26. The Section 12a check used ACT at
+          <code>d41bdd86a</code> in the worktree
+          <code>~/tools/act4/act-item2</code>, with the script
+          <code>~/tools/act4/jobs/item2-I.sh</code> and output in
+          <code>~/tools/act4/item2/</code> (SLURM job 46954 on
+          <code>moon-oxn-n04</code>).
+        </li>
+        <li>
+          <strong>IME specification:</strong>
+          <code>riscv/integrated-matrix-extension</code> @
+          <code>6effbcae</code> (2026-08-04). The UDB overlay, the
+          <code>.insn</code> macros and Section 16 follow this commit.
+        </li>
+        <li>
+          <strong>ACT import branch:</strong>
+          <code>cgomez/import-ime-tests-to-act4</code> on <code>act4</code>
+          <code>d41bdd86a</code>, with <code>d8e2f05ca</code>,
+          <code>24c90741c</code> and <code>732f78d72</code> (2026-10-26). The
+          IME tests of Section 16a are in
+          <code>~/tools/act4/ime-poc/act-min</code>.
+        </li>
+        <li>
+          <strong>Sail issue draft:</strong>
+          <code>reports/issues/sail-ime-tile-ls-index/</code>, run against
+          <code>c69e3e22</code> and the SDK QEMU.
         </li>
         <li>
           <strong>SDK:</strong> <code>sdk-2026.10.14.sif</code>,
+
           <code
             >riscv64-openchip-linux-gnu-g++ (OpenChip-IME-f3ac260eca8f)
             16.1.0</code
