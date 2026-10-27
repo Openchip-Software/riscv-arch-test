@@ -1,0 +1,9 @@
+{
+  "extensions": {
+    "V": { "vlen_exp": 8 },
+    "Zvvmm": { "supported": true },
+    "Zvvfmm": { "supported": true },
+    "Zvvmtls": { "supported": true },
+    "Zvvmttls": { "supported": true }
+  }
+}
