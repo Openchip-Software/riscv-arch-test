@@ -800,6 +800,9 @@
             <a href="#bringup"><span class="n">16a</span>Bring-up in ACT</a>
           </li>
           <li>
+            <a href="#testplan"><span class="n">16b</span>Testplan design</a>
+          </li>
+          <li>
             <a href="#plan"><span class="n">17</span>Work plan</a>
           </li>
         </ol>
@@ -825,7 +828,7 @@
       IME spec @ <code>6effbcae</code><br />
       ACT import branch @ <code>732f78d72</code><br />
       SDK 2026.10.14 · QEMU 10.2.50<br />
-      Written 2026-10-23, updated 2026-10-26
+      Written 2026-10-23, updated 2026-10-27
     </div>
   </aside>
 
@@ -924,7 +927,9 @@
               </li>
               <li>
                 <em>Target:</em> port the tests to native ACT testplans and
-                coverpoints (option C).
+                coverpoints (option C). Section 16b designs them, including
+                tests that detect the Sail tile-index bug, which a round trip
+                hides.
               </li>
               <li>
                 <em>Throughout:</em> keep the Rust golden model as a
@@ -5380,6 +5385,972 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </table>
       </div>
 
+      <h2 id="testplan">
+        <span class="n">16b</span>Testplan design (option C), 2026-10-27
+      </h2>
+      <p>
+        This section designs native ACT testplans for the ime-test-gen plan
+        (option C, work item 7). It is a design only: no ACT file is changed.
+        Paths without a link are on the import branch at
+        <code>732f78d72</code>. The specification is
+        <code>integrated-matrix.adoc</code> at <code>6effbcae</code>, cited as
+        <code>spec:</code> line numbers.
+      </p>
+
+      <h3>Decisions</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Question</th>
+              <th>Decision (2026-10-27)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>How is λ selected?</td>
+              <td>
+                Per testcase, with
+                <code
+                  >#if
+                  defined(UDB_SUPPORTED_LAMBDA_SEW&lt;n&gt;_&lt;λ&gt;)</code
+                >. The header names no λ, and no file is split by λ.
+              </td>
+            </tr>
+            <tr>
+              <td>Round-trip tests?</td>
+              <td>
+                Kept, as extra <code>cp_custom_tile_*</code> bins. They are not
+                enough alone, because a symmetric index error cancels. Layout
+                tests detect it.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                May the MACC <code>vd</code> group overlap <code>vs1</code> or
+                <code>vs2</code>?
+              </td>
+              <td>
+                No. This is the project's reading. The specification states no
+                such rule: the MACC exception lists, for example
+                <code>vmmacc.vv</code> at spec:5782–5792, name overlap only with
+                <code>v0</code>, for the microscaled forms. The formatter
+                (<code>overlap_constraints</code>) and the register allocation
+                enforce it. No test covers an overlap.
+              </td>
+            </tr>
+            <tr>
+              <td>Does <code>altfmt=1</code> for an FP output need Zvfbfa?</td>
+              <td>Unknown. Still open.</td>
+            </tr>
+            <tr>
+              <td>FP profile (G, psm, rnd)</td>
+              <td>
+                G=1 is confirmed, as in Sail. <code>psm</code> and
+                <code>rnd</code> are unknown.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Suites and rows</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>CSV</th>
+              <th>Rows</th>
+              <th>Per-SEW suites</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>testplans/Zvvmm.csv</code></td>
+              <td>
+                13 integer rows, plus 4 <code>vmmacc.vv</code> rows with
+                <code>Zvvmtls</code> for <code>cp_custom_tile_macc</code>
+              </td>
+              <td><code>Zvvmm8</code>…<code>Zvvmm64</code></td>
+            </tr>
+            <tr>
+              <td><code>testplans/Zvvfmm.csv</code></td>
+              <td>21 unscaled rows, 30 microscaling rows</td>
+              <td><code>Zvvfmm8</code>…<code>Zvvfmm64</code></td>
+            </tr>
+            <tr>
+              <td><code>testplans/Zvvmtls.csv</code></td>
+              <td><code>vmtl.v</code>, <code>vmts.v</code></td>
+              <td><code>Zvvmtls8</code>…<code>Zvvmtls64</code></td>
+            </tr>
+            <tr>
+              <td><code>testplans/Zvvmttls.csv</code></td>
+              <td>
+                <code>vmttl.v</code>, <code>vmtts.v</code>, plus 2 cross-mode
+                rows with <code>Zvvmtls</code>
+              </td>
+              <td><code>Zvvmttls8</code>…<code>Zvvmttls64</code></td>
+            </tr>
+            <tr>
+              <td><code>testplans/priv/ExceptionsZvvm.csv</code> (later)</td>
+              <td>
+                illegal cases and <code>vstart</code>, after
+                <code>ExceptionsVx</code>
+              </td>
+              <td><code>EFFEW</code> per row</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li>
+          One suite per family extension. Splitting the suite name at capitals
+          then yields exactly the family extension. The specification defines
+          four families (spec:41–46). Per-type CSVs would create 65 suites.
+        </li>
+        <li>
+          One row per (mnemonic, type extension). The type extension goes in
+          <code>ExtraExtensions</code>, as in <code>Zfa.csv</code>.
+          <code>EFFEW&lt;n&gt;</code> is the accumulator SEW: in IME, SEW is the
+          width of C, and A and B are packed into SEW-wide storage elements.
+          Narrow inputs reuse the <code>emulf2/4/8</code> edge suffixes.
+        </li>
+        <li>
+          Signedness and FP input formats are bins of <code>cp_altfmt</code>,
+          not rows. One integer type extension covers all four signedness
+          combinations.
+        </li>
+        <li>
+          Framework edits, each with a precedent: the four suites in
+          <code>expand_vector_extension</code>
+          (<a
+            class="src"
+            href="https://github.com/riscv/riscv-arch-test/blob/aadb7424ac4ea3aac15ec58a2b3b4c477ffe1ede/generators/testgen/src/testgen/io/testplans.py#L28-L39"
+            target="_blank"
+            rel="noopener"
+            >generators/testgen/src/testgen/io/testplans.py:28-39</a
+          >) and in covergroupgen's <code>_sew_variants_for</code>;
+          <code>vector_map</code> entries for <code>Zvvfmm&lt;n&gt;</code> (<a
+            class="src"
+            href="https://github.com/riscv/riscv-arch-test/blob/aadb7424ac4ea3aac15ec58a2b3b4c477ffe1ede/generators/testgen/src/testgen/io/templates.py#L163-L181"
+            target="_blank"
+            rel="noopener"
+            >generators/testgen/src/testgen/io/templates.py:163-181</a
+          >).
+        </li>
+        <li>
+          A scratchpad run of <code>testgen</code> on <code>Zvbc.csv</code> with
+          an <code>ExtraExtensions</code> row produced the expected
+          <code>REQUIRED_EXTENSIONS</code>. <code>covergroupgen</code> lost the
+          extra group: <code>extra_testplans</code> is stored under the
+          unexpanded suite name (<a
+            class="src"
+            href="https://github.com/riscv/riscv-arch-test/blob/aadb7424ac4ea3aac15ec58a2b3b4c477ffe1ede/generators/coverage/src/covergroupgen/generate.py#L343-L353"
+            target="_blank"
+            rel="noopener"
+            >generators/coverage/src/covergroupgen/generate.py:343-353</a
+          >). The fix is about 5 lines. <span class="ev run">run</span>
+        </li>
+      </ul>
+
+      <h3>λ gating and <code>vtype</code></h3>
+      <ul>
+        <li>
+          UDB emits one macro per λ list entry, for example
+          <code>UDB_SUPPORTED_LAMBDA_SEW32_2</code>.
+          <span class="ev run">run</span> Every IME testcase that uses λ is
+          wrapped in that macro. A testcase that uses two λ values requires both
+          macros. Testcases for an unsupported λ compile out, and their bins
+          stay uncovered.
+        </li>
+        <li>
+          This is safe because the signature ELF and the self-checking ELF are
+          built from the same source and the same
+          <code>rvtest_config.h</code>, and <code>SIGUPD_COUNT</code> is an
+          upper bound.
+        </li>
+        <li>
+          A new helper <code>load_ime_vtype</code> emits
+          <code>LI(xT, vtype)</code> and <code>vsetvl</code>. The IME fields (λ
+          at <code>vtype[XLEN-2:XLEN-4]</code>, <code>bs</code>,
+          <code>altfmt_A</code>, <code>altfmt_B</code>) are outside the
+          <code>vsetvli</code> immediate (spec:686–690).
+        </li>
+        <li>
+          VL is a multiple of λ·LMUL (spec:5776). The IME formatters count VL in
+          columns (MACC) or lines (tile loads and stores), so
+          <code>vlmax</code>, half, one and random VL stay VLEN-agnostic.
+        </li>
+      </ul>
+      <div class="note">
+        <span class="tag">Not chosen</span>
+        <p>
+          λ selection in the test header would group chunks by λ and change
+          <code>generate/unpriv.py</code>. It was considered and dropped.
+        </p>
+      </div>
+
+      <h3>Formatter types</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Instructions</th>
+              <th>Setup</th>
+              <th>Check</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>MMACC</code>, <code>FMMACC</code></td>
+              <td>integer and FP MACC, vm=1</td>
+              <td>
+                C in a 16-register window at <code>v0</code> or
+                <code>v16</code>, loaded with two m8
+                <code>vle&lt;SEW&gt;.v</code>. A and B at LMUL alignment in the
+                other half, loaded with <code>vle&lt;SEW&gt;.v</code>.
+                <code>vd</code> never overlaps <code>vs1</code> or
+                <code>vs2</code>.
+              </td>
+              <td>
+                <code>RVTEST_SIGUPD_V_LEN</code> on both m8 halves at VL=VLMAX,
+                which also checks the registers beyond <code>EMUL_C</code>. FP
+                rows add <code>RVTEST_SIGUPD_FFLAGS</code>.
+              </td>
+            </tr>
+            <tr>
+              <td><code>FMMACC_MX</code>, <code>MMACC_MX</code></td>
+              <td>microscaling, vm=0</td>
+              <td>
+                as above, with scales in <code>v0</code>. C is always at
+                <code>v16</code> (spec:5013).
+              </td>
+              <td>as above</td>
+            </tr>
+            <tr>
+              <td><code>VLT</code></td>
+              <td><code>vmtl.v</code>, <code>vmttl.v</code></td>
+              <td>
+                sentinel in <code>vd</code>, <code>rs2</code> = LD, optional
+                mask and immediate λ
+              </td>
+              <td>
+                <code>RVTEST_SIGUPD_V_LEN</code> on <code>vd</code> with
+                <code>tu, mu</code>, because tile loads leave inactive and tail
+                elements undisturbed (spec:2321)
+              </td>
+            </tr>
+            <tr>
+              <td><code>VST</code></td>
+              <td><code>vmts.v</code>, <code>vmtts.v</code></td>
+              <td><code>vs3</code> from <code>vle&lt;SEW&gt;.v</code></td>
+              <td>
+                read the memory window back with <code>vle&lt;SEW&gt;.v</code>,
+                then <code>RVTEST_SIGUPD_V_LEN</code>; gaps keep their sentinel
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        MACC tests use no tile instructions, so they are VLEN-agnostic and are
+        not affected by the Sail tile-index bug. An immediate λ is checked with
+        <code>csrr vtype</code> and <code>RVTEST_SIGUPD</code>. No new check
+        macro is needed. <span class="ev inf">inferred</span>
+      </p>
+
+      <h3>Coverpoints</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column</th>
+              <th>New or reused</th>
+              <th>Bins</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <code>cp_asm_count</code>, <code>cp_vs1</code>,
+                <code>cp_vs2</code>, <code>cp_vd</code>, <code>cp_vs3</code>,
+                <code>cp_rs1</code>, <code>cp_rs2</code>,
+                <code>cp_masking_edges</code>
+              </td>
+              <td>reused</td>
+              <td>as in other vector suites</td>
+            </tr>
+            <tr>
+              <td><code>cp_vd</code> (<code>emul16</code>)</td>
+              <td>reused generator, new template</td>
+              <td>C base <code>v0</code> or <code>v16</code></td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_vd_edges</code>, <code>cp_vs1_edges</code>,
+                <code>cp_vs2_edges</code>, <code>cr_vs1_vs2_edges</code>,
+                <code>cp_csr_frm</code>, <code>cp_csr_fflags</code>
+              </td>
+              <td>reused; new Int4, FP8 and FP4 edge tables</td>
+              <td>edges in element 0</td>
+            </tr>
+            <tr>
+              <td><code>cp_altfmt</code></td>
+              <td>new</td>
+              <td>SS, SU, US, UU, or the legal FP format rows</td>
+            </tr>
+            <tr>
+              <td><code>cr_lambda_lmul</code></td>
+              <td>new</td>
+              <td>
+                λ ∈ {1…64} × LMUL ∈ {1,2,4,8}. <code>cr_vl_lmul</code> is not
+                reused: it sweeps fractional LMUL and unaligned VL, which trap
+                in IME.
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_tile_vl</code>, <code>cp_ld</code>,
+                <code>cp_imm_lambda</code>, <code>cr_tile_vtype_agnostic</code>,
+                <code>cp_scale</code>
+              </td>
+              <td>new</td>
+              <td>
+                VL; LD ∈ {natural, tight, padded, 2·linesize}; immediate λ ≠
+                <code>vtype</code> λ; <code>vta</code>×<code>vma</code>; E8M0
+                scales
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_custom_tile_layout</code>,
+                <code>cp_custom_tile_roundtrip</code>,
+                <code>cp_custom_tile_crossmode</code>,
+                <code>cp_custom_tile_macc</code>
+              </td>
+              <td>new</td>
+              <td>composed tile sequences, below</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Family mapping</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ime-test-gen family</th>
+              <th>ACT</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>TC-LS-01/02 round trips</td>
+              <td>
+                Each instruction alone with <code>cr_lambda_lmul</code>,
+                <code>cp_tile_vl</code>, <code>cp_ld</code>. The round trip
+                itself: <code>cp_custom_tile_roundtrip</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>TC-LS-03/04 cross-mode pairs</td>
+              <td><code>cp_custom_tile_crossmode</code></td>
+            </tr>
+            <tr>
+              <td>TC-LS-06, TC-TAIL-01/02/04/05</td>
+              <td>
+                <code>cp_masking_edges</code>,
+                <code>cr_tile_vtype_agnostic</code> and the strict
+                <code>VLT</code> check
+              </td>
+            </tr>
+            <tr>
+              <td>TC-LS-07 (<code>vstart</code>)</td>
+              <td><code>cp_vstart</code> in <code>ExceptionsZvvm</code></td>
+            </tr>
+            <tr>
+              <td>TC-VSE-03/04 address formula</td>
+              <td><code>VST</code> window check with <code>cp_ld</code></td>
+            </tr>
+            <tr>
+              <td>TC-ILL-01/02 (immediate λ)</td>
+              <td>
+                <code>cp_imm_lambda</code> and the <code>vtype</code> check
+              </td>
+            </tr>
+            <tr>
+              <td>TC-MACC-*, TC-FMACC-*, TC-FW-*, TC-FQ-*</td>
+              <td>
+                MACC rows with <code>cr_lambda_lmul</code>,
+                <code>cp_altfmt</code> and edges, at all SEWs. The tile-load
+                MACC sequence: <code>cp_custom_tile_macc</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>TC-RM, TC-RND, TC-SUB, TC-SPL, TC-FLAG</td>
+              <td>
+                FP edges and <code>cp_csr_frm_v</code>, with portable data
+              </td>
+            </tr>
+            <tr>
+              <td>TC-*-AS (<code>--as-loads</code>)</td>
+              <td>
+                dropped: tile instructions move only SEW-wide storage elements
+                (spec:2236–2240)
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="testplan-sailbug">
+        Round trips and tests for the Sail bug class
+      </h3>
+      <p>
+        The vehicle is a <code>cp_custom_&lt;name&gt;</code> column. ACT uses
+        such columns for sequences the plain formatter does not emit:
+        <code>Vls.csv</code> has nine. <code>cp_custom_ffLS</code> builds its
+        chunk and replaces the check (<a
+          class="src"
+          href="https://github.com/riscv/riscv-arch-test/blob/aadb7424ac4ea3aac15ec58a2b3b4c477ffe1ede/generators/testgen/src/testgen/coverpoints/vector/cp_custom_vls.py#L62-L132"
+          target="_blank"
+          rel="noopener"
+          >generators/testgen/src/testgen/coverpoints/vector/cp_custom_vls.py:62-132</a
+        >), and <code>cp_custom_maskLS.sv</code> samples only
+        <code>vtype</code> fields. A row that also needs another family uses an
+        <code>ExtraExtensions</code> colon list. A dedicated row type would
+        duplicate the <code>VLT</code> and <code>VST</code> code.
+        <span class="ev code">code</span>
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Column and row</th>
+              <th>Sequence</th>
+              <th>Check</th>
+              <th>Bins</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <code>cp_custom_tile_layout</code> on <code>vmtl.v</code>,
+                <code>vmttl.v</code>
+              </td>
+              <td>
+                sentinel in <code>vd</code>; tile load from a ramp (element k
+                holds k mod 2<sup>SEW</sup>)
+              </td>
+              <td>
+                <code>RVTEST_SIGUPD_V_LEN</code> on the <code>vd</code> group
+              </td>
+              <td>
+                <code>lmul&lt;L&gt;_lambda&lt;λ&gt;_ld&lt;nat|pad&gt;</code>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_custom_tile_layout</code> on <code>vmts.v</code>,
+                <code>vmtts.v</code>
+              </td>
+              <td>
+                <code>vid.v vs3</code> at the tile LMUL, then the tile store
+              </td>
+              <td>
+                memory window read back with <code>vle&lt;SEW&gt;.v</code>,
+                <code>RVTEST_SIGUPD_V_LEN</code>
+              </td>
+              <td>same</td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_custom_tile_roundtrip</code> on <code>vmts.v</code>,
+                <code>vmtts.v</code>
+              </td>
+              <td>
+                tile load of the same family, then the store. In the
+                <code>mixed</code> bins the store has an immediate λ′ ≠ λ.
+              </td>
+              <td>as above</td>
+              <td>
+                <code>same_lmul&lt;L&gt;_lambda&lt;λ&gt;_ld&lt;nat|pad&gt;</code
+                >,
+                <code>mixed_lmul&lt;L&gt;_lambda&lt;λ&gt;_imm&lt;λ′&gt;</code>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_custom_tile_crossmode</code> on
+                <code>vmttl.v</code> and <code>vmtts.v</code> rows with
+                <code>ExtraExtensions=Zvvmtls</code>
+              </td>
+              <td>
+                <code>vmtl.v</code> then <code>vmtts.v</code> (TC-LS-03);
+                <code>vmttl.v</code> then <code>vmts.v</code> (TC-LS-04). The
+                result is the transpose.
+              </td>
+              <td>as above</td>
+              <td>
+                <code>lmul&lt;L&gt;_lambda&lt;λ&gt;_ld&lt;nat|pad&gt;</code>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_custom_tile_macc</code> on <code>vmmacc.vv</code> rows
+                with <code>ExtraExtensions=Zvvi&lt;n&gt;mm:Zvvmtls</code>
+              </td>
+              <td>
+                zero C; <code>vmtl.v</code> A and B<sub>tile</sub>;
+                <code>vmmacc.vv</code>; <code>vmts.v</code> C at LMUL =
+                <code>EMUL_C</code> (two m8 stores at 16), as ime-test-gen does
+                (<a
+                  class="src"
+                  href="https://github.com/Openchip-Software/riscv-ime-arch-tests/blob/46f378198e68d6f6f58193353f4f2535a131b602/ime-test-gen/src/expand_ir.rs#L530-L665"
+                  target="_blank"
+                  rel="noopener"
+                  >ime-test-gen/src/expand_ir.rs:530-665</a
+                >)
+              </td>
+              <td>
+                C window read back with <code>vle&lt;SEW&gt;.v</code>,
+                <code>RVTEST_SIGUPD_V_LEN</code>
+              </td>
+              <td><code>lmul&lt;L&gt;_lambda&lt;λ&gt;</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ul>
+        <li>
+          Bins cover LMUL ∈ {1,2,4,8}, every λ through the gate, and LD natural
+          (<code>rs2 = x0</code>) and padded. LMUL=1 bins are controls:
+          <code>tile_reg_idx(i, 1, λ, epr) = i</code>.
+        </li>
+        <li>
+          <code>same</code> and cross-mode pairs cannot detect a wrong
+          register-element mapping f. The load writes tile element i to f(i) and
+          the store reads it from f(i), so memory gets
+          <code>dst[off_store(i)] = src[off_load(i)]</code> for any f. The
+          <code>mixed</code> bins break this, because
+          <code>tile_reg_idx</code> differs between λ and λ′ when LMUL&gt;1.
+          <span class="ev inf">inferred</span>
+        </li>
+        <li>
+          <code>cp_custom_tile_macc</code> data: A[i][0]=i, A[i][1]=1,
+          B<sub>tile</sub>[j][0]=256, B<sub>tile</sub>[j][1]=j, other k zero, so
+          C[i][j] = 256·i + j names its row and column. Tile loads place the
+          data from a fixed memory layout, so the test is VLEN-agnostic.
+          <code>EMUL_C</code> depends on VLEN, so an
+          <code>#if UDB_VLEN == …</code> chain picks the <code>vtype</code> for
+          the C store. The C store also catches a store-only error at LMUL=1,
+          because <code>EMUL_C</code> &gt; 1.
+        </li>
+        <li>
+          The mixed-λ bins pass on Sail after the fix: the fork takes the
+          immediate λ when it is nonzero (<code>ime_mem_insts.sail:32</code>).
+          <span class="ev code">code</span>
+        </li>
+      </ul>
+      <p>
+        Expected mismatch at the reproducer configuration (VLEN=256, SEW=32,
+        LMUL=2, λ=1, epr=8, linesize=2). QEMU follows the specification. Sail
+        <code>c69e3e22</code> writes the signature. Rows tagged
+        <span class="ev run">run</span> are the reproducer output
+        (<code>sail.out</code>, <code>qemu.out</code>). Rows tagged
+        <span class="ev inf">inferred</span> were computed from the
+        specification's <code>tile_reg_idx</code> and Sail's flat index; the
+        same computation reproduces all three reproducer steps.
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Bin</th>
+              <th>QEMU (specification)</th>
+              <th>Sail <code>c69e3e22</code></th>
+              <th>Words that differ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>layout <code>vmtl.v</code>, LD=2</td>
+              <td><code>0 2 4 … 14 | 1 3 … 15</code></td>
+              <td><code>0 1 … 7 | 8 … 15</code></td>
+              <td>14 of 16 <span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td>layout <code>vmtl.v</code>, LD=3</td>
+              <td><code>0 3 6 … 21 | 1 4 7 … 22</code></td>
+              <td><code>0 1 3 4 6 7 9 10 | 12 13 … 22</code></td>
+              <td>14 of 16 <span class="ev inf">inferred</span></td>
+            </tr>
+            <tr>
+              <td>layout <code>vmttl.v</code>, LD=8</td>
+              <td><code>0 1 … 15</code></td>
+              <td><code>0 8 1 9 … 7 15</code></td>
+              <td>14 of 16 <span class="ev inf">inferred</span></td>
+            </tr>
+            <tr>
+              <td>layout <code>vmts.v</code> from <code>vid.v</code>, LD=2</td>
+              <td><code>0 8 1 9 2 10 3 11 | 4 12 … 7 15</code></td>
+              <td><code>0 1 … 15</code></td>
+              <td>14 of 16 <span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td>
+                roundtrip <code>mixed_lmul2_lambda1_imm2</code> (store LD=4)
+              </td>
+              <td><code>0 2 1 3 4 6 5 7 | 8 10 9 11 …</code></td>
+              <td><code>0 1 … 15</code></td>
+              <td>8 of 16 <span class="ev inf">inferred</span></td>
+            </tr>
+            <tr>
+              <td>roundtrip <code>same</code>; both cross-mode pairs</td>
+              <td colspan="2">equal</td>
+              <td>
+                0 <span class="ev run">run</span> (same)
+                <span class="ev inf">inferred</span> (cross)
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_custom_tile_macc</code>, LMUL=2 (M=8,
+                K<sub>eff</sub>=2, <code>EMUL_C</code>=8)
+              </td>
+              <td>
+                row 0: <code>0x0 … 0x7</code>; row 1: <code>0x100 … 0x107</code>
+              </td>
+              <td>row 0: <code>0x400 0x200 0x600 0x200 …</code></td>
+              <td>63 of 64 <span class="ev inf">inferred</span></td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_custom_tile_macc</code>, LMUL=1 (K<sub>eff</sub>=1)
+              </td>
+              <td>C[i][j] = j</td>
+              <td>the transpose, C[i][j] = i</td>
+              <td>56 of 64 <span class="ev inf">inferred</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note warn">
+        <span class="tag">Failing bins are the signal</span>
+        <p>
+          The expected values come from Sail. Until the Sail fix lands, every
+          tile bin at LMUL&gt;1 and every detecting
+          <code>cp_custom_tile_*</code> bin fails on a conforming DUT such as
+          QEMU. The bins are not moved to <code>ignore_bins</code> and are not
+          excluded in <code>config/ime/ci.yaml</code>: AGENTS.md reserves
+          <code>ignore_bins</code> for unreachable bins. After the fix, the same
+          bins pass on QEMU and on Sail.
+        </p>
+      </div>
+
+      <h3>Value patterns</h3>
+      <ul>
+        <li>
+          Integer accumulation wraps modulo 2<sup>SEW</sup> (spec:1112), so
+          random data is exact. A <code>ramp</code> bin keeps the ime-test-gen
+          positional values.
+        </li>
+        <li>
+          FP: with G=1, every group is one sub-dot-product of W products.
+          <code>psm</code> and <code>rnd</code> are unknown, so the data must
+          give the same result for <code>psm</code> ∈ {0,1} and
+          <code>rnd</code> ∈ {frm, rto, xct} (spec:1376–1460).
+        </li>
+        <li>
+          Random FP data (<code>exact_dot_rng</code>, after
+          <code>unordered_sum_rng</code> in
+          <a
+            class="src"
+            href="https://github.com/riscv/riscv-arch-test/blob/aadb7424ac4ea3aac15ec58a2b3b4c477ffe1ede/generators/testgen/src/testgen/formatters/types/fvvsr_type.py#L62-L74"
+            target="_blank"
+            rel="noopener"
+            >generators/testgen/src/testgen/formatters/types/fvvsr_type.py:62-74</a
+          >): small integers whose products, partial sums and running C values
+          are all exact in the C format. Every <code>rnd</code> then returns S
+          unchanged. Under <code>psm=1</code> the reduction is
+          implementation-specific (spec:1397); exactness must be checked against
+          the disclosed algorithm.
+          <span class="ev inf">inferred</span>
+        </li>
+        <li>
+          Edge data has one nonzero product p per C element, so S = p. Special
+          values (NaN, ∞, ±0, 0×∞) are portable. For ties, overflow, underflow,
+          inexact and the <code>frm</code> sweep, p is exact in the C format,
+          and C₀ is chosen so that the final round<sub>frm</sub>(C₀ + p) rounds.
+          That final rounding is common to every profile.
+        </li>
+        <li>
+          Deferred until <code>psm</code> and <code>rnd</code> are disclosed:
+          inexact products, cancellation across k and accumulation order. Sail
+          uses G=1, psm=0, rnd=frm.
+        </li>
+      </ul>
+
+      <h3>What does not fit</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Handling</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>VLEN &gt; 1024 (<code>RVTEST_VLEN_MAX</code>)</td>
+              <td>
+                Keep the cap. λ ≥ 16 bins at SEW=8 need VLEN ≥ 2048 and stay
+                uncovered.
+              </td>
+            </tr>
+            <tr>
+              <td><code>LambdaProbe</code>, <code>known-issues.txt</code></td>
+              <td>
+                UDB λ lists with the per-testcase gate; per-DUT
+                <code>exclude_extensions</code> in <code>ci.yaml</code>.
+              </td>
+            </tr>
+            <tr>
+              <td>C tail with <code>vta=1</code> and partial VL</td>
+              <td>
+                The ACT tail check is one-dimensional. MACC tests use
+                <code>vta=0</code> or VL=VLMAX; that bin stays uncovered.
+              </td>
+            </tr>
+            <tr>
+              <td>OFP8, OFP4, BF16 output, microscaling</td>
+              <td>
+                Rows are written. The Sail fork does not implement them, so no
+                DUT configuration selects them.
+              </td>
+            </tr>
+            <tr>
+              <td><code>Zvvmttls</code> on the SDK QEMU</td>
+              <td>
+                QEMU decodes only <code>mop=00</code>; the suite runs on Sail
+                only.
+              </td>
+            </tr>
+            <tr>
+              <td>λ outside the DUT list</td>
+              <td>
+                Sail accepts it. Negative λ tests in
+                <code>ExceptionsZvvm</code> wait for a configurable λ set in
+                Sail.
+              </td>
+            </tr>
+            <tr>
+              <td>IME decode in coverage</td>
+              <td>
+                Encodings go in <code>disassemble.svh</code> until riscv-opcodes
+                has IME; <code>vtype</code> fields go in
+                <code>RISCV_coverage_csr.svh</code>.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Draft CSV excerpts</h3>
+      <pre data-label="testplans/Zvvmm.csv (excerpt)">
+Instruction,Type,RV32,RV64,ExtraExtensions,EFFEW8,EFFEW16,EFFEW32,EFFEW64,cp_asm_count,cp_vd,cp_vs1,cp_vs2,cp_vd_edges,cp_vs1_edges,cp_vs2_edges,cp_altfmt,cr_lambda_lmul,cp_tile_vl,cp_custom_tile_macc
+vmmacc.vv,MMACC,x,x,Zvvi32mm,,,x,,x,emul16,x,x,x,x,x,x,x,x,
+vwmmacc.vv,MMACC,x,x,Zvvi16i32mm,,,x,,x,emul16,x,x,x,emulf2,emulf2,x,x,x,
+vqmmacc.vv,MMACC,x,x,Zvvi8i32mm,,,x,,x,emul16,x,x,x,emulf4,emulf4,x,x,x,
+v8wmmacc.vv,MMACC,x,x,Zvvi4i32mm,,,x,,x,emul16,x,x,x,emulf8,emulf8,x,x,x,
+vmmacc.vv,MMACC,x,x,Zvvi32mm:Zvvmtls,,,x,,,,,,,,,,,,x</pre>
+      <pre data-label="testplans/Zvvmttls.csv (complete)">
+Instruction,Type,RV32,RV64,ExtraExtensions,EFFEW8,EFFEW16,EFFEW32,EFFEW64,cp_asm_count,cp_vd,cp_vs3,cp_rs1,cp_rs2,cp_ld,cp_imm_lambda,cp_masking_edges,cr_lambda_lmul,cp_tile_vl,cr_tile_vtype_agnostic,cp_custom_tile_layout,cp_custom_tile_roundtrip,cp_custom_tile_crossmode
+vmttl.v,VLT,x,x,,x,x,x,x,x,x,,nx0,x,x,x,x,x,x,x,x,,
+vmtts.v,VST,x,x,,x,x,x,x,x,,x,nx0,x,x,x,x,x,x,,x,x,
+vmttl.v,VLT,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x
+vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
+      <p>
+        <code>Zvvmtls.csv</code> has the same columns without
+        <code>cp_custom_tile_crossmode</code>, and only the first two rows.
+        <code>Zvvfmm.csv</code> adds <code>cr_vs1_vs2_edges</code>,
+        <code>cp_csr_frm</code> (<code>v</code>), <code>cp_csr_fflags</code> and
+        <code>cp_scale</code>, with edge suffixes such as <code>f_bf16</code>,
+        <code>f_emulf2</code> and <code>f_ofp8</code>.
+      </p>
+
+      <h3>One generated testcase</h3>
+      <pre
+        data-label="tests/rv64i/Zvvmm32/Zvvmm32Zvvi32mm-vmmacc.vv-00.S (proposed, abridged)"
+      ><span class="c">##### START_TEST_CONFIG #####
+# REQUIRED_EXTENSIONS: ['I', 'Zvvmm', 'Zvvi32mm', 'Zve32x']
+# params:
+#   MXLEN: 64
+# MARCH: rv64i_zicsr_zifencei_zve32x_zvvi32mm_zvvmm
+##### END_TEST_CONFIG #####</span>
+#define RVTEST_SEW 32
+#define RVTEST_EXPERIMENTAL
+<span class="c"># Testcase cr_lambda_lmul (lambda = 2, lmul = 2, vl = vlmax)</span>
+#if defined(UDB_SUPPORTED_LAMBDA_SEW32_2)
+  vsetvli x17, x0, e32, m8, tu, mu       <span class="c"># C window v16-v31</span>
+  LA (x17, vd_ime_c_random_e32)
+  vle32.v v16, (x17)
+  <span class="c">… second m8 half into v24 …</span>
+  vsetvli x17, x0, e32, m2, tu, mu       <span class="c"># A in v4, B in v10</span>
+  <span class="c">… vle32.v v4 and v10 …</span>
+  LI (x20, 0x2000000000000011)           <span class="c"># lambda=2, e32, m2</span>
+  vsetvl x17, x0, x20
+<span class="hl">Zvvmm32Zvvi32mm_vmmacc_vv_cg_cr_lambda_lmul_lambda_2_lmul_2_vl_vlmax:</span>
+  vmmacc.vv v16, v4, v10
+  vsetvli x17, x0, e32, m8, tu, mu
+  RVTEST_SIGUPD_V_LEN(…, v16, …, 32, 8, …)
+  RVTEST_SIGUPD_V_LEN(…, v24, …, 32, 8, …)
+#endif</pre>
+      <p>
+        On <code>qemu-ime-rv64</code>, λ=2 at SEW=32 gives
+        <code>EMUL_C</code>=2: C is <code>v16</code>–<code>v17</code>, and the
+        check also confirms that <code>v18</code>–<code>v31</code> are
+        unchanged. <code>vsetvli</code> keeps λ, because a change of LMUL alone
+        does not change λ (spec:741).
+      </p>
+
+      <h3>Order of work</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Step</th>
+              <th>Depends on</th>
+              <th>Effort</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">1</td>
+              <td>
+                Slice 1: <code>vmmacc.vv</code> with <code>Zvvi32mm</code>,
+                <code>cp_asm_count</code> and <code>cr_lambda_lmul</code>. Suite
+                expansion, the covergroupgen fix, <code>MMACC</code>,
+                <code>load_ime_vtype</code>, the λ gate. Passes on QEMU and Sail
+                before the Sail fix.
+              </td>
+              <td>—</td>
+              <td>3–4 days</td>
+            </tr>
+            <tr>
+              <td class="num">2</td>
+              <td>
+                All 13 integer rows and their coverpoints, with Int4 data.
+              </td>
+              <td>1</td>
+              <td>4–5 days</td>
+            </tr>
+            <tr>
+              <td class="num">3</td>
+              <td>
+                <code>Zvvmtls.csv</code>: <code>VLT</code>, <code>VST</code> and
+                the tile coverpoints. LMUL&gt;1 bins pass on QEMU only after the
+                Sail fix.
+              </td>
+              <td>1</td>
+              <td>4–5 days</td>
+            </tr>
+            <tr>
+              <td class="num">3a</td>
+              <td>
+                <code>cp_custom_tile_layout</code> and
+                <code>cp_custom_tile_roundtrip</code>. Before the Sail fix,
+                LMUL=1 and <code>same</code> bins pass; LMUL&gt;1 layout and
+                <code>mixed</code> bins fail with the values above. This is the
+                ACT regression test for work item 1.
+              </td>
+              <td>3</td>
+              <td>2–3 days</td>
+            </tr>
+            <tr>
+              <td class="num">3b</td>
+              <td>
+                <code>cp_custom_tile_macc</code> and the four
+                <code>Zvvi&lt;n&gt;mm:Zvvmtls</code> rows.
+              </td>
+              <td>2, 3a</td>
+              <td>2 days</td>
+            </tr>
+            <tr>
+              <td class="num">4</td>
+              <td>
+                <code>Zvvfmm.csv</code> rows that Sail implements, portable FP
+                data, <code>cp_csr_frm_v</code>, <code>cp_csr_fflags</code>.
+              </td>
+              <td>2</td>
+              <td>5–7 days</td>
+            </tr>
+            <tr>
+              <td class="num">5</td>
+              <td>
+                <code>Zvvmttls.csv</code> with
+                <code>cp_custom_tile_crossmode</code>; Sail only.
+              </td>
+              <td>3, 3a</td>
+              <td>2–3 days</td>
+            </tr>
+            <tr>
+              <td class="num">6</td>
+              <td>
+                Coverage: decoder entries, <code>vtype</code> fields, templates.
+              </td>
+              <td>2–5</td>
+              <td>4–6 days</td>
+            </tr>
+            <tr>
+              <td class="num">7</td>
+              <td>
+                <code>ExceptionsZvvm</code>: illegal cases and
+                <code>vstart</code>.
+              </td>
+              <td>3, 4</td>
+              <td>4–5 days</td>
+            </tr>
+            <tr>
+              <td class="num">8</td>
+              <td>
+                <code>psm</code> and <code>rnd</code> parameters, multi-term
+                rounding tests.
+              </td>
+              <td>4; disclosure; Sail change</td>
+              <td>3–4 days</td>
+            </tr>
+            <tr>
+              <td class="num">9</td>
+              <td>OFP8, OFP4, BF16 output and microscaling rows.</td>
+              <td>Sail implementation</td>
+              <td>5–7 days</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Steps 1–7 take about 6–8 engineer-weeks.</p>
+
+      <h3>Open questions</h3>
+      <ol>
+        <li>
+          Does an FP output with <code>altfmt=1</code> need Zvfbfa, or only the
+          IME type extension? This blocks rows with BF16 or E5M2 output.
+        </li>
+        <li>
+          Which <code>psm</code> and <code>rnd</code> does the target use for
+          each (SEW, W, λ)? For any <code>psm=1</code> entry, which reduction
+          algorithm is disclosed?
+        </li>
+        <li>
+          Does the Sail fork support RV32, Int4 and W=1 BF16? Does QEMU support
+          Int4?
+        </li>
+      </ol>
+
       <h2 id="plan"><span class="n">17</span>Work plan</h2>
       <div class="tablewrap">
         <table>
@@ -5478,8 +6449,11 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             <tr>
               <td class="num">7</td>
               <td>
-                Write <code>testplans/Zvvmm.csv</code>, an IME formatter,
-                configuration coverpoints and covergroup templates (option C).
+                Write the four IME testplans, the IME formatters, coverpoints
+                and covergroup templates (option C). <strong>Designed:</strong>
+                Section 16b gives the suites, rows, formatter types,
+                coverpoints, the tests for the Sail bug class and the order of
+                work.
               </td>
               <td>ACT testgen, covergroupgen</td>
               <td>5</td>
