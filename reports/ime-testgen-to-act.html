@@ -1932,6 +1932,43 @@ Compare        {"output": "C_result", "reference": "C_ref", "size": 64, "compare
           >.
           <span class="ev code">code</span>
         </p>
+        <p>
+          Measured against the specification's (G, psm, rnd) model
+          (spec:1361–1412), neither statement holds for every row.
+          <span class="ev code">code</span> <span class="ev run">run</span>
+        </p>
+        <ul>
+          <li>
+            W=1, same format: <code>--fma</code> computes round<sub>frm</sub>(C
+            + a·b). That is G=1, psm=0, rnd=xct, which is legal. The default
+            mode rounds the product to the C format first. That is G=1, psm=0,
+            rnd=frm, which is also legal and is what Sail does.
+          </li>
+          <li>
+            W&gt;1: both modes add each product into C on its own. The
+            specification first reduces the W products of a sub-dot-product into
+            one partial sum S (spec:1352–1359, 1386–1397). No (G, psm, rnd)
+            tuple yields the per-product sequence. QEMU and Sail do the same.
+          </li>
+          <li>
+            <code>--fma</code> picks an f32 internal format for every input of
+            up to 16 bits
+            <a
+              class="src"
+              href="https://github.com/Openchip-Software/riscv-ime-arch-tests/blob/46f378198e68d6f6f58193353f4f2535a131b602/ime-test-gen/src/expand_ir.rs#L792-L798"
+              target="_blank"
+              rel="noopener"
+              >ime-test-gen/src/expand_ir.rs:792-798</a
+            >. For f16 or bf16 into f64 (<code>TC-FQ-F16/BF16</code>), the f64
+            accumulator is therefore rounded to f32 at each step. QEMU uses
+            <code>float64_muladd</code>. The <code>ones</code> data hides the
+            difference. <span class="ev inf">inferred</span>
+          </li>
+        </ul>
+        <p>
+          <a href="#testplan-fprnd">Section 16b, FP rounding profiles</a>, has
+          the full comparison.
+        </p>
       </div>
 
       <h2 id="emit"><span class="n">8</span>Backends and emitted code</h2>
@@ -5446,8 +5483,13 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             <tr>
               <td>FP profile (G, psm, rnd)</td>
               <td>
-                G=1 is confirmed, as in Sail. <code>psm</code> and
-                <code>rnd</code> are unknown.
+                G=1 is confirmed, as in Sail. The target's <code>psm</code> and
+                <code>rnd</code> are not disclosed. The SDK QEMU is G=1, psm=0,
+                rnd=xct for same-format W=1 rows, and Sail is G=1, psm=0,
+                rnd=frm. For W&gt;1, both add each product into C on its own,
+                which no tuple describes (<a href="#testplan-fprnd"
+                  >FP rounding profiles</a
+                >). The test data stays exact.
               </td>
             </tr>
           </tbody>
@@ -6050,6 +6092,178 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </p>
       </div>
 
+      <h3 id="testplan-fprnd">FP rounding profiles</h3>
+      <p>
+        The specification (spec:1361–1478) splits the λ sub-dot-products of each
+        <code>LMUL=1</code> step into groups of G. A sub-dot-product holds W
+        products. Each group is reduced to a partial sum S, either exactly
+        (psm=0) or by a disclosed algorithm (psm=1). S is then rounded with
+        <code>frm</code> (rnd=frm), rounded to odd (rnd=rto) or kept exact
+        (rnd=xct). Last, C ← round<sub>frm</sub>(C + S). The implementation
+        publishes one (G, psm, rnd) per (SEW, W, λ). That tuple covers every
+        format combination of the geometry (spec:1456–1460). Legal values: G a
+        power of two with 1 ≤ G ≤ λ; psm ∈ {0,1}; rnd ∈ {frm, rto, xct}. A psm=1
+        entry also needs the algorithm and a SAIL fragment (spec:1473–1502).
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Rows</th>
+              <th>SDK QEMU <code>d856b96</code></th>
+              <th>Sail <code>c69e3e22</code></th>
+              <th><code>ime-test-gen --fma</code></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>W=1, same format</td>
+              <td>
+                <code>floatN_muladd</code> per product: G=1, psm=0, rnd=xct.
+                Legal.
+                <a
+                  href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L1139-L1158"
+                  ><code>trans_rvzvvmm.c.inc:1139-1158</code></a
+                >
+              </td>
+              <td>
+                <code>fp_mul</code> then <code>fp_add</code>, both with
+                <code>frm</code>: G=1, psm=0, rnd=frm. Legal.
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L525-L526"
+                  ><code>ime_mem_insts.sail:525-526</code></a
+                >
+              </td>
+              <td>Same as QEMU.</td>
+            </tr>
+            <tr>
+              <td>W=1, mixed formats (f16×bf16, e4m3×e5m2)</td>
+              <td>
+                <code>float32_muladd</code>, then conversion to the C format:
+                two roundings. Fits no rnd value.
+                <a
+                  href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L1040-L1136"
+                  ><code>trans_rvzvvmm.c.inc:1040-1136</code></a
+                >
+              </td>
+              <td>Not implemented.</td>
+              <td>One rounding to the C format. Differs from QEMU.</td>
+            </tr>
+            <tr>
+              <td>W&gt;1</td>
+              <td>
+                One fused multiply-add into C per product. The W products are
+                never summed into S first. Fits no tuple.
+                <a
+                  href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L610-L669"
+                  ><code>trans_rvzvvmm.c.inc:610-669</code></a
+                >
+              </td>
+              <td>
+                Per product, as for W=1. The products are exact in the C format,
+                so the values equal QEMU's. Fits no tuple, although the comment
+                at
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L450-L453"
+                  ><code>ime_mem_insts.sail:450-453</code></a
+                >
+                discloses G=1, psm=0, rnd=frm.
+              </td>
+              <td>
+                Same as QEMU, except f16/bf16 or OFP8 into f64, which round the
+                accumulator to f32 at each step.
+              </td>
+            </tr>
+            <tr>
+              <td>Microscaled (vm=0)</td>
+              <td>
+                Scale computed in f32, per-product rounding over a whole block,
+                then a fused scale-add into C. Fits no tuple.
+                <a
+                  href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L180-L280"
+                  ><code>trans_rvzvvmm.c.inc:180-280</code></a
+                >
+              </td>
+              <td>Not implemented.</td>
+              <td>Not generated.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        All QEMU paths set the rounding mode from <code>frm</code> (<a
+          href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L2224-L2225"
+          ><code>trans_rvzvvmm.c.inc:2224-2225</code></a
+        >) and accrue flags into one <code>fp_status</code>. NaN results are
+        canonical, and subnormals are not flushed. QEMU's
+        <code>vrull/ime-wip</code> head is <code>d856b96</code>, the SDK pin.
+        <span class="ev code">code</span>
+      </p>
+      <p>
+        QEMU and Sail disagree on W=1 whenever a product is inexact in the C
+        format. Example at VLEN 256, SEW 32, λ=1, vl=1: a = b = 1+2<sup
+          >-12</sup
+        >
+        and C = −(1+2<sup>-11</sup>), so a·b + C = 2<sup>-24</sup> exactly.
+        <span class="ev run">run</span>
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Case</th>
+              <th>QEMU C / fflags</th>
+              <th>Sail C / fflags</th>
+              <th>Specification, G=1, psm=0</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>W=1 f32, RNE</td>
+              <td><code>0x33800000</code> / 0</td>
+              <td><code>0x00000000</code> / NX</td>
+              <td>
+                xct: <code>0x33800000</code>; frm: <code>0x00000000</code>
+              </td>
+            </tr>
+            <tr>
+              <td>W=1 f32, RUP</td>
+              <td><code>0x33800000</code> / 0</td>
+              <td><code>0x34000000</code> / NX</td>
+              <td>
+                xct: <code>0x33800000</code>; frm: <code>0x34000000</code>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                W=2 f16→f32, RNE: A = B = (2<sup>-12</sup>, 2<sup>-12</sup>), C
+                = 1.0
+              </td>
+              <td><code>0x3f800000</code> / NX</td>
+              <td><code>0x3f800000</code> / NX</td>
+              <td>every rnd: <code>0x3f800001</code></td>
+            </tr>
+            <tr>
+              <td>
+                W=1 f16×bf16→f16, RNE: a = <code>0x3d89</code>, b =
+                <code>0x39b9</code>, C = 1.0
+              </td>
+              <td><code>0x3c00</code> / NX</td>
+              <td>Not implemented.</td>
+              <td>xct: <code>0x3c01</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        On the W&gt;1 rows that Sail implements, the two agree on values. Their
+        flags can still differ when a bf16 product underflows f32 and C ≠ 0:
+        Sail's <code>fp_mul</code> raises UF, and QEMU's fused operation does
+        not. <span class="ev inf">inferred</span> The probe is
+        <code>fprnd.c</code>, built and run like the Sail issue reproducer, with
+        <code>mstatus.FS</code> set and Zvvfmm enabled in Sail.
+      </p>
+
       <h3>Value patterns</h3>
       <ul>
         <li>
@@ -6058,10 +6272,12 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           positional values.
         </li>
         <li>
-          FP: with G=1, every group is one sub-dot-product of W products.
-          <code>psm</code> and <code>rnd</code> are unknown, so the data must
-          give the same result for <code>psm</code> ∈ {0,1} and
-          <code>rnd</code> ∈ {frm, rto, xct} (spec:1376–1460).
+          FP: with G=1, every group is one sub-dot-product of W products. The
+          target's <code>psm</code> and <code>rnd</code> are not disclosed, so
+          the data must give the same result for <code>psm</code> ∈ {0,1} and
+          <code>rnd</code> ∈ {frm, rto, xct} (spec:1376–1460). It must also give
+          the same result under the per-product accumulation of QEMU and Sail
+          for W&gt;1.
         </li>
         <li>
           Random FP data (<code>exact_dot_rng</code>, after
@@ -6084,12 +6300,22 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           values (NaN, ∞, ±0, 0×∞) are portable. For ties, overflow, underflow,
           inexact and the <code>frm</code> sweep, p is exact in the C format,
           and C₀ is chosen so that the final round<sub>frm</sub>(C₀ + p) rounds.
-          That final rounding is common to every profile.
+          That final rounding is common to every profile. The other products of
+          the element are zero, for every W.
         </li>
         <li>
-          Deferred until <code>psm</code> and <code>rnd</code> are disclosed:
-          inexact products, cancellation across k and accumulation order. Sail
-          uses G=1, psm=0, rnd=frm.
+          The exact-sum design stays, and the profile findings make it
+          necessary. The signature comes from Sail, which is rnd=frm. The SDK
+          QEMU is rnd=xct. A W=1 testcase with an inexact product therefore
+          fails on QEMU, and a W&gt;1 testcase with an inexact sub-dot-product
+          checks behaviour that no tuple allows.
+          <span class="ev inf">inferred</span>
+        </li>
+        <li>
+          Deferred until the target discloses <code>psm</code> and
+          <code>rnd</code>: inexact products, cancellation across k and
+          accumulation order. These tests also need Sail to select the profile
+          and to reduce the W products of a sub-dot-product before C is updated.
         </li>
       </ul>
 
@@ -6341,9 +6567,16 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           IME type extension? This blocks rows with BF16 or E5M2 output.
         </li>
         <li>
-          Which <code>psm</code> and <code>rnd</code> does the target use for
-          each (SEW, W, λ)? For any <code>psm=1</code> entry, which reduction
-          algorithm is disclosed?
+          G=1 is confirmed. Which <code>psm</code> and <code>rnd</code> does the
+          target use for each (SEW, W, λ)? For any <code>psm=1</code> entry,
+          which reduction algorithm is disclosed? The SDK QEMU answers rnd=xct
+          for same-format W=1 rows only. It is not a disclosure, and its W&gt;1
+          rows fit no tuple.
+        </li>
+        <li>
+          Should the Sail fork and QEMU reduce the W products of a
+          sub-dot-product into S before C is updated, as spec:1386–1397
+          requires?
         </li>
         <li>
           Does the Sail fork support RV32, Int4 and W=1 BF16? Does QEMU support
@@ -6627,7 +6860,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
       </div>
       <h3>Specification, toolchain and model discrepancies</h3>
       <p>
-        Found during the ACT bring-up (Section 16a). The specification is
+        Found during the ACT bring-up (Section 16a) and the FP profile
+        comparison (Section 16b). The specification is
         <code>riscv/integrated-matrix-extension</code> @ <code>6effbcae</code>.
       </p>
       <div class="tablewrap">
@@ -6701,6 +6935,105 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               </td>
               <td><span class="ev code">code</span></td>
             </tr>
+            <tr>
+              <td class="num">15</td>
+              <td>
+                For W&gt;1, the SDK QEMU and the Sail fork add each product into
+                C on its own. The specification sums the W products of a
+                sub-dot-product into S first (spec:1386–1397). No (G, psm, rnd)
+                tuple describes the result. Sail's comment discloses G=1, psm=0,
+                rnd=frm. With C = 1.0 and two products of 2<sup>-24</sup> into
+                f32, both return <code>0x3f800000</code>; the specification
+                gives <code>0x3f800001</code>.
+              </td>
+              <td>
+                <span class="ev run">run</span>
+                <a
+                  href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L610-L669"
+                  ><code>trans_rvzvvmm.c.inc:610-669</code></a
+                >,
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L547-L563"
+                  ><code>ime_mem_insts.sail:547-563</code></a
+                >
+              </td>
+            </tr>
+            <tr>
+              <td class="num">16</td>
+              <td>
+                For W=1, QEMU is rnd=xct (fused) and Sail is rnd=frm. Both are
+                legal, but they return different results whenever a product is
+                inexact in the C format.
+              </td>
+              <td>
+                <span class="ev run">run</span>
+                <a
+                  href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L1150-L1153"
+                  ><code>trans_rvzvvmm.c.inc:1150-1153</code></a
+                >,
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L525-L526"
+                  ><code>ime_mem_insts.sail:525-526</code></a
+                >
+              </td>
+            </tr>
+            <tr>
+              <td class="num">17</td>
+              <td>
+                QEMU's mixed-format W=1 rows round to f32 and then to the C
+                format.
+                <code>0x3d89</code> (f16) × <code>0x39b9</code> (bf16) + 1.0
+                gives <code>0x3c00</code>; a single rounding gives
+                <code>0x3c01</code>. The same-format rows round once, but the
+                specification requires one tuple for every format combination of
+                a geometry (spec:1456–1460).
+              </td>
+              <td>
+                <span class="ev run">run</span>
+                <a
+                  href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L1100-L1107"
+                  ><code>trans_rvzvvmm.c.inc:1100-1107</code></a
+                >
+              </td>
+            </tr>
+            <tr>
+              <td class="num">18</td>
+              <td>
+                QEMU's microscaled path computes the combined scale with
+                <code>float32_mul</code>, so the scale can overflow or
+                underflow. It rounds each product of a whole block into an inner
+                product, then performs a fused scale-add into C. Groups can
+                therefore exceed λ and cross <code>LMUL=1</code> steps
+                (spec:1828–1905).
+              </td>
+              <td>
+                <span class="ev code">code</span>
+                <a
+                  href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L180-L280"
+                  ><code>trans_rvzvvmm.c.inc:180-280</code></a
+                >
+              </td>
+            </tr>
+            <tr>
+              <td class="num">19</td>
+              <td>
+                <code>ime-test-gen --fma</code> uses an f32 internal format for
+                f16 or bf16 into f64 and for OFP8 into f64. It rounds the f64
+                accumulator to f32 at every step. QEMU uses
+                <code>float64_muladd</code>. For mixed-format W=1 rows it rounds
+                once, while QEMU rounds twice.
+              </td>
+              <td>
+                <span class="ev code">code</span>
+                <a
+                  class="src"
+                  href="https://github.com/Openchip-Software/riscv-ime-arch-tests/blob/46f378198e68d6f6f58193353f4f2535a131b602/ime-test-gen/src/expand_ir.rs#L792-L798"
+                  target="_blank"
+                  rel="noopener"
+                  >ime-test-gen/src/expand_ir.rs:792-798</a
+                >
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -6737,7 +7070,25 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           <strong>IME specification:</strong>
           <code>riscv/integrated-matrix-extension</code> @
           <code>6effbcae</code> (2026-08-04). The UDB overlay, the
-          <code>.insn</code> macros and Section 16 follow this commit.
+          <code>.insn</code> macros and Section 16 follow this commit. It was
+          still the head of <code>main</code> on 2026-10-27, so the rounding
+          sections cited in Section 16b are current.
+        </li>
+        <li>
+          <strong>QEMU source:</strong>
+          <code>Openchip-Software/riscv-ime-qemu</code>, branch
+          <code>vrull/ime-wip</code> @
+          <code>d856b96cedfa80ce025b2486e15ce093d2f7eea0</code> (2026-06-28),
+          read on 2026-10-27. This is also the commit the SDK QEMU is built
+          from, so the FP mmacc code is the same in both. QEMU links in Sections
+          16b and 18 point at this commit. Sail links point at
+          <code>c69e3e22</code>.
+        </li>
+        <li>
+          <strong>FP profile probe:</strong> <code>fprnd.c</code> with the
+          reproducer's <code>start.S</code> (plus <code>mstatus.FS</code>) and
+          <code>link.ld</code>, run on 2026-10-27 on the SDK QEMU and on Sail
+          <code>c69e3e22</code> with Zvvfmm enabled. It is not checked in.
         </li>
         <li>
           <strong>ACT import branch:</strong>
