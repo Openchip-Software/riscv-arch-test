@@ -938,7 +938,9 @@
             </ul>
             One blocker remains: the C-tile disagreement. A reproducer, a draft
             issue and a tested Sail patch are ready. The fix is not yet merged
-            in the fork. The other blockers are resolved (Section 16a):
+            in the fork. A second draft issue covers the Sail fork's W&gt;1 FP
+            accumulation, which also contradicts the specification (Section
+            16b). The other blockers are resolved (Section 16a):
             <ul>
               <li>
                 Sail version gate and schema: branch
@@ -960,6 +962,12 @@
                 (<code>732f78d72</code>).
               </li>
             </ul>
+          </li>
+          <li>
+            <strong>Source of truth.</strong> Since 2026-10-27, the IME
+            specification decides every conflict, the IME Sail fork decides
+            where the specification is silent or ambiguous, and QEMU, the SDK
+            GCC and the Rust golden model never decide one (Section 16b).
           </li>
         </ol>
       </section>
@@ -2826,7 +2834,9 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                 <code>-march</code>, so IME instructions assemble through the
                 <code>.insn</code> macros in
                 <code>tests/env/rvtest_experimental.h</code>
-                (<code>24c90741c</code>).
+                (<code>24c90741c</code>). ACT uses only the extension names and
+                mnemonics of the specification. The GCC-only names are not used
+                (Section 18).
               </td>
               <td><span class="ev run">run</span></td>
             </tr>
@@ -2845,7 +2855,12 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                   href="issues/sail-ime-tile-ls-index/sail-ime-tile-ls-index.html"
                   ><code>issues/sail-ime-tile-ls-index/</code></a
                 >. The patched Sail matches QEMU on every step of the
-                reproducer. The fix is not merged in the fork (Section 16a).
+                reproducer. The fix is not merged in the fork (Section 16a). The
+                specification decides this conflict (Section 16b); QEMU's
+                agreement with it is corroboration, not the basis. The Sail fork
+                also contradicts the specification for W&gt;1 FP accumulation
+                and for λ legality. Those deviations make bins fail but do not
+                block the integration (work items 10 and 11).
               </td>
               <td><span class="ev run">run</span></td>
             </tr>
@@ -2886,7 +2901,10 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                   <li>
                     The Sail fork accepts any λ ≤ VLEN/SEW, and its λ set is not
                     configurable. It therefore cannot model a DUT that supports
-                    fewer λ values. QEMU accepts every λ.
+                    fewer λ values. Accepting a λ with
+                    <code>EMUL_C</code> &lt; 1 contradicts the specification
+                    (spec:811–815), so it is a Sail deviation (work item 11).
+                    QEMU accepts every λ.
                   </li>
                 </ul>
               </td>
@@ -4918,6 +4936,11 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           <code>tile_reg_idx(i, LMUL, λ, epr)</code>.
           <span class="ev code">code</span>
         </p>
+        <p>
+          The specification is the source of truth (Section 16b), so the Sail
+          fork is wrong. That QEMU and the golden model agree with the
+          specification corroborates the verdict but does not decide it.
+        </p>
       </div>
       <h3>What the specification says</h3>
       <p>
@@ -5129,7 +5152,10 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           extensions (<code>Zvvmm</code>, <code>Zvvfmm</code>,
           <code>Zvvmtls</code>, <code>Zvvmttls</code>), 31 computational
           extensions and 30 microscaling extensions. Each computational
-          extension requires its family extension, as in GCC 16.1.
+          extension requires its family extension, as in GCC 16.1. The
+          specification does not state this direction. The Sail fork decodes IME
+          instructions only when the family extension is enabled
+          (<code>ime_mem_insts.sail:310</code>).
           <span class="ev code">code</span>
         </li>
         <li>
@@ -5207,7 +5233,9 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </li>
         <li>
           For the W=4 instructions, the macros define both the specification
-          names and the GCC names (Section 18).
+          names and the GCC names (Section 18). The specification names are
+          canonical: the testplans use them, and the GCC names exist only as
+          macro aliases.
         </li>
         <li>
           λ cannot be written in <code>vsetvli</code>: it sits in
@@ -5345,7 +5373,10 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <p>
           Neither model rejects a λ that a DUT configuration leaves out. Test
           selection through <code>SUPPORTED_LAMBDA_SEW&lt;n&gt;</code> is the
-          only protection. <span class="ev code">code</span>
+          only protection. <span class="ev code">code</span> The specification
+          decides which λ are permissible. The UDB λ lists already follow it.
+          Sail's acceptance of other λ values is a Sail deviation (finding 14,
+          work item 11).
         </p>
       </div>
 
@@ -5433,6 +5464,35 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <code>integrated-matrix.adoc</code> at <code>6effbcae</code>, cited as
         <code>spec:</code> line numbers.
       </p>
+      <div class="note">
+        <span class="tag">Source of truth (decided 2026-10-27)</span>
+        <p>
+          When implementations or documents conflict, the IME specification
+          decides. Where the specification is silent or ambiguous, the IME Sail
+          fork decides. QEMU, the SDK GCC and the Rust golden model never decide
+          a conflict.
+        </p>
+        <ul>
+          <li>
+            <strong>Sail contradicts the specification:</strong> Sail is wrong.
+            The bins follow the specification and stay in place, with no
+            <code>ignore_bins</code> and no exclusion. Their expected values
+            come from Sail, so they embed Sail's wrong values and fail on a
+            conforming DUT until Sail is fixed. Each case has a Sail issue or
+            work item. The tile-index bug and the W&gt;1 partial sum are handled
+            this way.
+          </li>
+          <li>
+            <strong>The specification permits several behaviours</strong>, for
+            example rnd ∈ {frm, rto, xct}: tests do not depend on the choice.
+          </li>
+          <li>
+            <strong>The specification is silent:</strong> tests follow the Sail
+            code, and the design records "spec silent; Sail behaviour" with a
+            code citation.
+          </li>
+        </ul>
+      </div>
 
       <h3>Decisions</h3>
       <div class="tablewrap">
@@ -5468,28 +5528,143 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
                 <code>vs2</code>?
               </td>
               <td>
-                No. This is the project's reading. The specification states no
-                such rule: the MACC exception lists, for example
+                <strong>Open: needs a user decision.</strong> The specification
+                is silent. The MACC exception lists, for example
                 <code>vmmacc.vv</code> at spec:5782–5792, name overlap only with
-                <code>v0</code>, for the microscaled forms. The formatter
+                <code>v0</code>, for the microscaled forms.
+                <code>check_gemm_reg_groups</code> checks only alignment
+                (spec:4193–4202). Sail behaviour: no overlap check (<a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L286-L293"
+                  ><code>ime_mem_insts.sail:286-293</code></a
+                >,
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L618-L626"
+                  ><code>ime_mem_insts.sail:618-626</code></a
+                >). Sail computes in place: it reads A and B element by element
+                while it writes each finished C element (<a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L248-L265"
+                  ><code>ime_mem_insts.sail:248-265</code></a
+                >). Under the rule, overlap is therefore allowed, with Sail's
+                result. That conflicts with the project statement that
+                <code>vd</code> cannot overlap <code>vs1</code> or
+                <code>vs2</code>. Until the user decides, the formatter
                 (<code>overlap_constraints</code>) and the register allocation
-                enforce it. No test covers an overlap.
+                keep the non-overlap constraint, and no test covers an overlap.
               </td>
             </tr>
             <tr>
               <td>Does <code>altfmt=1</code> for an FP output need Zvfbfa?</td>
-              <td>Unknown. Still open.</td>
+              <td>
+                Yes. Spec silent; Sail behaviour. The specification uses the
+                <code>altfmt</code> field "as defined by Zvfbfa" (spec:692–697,
+                spec:1202). It does not say whether an implementation without
+                Zvfbfa has the field. Sail <code>c69e3e22</code> has no Zvfbfa
+                and no <code>altfmt</code> field: bit 8 of <code>vtype</code> is
+                in the reserved range (<a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/V/vext_regs.sail#L249"
+                  ><code>vext_regs.sail:249</code></a
+                >), and <code>vsetvl</code> takes the illegal-<code>vtype</code>
+                path when a reserved bit is set (<a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/V/vext_vset_insts.sail#L198-L199"
+                  ><code>vext_vset_insts.sail:198-199</code></a
+                >). Rows with BF16 or E5M2 output therefore list Zvfbfa in
+                <code>ExtraExtensions</code> beside the type extension. UDB
+                0.1.18 defines Zvfbfa.
+              </td>
             </tr>
             <tr>
               <td>FP profile (G, psm, rnd)</td>
               <td>
-                G=1 is confirmed, as in Sail. The target's <code>psm</code> and
-                <code>rnd</code> are not disclosed. The SDK QEMU is G=1, psm=0,
-                rnd=xct for same-format W=1 rows, and Sail is G=1, psm=0,
-                rnd=frm. For W&gt;1, both add each product into C on its own,
-                which no tuple describes (<a href="#testplan-fprnd"
+                The specification permits several values, so tests do not depend
+                on the choice. G=1 is confirmed for the target, as in Sail. The
+                target's <code>psm</code> and <code>rnd</code> are not
+                disclosed. For same-format W=1 rows, the SDK QEMU is rnd=xct and
+                Sail is rnd=frm. Both are legal, so this is not a conflict. W=1
+                test data keeps every product exact (<a href="#testplan-fprnd"
                   >FP rounding profiles</a
-                >). The test data stays exact.
+                >).
+              </td>
+            </tr>
+            <tr>
+              <td>W&gt;1 FP accumulation</td>
+              <td>
+                Sail contradicts the specification. It adds each product into C
+                on its own instead of forming the sub-dot-product sum S first
+                (spec:1386–1412). New <code>cp_fp_subdot</code> bins follow the
+                specification and fail on a conforming DUT until Sail is fixed
+                (work item 10,
+                <a href="issues/sail-ime-wmmacc-partial-sum/ISSUE.md"
+                  ><code>issues/sail-ime-wmmacc-partial-sum/</code></a
+                >). QEMU has the same deviation. That is a DUT finding.
+              </td>
+            </tr>
+            <tr>
+              <td>λ legality</td>
+              <td>
+                The specification permits λ only when <code>EMUL_C</code> ∈ {1,
+                2, 4, 8, 16} (spec:811–815). The UDB λ lists follow it. Sail
+                accepts any λ ≤ VLEN/SEW (<a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_utils.sail#L34-L37"
+                  ><code>ime_utils.sail:34-37</code></a
+                >), and its MACC rejects <code>EMUL_C</code>=16 (<a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_utils.sail#L91-L92"
+                  ><code>ime_utils.sail:91-92</code></a
+                >, used at
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L244"
+                  ><code>ime_mem_insts.sail:244</code></a
+                >
+                and
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L497"
+                  ><code>ime_mem_insts.sail:497</code></a
+                >). Both are Sail deviations (work item 11).
+                <code>cr_lambda_lmul</code> bins with <code>EMUL_C</code>=16,
+                such as SEW=16 with λ=1 at VLEN 256, stay and fail until the
+                fix.
+              </td>
+            </tr>
+            <tr>
+              <td>LD = 0 in a register other than <code>x0</code></td>
+              <td>
+                The specification selects the natural LD when the value of
+                <code>rs2</code> is 0 (spec:2278–2291, spec:5914–5915). Sail
+                selects it only when <code>rs2</code> is <code>x0</code>, and
+                otherwise uses LD = 0 (<a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L53-L55"
+                  ><code>ime_mem_insts.sail:53-55</code></a
+                >,
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L145-L147"
+                  ><code>ime_mem_insts.sail:145-147</code></a
+                >). The <code>cp_ld</code> bin with 0 in a register follows the
+                specification and fails until the fix (work item 12).
+              </td>
+            </tr>
+            <tr>
+              <td>Mnemonics and extension names</td>
+              <td>
+                The CSVs use the specification names <code>vqmmacc.vv</code>,
+                <code>vfqmmacc.vv</code> and <code>vfqimmacc.vv</code>. The GCC
+                and QEMU names (<code>vqwmmacc.vv</code>, …) exist only as
+                <code>.insn</code> macro aliases. The GCC-only extension names
+                <code>zvmma</code>, <code>zvvxofp8mm</code> and
+                <code>zvvxnofp8mm</code> are not in the specification and are
+                not used.
+              </td>
+            </tr>
+            <tr>
+              <td>Family and type extensions</td>
+              <td>
+                A family extension does not imply its type extensions: a row is
+                legal only when the extension in its encoding-map cell is
+                implemented (spec:6646–6649). The specification does not say
+                whether a type extension requires its family extension. The
+                overlay requires it, and Sail decodes IME instructions only when
+                the family extension is enabled (<a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L310"
+                  ><code>ime_mem_insts.sail:310</code></a
+                >). ime-test-gen's opposite direction is a generator finding.
               </td>
             </tr>
           </tbody>
@@ -5773,6 +5948,14 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               </td>
               <td>new</td>
               <td>composed tile sequences, below</td>
+            </tr>
+            <tr>
+              <td><code>cp_fp_subdot</code>, FP rows with W&gt;1</td>
+              <td>new</td>
+              <td>
+                W products that add up to one ULP of C₀, one bin per
+                <code>frm</code> value, below
+              </td>
             </tr>
           </tbody>
         </table>
@@ -6091,6 +6274,92 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           bins pass on QEMU and on Sail.
         </p>
       </div>
+      <p>
+        <strong>W&gt;1 partial sum.</strong> The same treatment applies to the
+        Sail fork's W&gt;1 FP accumulation. The specification reduces the W
+        products of a sub-dot-product into S, then updates C once with
+        round<sub>frm</sub>(C + S) (spec:1352–1412). Sail adds each product into
+        C on its own (<a
+          href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L547-L597"
+          ><code>ime_mem_insts.sail:547-597</code></a
+        >). The new column <code>cp_fp_subdot</code> on the FP rows with W&gt;1
+        and vm=1 (<code>vfwmmacc.vv</code>, <code>vfqmmacc.vv</code>,
+        <code>vf8wmmacc.vv</code>) detects it. Its data: in one sub-dot-product
+        of C[0][0], W equal products that are exact in the C format, each at
+        most half an ULP of C₀, adding up to one ULP of C₀. All other products
+        of the element are zero. Bins
+        <code>ulp_&lt;rne|rtz|rdn|rup|rmm&gt;</code> set <code>frm</code>.
+      </p>
+      <ul>
+        <li>
+          The result does not depend on any permitted choice. S is exact under
+          psm=0 and representable in the C format, so every
+          <code>rnd</code> leaves it unchanged. The other sub-dot-products are
+          zero, so G does not matter. C₀ + S is exact, so every
+          <code>frm</code> gives C₀ + 1 ULP with no flag. A psm=1 reduction is
+          expected to be exact on W equal powers of two; that must be checked
+          against a disclosed algorithm.
+          <span class="ev inf">inferred</span>
+        </li>
+        <li>
+          Before the Sail fix, Sail writes the per-product result into the
+          signature. A conforming DUT fails the bins. The SDK QEMU passes them,
+          because it has the same deviation. After the fix, QEMU fails them
+          until QEMU is fixed.
+        </li>
+      </ul>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Bin <code>ulp_rne</code>, VLEN 256, λ=1</th>
+              <th>A[0][k], B[k][0], C₀</th>
+              <th>Specification</th>
+              <th>Sail <code>c69e3e22</code> and QEMU</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>vfwmmacc.vv</code> FP16→FP32</td>
+              <td>A = B = (2<sup>-12</sup>, 2<sup>-12</sup>), C₀ = 1.0</td>
+              <td><code>0x3f800001</code> / 0</td>
+              <td>
+                <code>0x3f800000</code> / NX <span class="ev run">run</span>
+              </td>
+            </tr>
+            <tr>
+              <td><code>vfwmmacc.vv</code> BF16→FP32</td>
+              <td>same values in BF16 (<code>0x3980</code>)</td>
+              <td><code>0x3f800001</code> / 0</td>
+              <td>
+                <code>0x3f800000</code> / NX
+                <span class="ev inf">inferred</span>
+              </td>
+            </tr>
+            <tr>
+              <td><code>vfwmmacc.vv</code> FP32→FP64</td>
+              <td>
+                A = (2<sup>-26</sup>, 2<sup>-26</sup>), B = (2<sup>-27</sup>,
+                2<sup>-27</sup>), C₀ = 1.0
+              </td>
+              <td><code>0x3ff0000000000001</code> / 0</td>
+              <td>
+                <code>0x3ff0000000000000</code> / NX
+                <span class="ev run">run</span>
+              </td>
+            </tr>
+            <tr>
+              <td><code>vfqmmacc.vv</code> FP16→FP64</td>
+              <td>A = B = (0.5, 0.5, 0.5, 0.5), C₀ = 2<sup>52</sup></td>
+              <td><code>0x4330000000000001</code> / 0</td>
+              <td>
+                <code>0x4330000000000000</code> / NX
+                <span class="ev run">run</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <h3 id="testplan-fprnd">FP rounding profiles</h3>
       <p>
@@ -6104,6 +6373,10 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         format combination of the geometry (spec:1456–1460). Legal values: G a
         power of two with 1 ≤ G ≤ λ; psm ∈ {0,1}; rnd ∈ {frm, rto, xct}. A psm=1
         entry also needs the algorithm and a SAIL fragment (spec:1473–1502).
+        Under the source-of-truth rule, a profile that fits a legal tuple is not
+        a conflict, and tests must not depend on the tuple. A profile that fits
+        no tuple violates the specification. In Sail it is a Sail bug; in QEMU
+        or the Rust model it is a finding only.
       </p>
       <div class="tablewrap">
         <table>
@@ -6140,7 +6413,8 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>W=1, mixed formats (f16×bf16, e4m3×e5m2)</td>
               <td>
                 <code>float32_muladd</code>, then conversion to the C format:
-                two roundings. Fits no rnd value.
+                two roundings. Fits no rnd value: QEMU violates the
+                specification (DUT finding).
                 <a
                   href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L1040-L1136"
                   ><code>trans_rvzvvmm.c.inc:1040-1136</code></a
@@ -6153,7 +6427,8 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>W&gt;1</td>
               <td>
                 One fused multiply-add into C per product. The W products are
-                never summed into S first. Fits no tuple.
+                never summed into S first. Fits no tuple: QEMU violates the
+                specification (DUT finding).
                 <a
                   href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L610-L669"
                   ><code>trans_rvzvvmm.c.inc:610-669</code></a
@@ -6161,8 +6436,8 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               </td>
               <td>
                 Per product, as for W=1. The products are exact in the C format,
-                so the values equal QEMU's. Fits no tuple, although the comment
-                at
+                so the values equal QEMU's. Fits no tuple: Sail bug, work item
+                10. The comment at
                 <a
                   href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L450-L453"
                   ><code>ime_mem_insts.sail:450-453</code></a
@@ -6171,14 +6446,15 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               </td>
               <td>
                 Same as QEMU, except f16/bf16 or OFP8 into f64, which round the
-                accumulator to f32 at each step.
+                accumulator to f32 at each step. Finding only.
               </td>
             </tr>
             <tr>
               <td>Microscaled (vm=0)</td>
               <td>
                 Scale computed in f32, per-product rounding over a whole block,
-                then a fused scale-add into C. Fits no tuple.
+                then a fused scale-add into C. Fits no tuple: QEMU violates the
+                specification (DUT finding).
                 <a
                   href="https://github.com/Openchip-Software/riscv-ime-qemu/blob/d856b96cedfa80ce025b2486e15ce093d2f7eea0/target/riscv/insn_trans/trans_rvzvvmm.c.inc#L180-L280"
                   ><code>trans_rvzvvmm.c.inc:180-280</code></a
@@ -6201,10 +6477,10 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
       </p>
       <p>
         QEMU and Sail disagree on W=1 whenever a product is inexact in the C
-        format. Example at VLEN 256, SEW 32, λ=1, vl=1: a = b = 1+2<sup
-          >-12</sup
-        >
-        and C = −(1+2<sup>-11</sup>), so a·b + C = 2<sup>-24</sup> exactly.
+        format. The specification permits both profiles, so this is not a
+        conflict: W=1 tests use exact products and do not depend on the choice.
+        Example at VLEN 256, SEW 32, λ=1, vl=1: a = b = 1+2<sup>-12</sup> and C
+        = −(1+2<sup>-11</sup>), so a·b + C = 2<sup>-24</sup> exactly.
         <span class="ev run">run</span>
       </p>
       <div class="tablewrap">
@@ -6241,7 +6517,26 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               </td>
               <td><code>0x3f800000</code> / NX</td>
               <td><code>0x3f800000</code> / NX</td>
-              <td>every rnd: <code>0x3f800001</code></td>
+              <td>every rnd: <code>0x3f800001</code> / 0</td>
+            </tr>
+            <tr>
+              <td>
+                W=2 f32→f64, RNE: A = (2<sup>-26</sup>, 2<sup>-26</sup>), B =
+                (2<sup>-27</sup>, 2<sup>-27</sup>), C = 1.0
+              </td>
+              <td><code>0x3ff0000000000000</code> / NX</td>
+              <td><code>0x3ff0000000000000</code> / NX</td>
+              <td>every rnd: <code>0x3ff0000000000001</code> / 0</td>
+            </tr>
+            <tr>
+              <td>
+                W=4 f16→f64, RNE: A = B = (0.5, 0.5, 0.5, 0.5), C = 2<sup
+                  >52</sup
+                >
+              </td>
+              <td><code>0x4330000000000000</code> / NX</td>
+              <td><code>0x4330000000000000</code> / NX</td>
+              <td>every rnd: <code>0x4330000000000001</code> / 0</td>
             </tr>
             <tr>
               <td>
@@ -6259,9 +6554,12 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         On the W&gt;1 rows that Sail implements, the two agree on values. Their
         flags can still differ when a bf16 product underflows f32 and C ≠ 0:
         Sail's <code>fp_mul</code> raises UF, and QEMU's fused operation does
-        not. <span class="ev inf">inferred</span> The probe is
-        <code>fprnd.c</code>, built and run like the Sail issue reproducer, with
-        <code>mstatus.FS</code> set and Zvvfmm enabled in Sail.
+        not. <span class="ev inf">inferred</span> On the W&gt;1 rows, both
+        values are wrong: the specification gives C₀ + 1 ULP with no flag. The
+        probe <code>fprnd.c</code> is the reproducer of the draft Sail issue
+        <a href="issues/sail-ime-wmmacc-partial-sum/ISSUE.md"
+          ><code>issues/sail-ime-wmmacc-partial-sum/</code></a
+        >. It runs with <code>mstatus.FS</code> set and Zvvfmm enabled in Sail.
       </p>
 
       <h3>Value patterns</h3>
@@ -6273,11 +6571,13 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </li>
         <li>
           FP: with G=1, every group is one sub-dot-product of W products. The
-          target's <code>psm</code> and <code>rnd</code> are not disclosed, so
-          the data must give the same result for <code>psm</code> ∈ {0,1} and
-          <code>rnd</code> ∈ {frm, rto, xct} (spec:1376–1460). It must also give
-          the same result under the per-product accumulation of QEMU and Sail
-          for W&gt;1.
+          target's <code>psm</code> and <code>rnd</code> are not disclosed. The
+          specification permits psm ∈ {0,1} and rnd ∈ {frm, rto, xct}
+          (spec:1376–1460), so by the source-of-truth rule the data gives the
+          same result for every permitted choice. The random and edge data also
+          keep every running C value exact, so they do not see the per-product
+          accumulation of Sail and QEMU. <code>cp_fp_subdot</code> targets that
+          deviation on purpose (Section 16b, W&gt;1 partial sum).
         </li>
         <li>
           Random FP data (<code>exact_dot_rng</code>, after
@@ -6304,18 +6604,21 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           the element are zero, for every W.
         </li>
         <li>
-          The exact-sum design stays, and the profile findings make it
-          necessary. The signature comes from Sail, which is rnd=frm. The SDK
-          QEMU is rnd=xct. A W=1 testcase with an inexact product therefore
-          fails on QEMU, and a W&gt;1 testcase with an inexact sub-dot-product
-          checks behaviour that no tuple allows.
-          <span class="ev inf">inferred</span>
+          The exact-sum design follows from the rule. The signature comes from
+          Sail, which is rnd=frm, and the SDK QEMU is rnd=xct. Both are
+          permitted. A W=1 testcase with an inexact product would depend on that
+          choice, so the data excludes it. <span class="ev inf">inferred</span>
         </li>
         <li>
-          Deferred until the target discloses <code>psm</code> and
-          <code>rnd</code>: inexact products, cancellation across k and
-          accumulation order. These tests also need Sail to select the profile
-          and to reduce the W products of a sub-dot-product before C is updated.
+          Multi-term tests that only need the specification's S are no longer
+          deferred: <code>cp_fp_subdot</code> covers them now and fails until
+          the Sail fix (work item 10).
+        </li>
+        <li>
+          Tests whose result depends on the (G, psm, rnd) choice, such as
+          inexact products, cancellation across k and accumulation order, wait
+          for the target's disclosure. They then need overlay parameters and a
+          Sail profile selected from <code>sail.json</code> (step 8).
         </li>
       </ul>
 
@@ -6354,7 +6657,8 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>OFP8, OFP4, BF16 output, microscaling</td>
               <td>
                 Rows are written. The Sail fork does not implement them, so no
-                DUT configuration selects them.
+                DUT configuration selects them. Rows with BF16 or E5M2 output
+                also require Zvfbfa.
               </td>
             </tr>
             <tr>
@@ -6367,9 +6671,10 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             <tr>
               <td>λ outside the DUT list</td>
               <td>
-                Sail accepts it. Negative λ tests in
-                <code>ExceptionsZvvm</code> wait for a configurable λ set in
-                Sail.
+                Sail accepts it, including λ values the specification does not
+                permit (work item 11). Negative λ tests in
+                <code>ExceptionsZvvm</code> follow the specification and wait
+                for a configurable λ set in Sail.
               </td>
             </tr>
             <tr>
@@ -6402,9 +6707,10 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
         <code>Zvvmtls.csv</code> has the same columns without
         <code>cp_custom_tile_crossmode</code>, and only the first two rows.
         <code>Zvvfmm.csv</code> adds <code>cr_vs1_vs2_edges</code>,
-        <code>cp_csr_frm</code> (<code>v</code>), <code>cp_csr_fflags</code> and
-        <code>cp_scale</code>, with edge suffixes such as <code>f_bf16</code>,
-        <code>f_emulf2</code> and <code>f_ofp8</code>.
+        <code>cp_csr_frm</code> (<code>v</code>), <code>cp_csr_fflags</code>,
+        <code>cp_fp_subdot</code> (W&gt;1 rows) and <code>cp_scale</code>, with
+        edge suffixes such as <code>f_bf16</code>, <code>f_emulf2</code> and
+        <code>f_ofp8</code>.
       </p>
 
       <h3>One generated testcase</h3>
@@ -6470,6 +6776,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td class="num">2</td>
               <td>
                 All 13 integer rows and their coverpoints, with Int4 data.
+                <code>cr_lambda_lmul</code> bins with <code>EMUL_C</code>=16
+                fail until work item 11.
               </td>
               <td>1</td>
               <td>4–5 days</td>
@@ -6509,7 +6817,10 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td class="num">4</td>
               <td>
                 <code>Zvvfmm.csv</code> rows that Sail implements, portable FP
-                data, <code>cp_csr_frm_v</code>, <code>cp_csr_fflags</code>.
+                data, <code>cp_csr_frm_v</code>, <code>cp_csr_fflags</code>,
+                <code>cp_fp_subdot</code>. The <code>cp_fp_subdot</code> bins
+                fail on a conforming DUT until work item 10, and pass on QEMU
+                until then.
               </td>
               <td>2</td>
               <td>5–7 days</td>
@@ -6543,8 +6854,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
             <tr>
               <td class="num">8</td>
               <td>
-                <code>psm</code> and <code>rnd</code> parameters, multi-term
-                rounding tests.
+                <code>psm</code> and <code>rnd</code> parameters, and the tests
+                whose result depends on the disclosed tuple.
               </td>
               <td>4; disclosure; Sail change</td>
               <td>3–4 days</td>
@@ -6563,8 +6874,12 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
       <h3>Open questions</h3>
       <ol>
         <li>
-          Does an FP output with <code>altfmt=1</code> need Zvfbfa, or only the
-          IME type extension? This blocks rows with BF16 or E5M2 output.
+          <strong>User decision:</strong> may the MACC <code>vd</code> group
+          overlap <code>vs1</code> or <code>vs2</code>? The specification is
+          silent, and Sail computes overlapping groups in place without a trap
+          (Decisions). The rule would allow overlap with Sail's result; the
+          earlier project statement forbids it. The testplan keeps the
+          non-overlap constraint until this is decided.
         </li>
         <li>
           G=1 is confirmed. Which <code>psm</code> and <code>rnd</code> does the
@@ -6574,15 +6889,15 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           rows fit no tuple.
         </li>
         <li>
-          Should the Sail fork and QEMU reduce the W products of a
-          sub-dot-product into S before C is updated, as spec:1386–1397
-          requires?
-        </li>
-        <li>
           Does the Sail fork support RV32, Int4 and W=1 BF16? Does QEMU support
           Int4?
         </li>
       </ol>
+      <p>
+        Closed by the source-of-truth rule: the Sail fork must form S before C
+        is updated (work item 10), and an FP output with <code>altfmt=1</code>
+        needs Zvfbfa (Decisions).
+      </p>
 
       <h2 id="plan"><span class="n">17</span>Work plan</h2>
       <div class="tablewrap">
@@ -6709,6 +7024,53 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td>ACT</td>
               <td>—</td>
             </tr>
+            <tr>
+              <td class="num">10</td>
+              <td>
+                In the Sail fork's <code>execute_ime_fp_gemm</code>, reduce the
+                W products of each sub-dot-product into an exact S, round S with
+                <code>frm</code>, and add it to C once (<code
+                  >ime_mem_insts.sail</code
+                >
+                lines 547–597 on <code>c69e3e22</code>).
+                <strong>Draft issue ready:</strong>
+                reproducer and outputs in
+                <code>issues/sail-ime-wmmacc-partial-sum/</code>. No patch yet,
+                and the issue is not filed. The SDK QEMU has the same deviation;
+                that is a DUT finding, not a Sail item.
+              </td>
+              <td>Sail fork</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td class="num">11</td>
+              <td>
+                λ legality in the Sail fork. Accept only λ with
+                <code>EMUL_C</code> ∈ {1, 2, 4, 8, 16}, in <code>vsetvl</code>,
+                <code>vsetvli</code> and the tile-load immediate (<code
+                  >ime_utils.sail</code
+                >
+                lines 34–54). Accept <code>EMUL_C</code>=16 in the MACC (lines
+                91–92). Make the supported λ set configurable in
+                <code>sail.json</code>, so that Sail can model the DUT's UDB λ
+                lists.
+              </td>
+              <td>Sail fork</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td class="num">12</td>
+              <td>
+                Tile load and store legality in the Sail fork. Use the natural
+                LD when the value of <code>rs2</code> is 0, not only for
+                <code>x0</code> (<code>ime_mem_insts.sail</code> lines 53–55 and
+                145–147). Raise an illegal-instruction exception when VL is not
+                a multiple of λ·LMUL, and for a masked load whose
+                <code>vd</code> is <code>v0</code> (spec:5874–5881).
+              </td>
+              <td>Sail fork</td>
+              <td>—</td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -6719,12 +7081,18 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
       <h2 id="findings">
         <span class="n">18</span>Findings in riscv-ime-arch-tests
       </h2>
+      <p>
+        The Class column applies the source-of-truth rule of Section 16b. A
+        finding in ime-test-gen, QEMU or GCC never changes a test; a finding in
+        Sail is a Sail bug.
+      </p>
       <div class="tablewrap">
         <table>
           <thead>
             <tr>
               <th>#</th>
               <th>Finding</th>
+              <th>Class</th>
               <th>Evidence</th>
             </tr>
           </thead>
@@ -6736,6 +7104,10 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 <code>0x3800000000000000</code>, which covers bits 59–61.
                 <code>vtype.h</code> and the Sail fork put λ at bits 60–62, so
                 the check reads <code>bs</code> and two of the three λ bits.
+              </td>
+              <td>
+                ime-test-gen: reads the wrong <code>vtype</code> bits
+                (spec:686–690)
               </td>
               <td>
                 <span class="ev code">code</span>
@@ -6754,6 +7126,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 <code>--grouping</code> does not reach the golden model; every
                 call passes G=1.
               </td>
+              <td>ime-test-gen defect; not a specification conflict</td>
               <td>
                 <span class="ev code">code</span>
                 <a
@@ -6771,6 +7144,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 The README says VLEN=128 produces 3248 tests. The generator now
                 emits 3376.
               </td>
+              <td>ime-test-gen documentation</td>
               <td>
                 <span class="ev run">run</span>
                 <a
@@ -6788,6 +7162,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 4 of the 8 basic binaries never run a test case under the pinned
                 SDK, because of <code>ime-entry-probe-trap</code>.
               </td>
+              <td>ime-test-gen environment</td>
               <td><span class="ev run">run</span></td>
             </tr>
             <tr>
@@ -6800,6 +7175,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 <code>stdio.h</code>). The documents describe an HTIF exit that
                 the backend does not emit.
               </td>
+              <td>ime-test-gen defect</td>
               <td><span class="ev code">code</span></td>
             </tr>
             <tr>
@@ -6808,6 +7184,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 The documents contradict the code on whether FMA-mode rounding
                 conforms to the specification.
               </td>
+              <td>ime-test-gen documentation (golden model)</td>
               <td>
                 <span class="ev code">code</span>
                 <a
@@ -6826,6 +7203,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 <code>.sif</code>. <code>ci/sdk-image</code> pins a private ORAS
                 <code>.sif</code>.
               </td>
+              <td>ime-test-gen documentation</td>
               <td>
                 <span class="ev code">code</span>
                 <a
@@ -6844,6 +7222,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 <code>test-gen/ime_test_generator.py</code>, which no longer
                 exists.
               </td>
+              <td>ime-test-gen defect</td>
               <td>
                 <span class="ev code">code</span>
                 <a
@@ -6870,6 +7249,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
             <tr>
               <th>#</th>
               <th>Finding</th>
+              <th>Class</th>
               <th>Evidence</th>
             </tr>
           </thead>
@@ -6887,6 +7267,11 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 GCC name.
               </td>
               <td>
+                GCC deviates from the specification; QEMU and ime-test-gen
+                follow GCC. Not a conflict for ACT: the testplans use the
+                specification names.
+              </td>
+              <td>
                 <span class="ev run">run</span>
                 <span class="ev code">code</span>
               </td>
@@ -6897,6 +7282,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 GCC rejects the <code>v0.scale</code> operand on
                 <code>vf*immacc.vv</code>.
               </td>
+              <td>GCC deviates from the specification</td>
               <td><span class="ev run">run</span></td>
             </tr>
             <tr>
@@ -6906,6 +7292,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 The specification reserves <code>vm=0</code> for that
                 instruction.
               </td>
+              <td>GCC deviates from the specification</td>
               <td><span class="ev run">run</span></td>
             </tr>
             <tr>
@@ -6915,14 +7302,25 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 <code>zvvxnofp8mm</code> in <code>-march</code>. The
                 specification defines none of them.
               </td>
+              <td>
+                GCC deviates from the specification. ACT does not use these
+                names.
+              </td>
               <td><span class="ev run">run</span></td>
             </tr>
             <tr>
               <td class="num">13</td>
               <td>
                 <code>ime-test-gen</code> treats a family extension as implying
-                all of its type extensions. In the specification and in GCC, a
-                type extension implies its family extension.
+                all of its type extensions. In the specification, a row is legal
+                only when the extension in its encoding-map cell is implemented
+                (spec:6646–6649), so a family extension implies no type
+                extension. In GCC and in the overlay, a type extension implies
+                its family extension.
+              </td>
+              <td>
+                ime-test-gen (golden model and generator) deviates from the
+                specification (spec:6646–6649)
               </td>
               <td><span class="ev code">code</span></td>
             </tr>
@@ -6932,6 +7330,9 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 The Sail fork accepts any λ ≤ VLEN/SEW. That includes λ values
                 the specification does not permit, such as λ=4 and λ=8 at VLEN
                 256 and SEW 32. The λ set is not configurable.
+              </td>
+              <td>
+                Sail violates the specification (spec:811–815). Work item 11.
               </td>
               <td><span class="ev code">code</span></td>
             </tr>
@@ -6944,7 +7345,13 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 tuple describes the result. Sail's comment discloses G=1, psm=0,
                 rnd=frm. With C = 1.0 and two products of 2<sup>-24</sup> into
                 f32, both return <code>0x3f800000</code>; the specification
-                gives <code>0x3f800001</code>.
+                gives <code>0x3f800001</code>. The W=2 f32→f64 and W=4 f16→f64
+                rows behave the same way. Draft issue:
+                <code>issues/sail-ime-wmmacc-partial-sum/</code>.
+              </td>
+              <td>
+                Sail violates the specification: Sail bug, work item 10. QEMU
+                violates it too: DUT finding.
               </td>
               <td>
                 <span class="ev run">run</span>
@@ -6965,6 +7372,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 legal, but they return different results whenever a product is
                 inexact in the C format.
               </td>
+              <td>Not a conflict: the specification permits both</td>
               <td>
                 <span class="ev run">run</span>
                 <a
@@ -6988,6 +7396,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 specification requires one tuple for every format combination of
                 a geometry (spec:1456–1460).
               </td>
+              <td>QEMU violates the specification: DUT finding</td>
               <td>
                 <span class="ev run">run</span>
                 <a
@@ -7006,6 +7415,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 therefore exceed λ and cross <code>LMUL=1</code> steps
                 (spec:1828–1905).
               </td>
+              <td>QEMU violates the specification: DUT finding</td>
               <td>
                 <span class="ev code">code</span>
                 <a
@@ -7024,6 +7434,10 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 once, while QEMU rounds twice.
               </td>
               <td>
+                Golden model: finding only. Its W&gt;1 results fit no permitted
+                tuple.
+              </td>
+              <td>
                 <span class="ev code">code</span>
                 <a
                   class="src"
@@ -7031,6 +7445,62 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                   target="_blank"
                   rel="noopener"
                   >ime-test-gen/src/expand_ir.rs:792-798</a
+                >
+              </td>
+            </tr>
+            <tr>
+              <td class="num">20</td>
+              <td>
+                The Sail fork's MACC raises an illegal-instruction exception for
+                <code>EMUL_C</code>=16. The specification permits
+                <code>EMUL_C</code> ∈ {1, 2, 4, 8, 16} (spec:381, spec:811–815).
+                At VLEN 256 this affects SEW=16 with λ=1.
+              </td>
+              <td>Sail violates the specification. Work item 11.</td>
+              <td>
+                <span class="ev code">code</span>
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_utils.sail#L91-L92"
+                  ><code>ime_utils.sail:91-92</code></a
+                >,
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L244"
+                  ><code>ime_mem_insts.sail:244</code></a
+                >
+              </td>
+            </tr>
+            <tr>
+              <td class="num">21</td>
+              <td>
+                The Sail fork's tile loads and stores use the natural LD only
+                when <code>rs2</code> is <code>x0</code>. A register that holds
+                0 gives LD = 0. The specification selects the natural LD when
+                the value of <code>rs2</code> is 0 (spec:2278–2291).
+              </td>
+              <td>Sail violates the specification. Work item 12.</td>
+              <td>
+                <span class="ev code">code</span>
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L53-L55"
+                  ><code>ime_mem_insts.sail:53-55</code></a
+                >
+              </td>
+            </tr>
+            <tr>
+              <td class="num">22</td>
+              <td>
+                The Sail fork's tile loads do not raise an illegal-instruction
+                exception when VL is not a multiple of λ·LMUL, or for a masked
+                load whose <code>vd</code> is <code>v0</code>. The specification
+                requires both (spec:5874–5881). This affects only the negative
+                tests of <code>ExceptionsZvvm</code>.
+              </td>
+              <td>Sail violates the specification. Work item 12.</td>
+              <td>
+                <span class="ev code">code</span>
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L34-L48"
+                  ><code>ime_mem_insts.sail:34-48</code></a
                 >
               </td>
             </tr>
@@ -7072,7 +7542,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           <code>6effbcae</code> (2026-08-04). The UDB overlay, the
           <code>.insn</code> macros and Section 16 follow this commit. It was
           still the head of <code>main</code> on 2026-10-27, so the rounding
-          sections cited in Section 16b are current.
+          sections cited in Section 16b are current. It is the source of truth
+          for conflicts, by the project decision of 2026-10-27.
         </li>
         <li>
           <strong>QEMU source:</strong>
@@ -7080,15 +7551,20 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           <code>vrull/ime-wip</code> @
           <code>d856b96cedfa80ce025b2486e15ce093d2f7eea0</code> (2026-06-28),
           read on 2026-10-27. This is also the commit the SDK QEMU is built
-          from, so the FP mmacc code is the same in both. QEMU links in Sections
-          16b and 18 point at this commit. Sail links point at
+          from, so the FP mmacc code is the same in both. The Sail code cited
+          for the source-of-truth decisions in Section 16b (λ, Zvfbfa, register
+          overlap, LD) is at <code>c69e3e22</code>, read on 2026-10-27. QEMU
+          links in Sections 16b and 18 point at this commit. Sail links point at
           <code>c69e3e22</code>.
         </li>
         <li>
           <strong>FP profile probe:</strong> <code>fprnd.c</code> with the
-          reproducer's <code>start.S</code> (plus <code>mstatus.FS</code>) and
-          <code>link.ld</code>, run on 2026-10-27 on the SDK QEMU and on Sail
-          <code>c69e3e22</code> with Zvvfmm enabled. It is not checked in.
+          tile-index reproducer's <code>start.S</code> (plus
+          <code>mstatus.FS</code>) and <code>link.ld</code>, run on 2026-10-27
+          on the SDK QEMU and on Sail <code>c69e3e22</code> with Zvvfmm enabled.
+          It is the reproducer in
+          <code>reports/issues/sail-ime-wmmacc-partial-sum/</code>, which adds
+          the W=2 f32→f64 and W=4 f16→f64 cases.
         </li>
         <li>
           <strong>ACT import branch:</strong>
@@ -7099,8 +7575,9 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           <code>~/tools/act4/ime-poc/act-min</code>.
         </li>
         <li>
-          <strong>Sail issue draft:</strong>
-          <code>reports/issues/sail-ime-tile-ls-index/</code>, run against
+          <strong>Sail issue drafts:</strong>
+          <code>reports/issues/sail-ime-tile-ls-index/</code> and
+          <code>reports/issues/sail-ime-wmmacc-partial-sum/</code>, run against
           <code>c69e3e22</code> and the SDK QEMU.
         </li>
         <li>

@@ -57,3 +57,22 @@ These files back Report 2, Sections 16 and 16a. They document that the IME Sail 
 
 `run.sh` takes `SDK_SIF`, `SAIL` and, optionally, `SAIL_FIXED` from the environment. The defaults
 are paths on the author's machine.
+
+## Sail issue draft (`issues/sail-ime-wmmacc-partial-sum/`)
+
+These files back Report 2, Section 16b. They document that the IME Sail fork's `vfwmmacc.vv` and
+`vfqmmacc.vv` add each product into C instead of forming the sub-dot-product sum first. The issue is
+a draft and is not filed. There is no patch yet.
+
+| Path                           | Purpose                                                                    |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| `ISSUE.md`                     | Issue text for Openchip-Software/sail-riscv.                               |
+| `fprnd.c`, `start.S`           | Bare-metal probe at VLEN=256, λ=1: W=1, W=2 and W=4 cases.                 |
+| `link.ld`, `sail.json`         | Linker script and Sail configuration override for the probe.               |
+| `run.sh`                       | Builds the probe with the SDK GCC and runs it on Sail and the SDK QEMU.    |
+| `qemu.out`, `sail.out`         | Output of `run.sh` on the SDK QEMU and on Sail `c69e3e22`.                 |
+| `qemu-mixed.out`               | Output of `fprnd-mixed.elf` on the SDK QEMU: adds a mixed-format W=1 case. |
+| `fprnd.elf`, `fprnd-mixed.elf` | Build outputs of `run.sh`.                                                 |
+
+`run.sh` takes `SDK_SIF` and `SAIL` from the environment. The defaults are paths on the author's
+machine.
