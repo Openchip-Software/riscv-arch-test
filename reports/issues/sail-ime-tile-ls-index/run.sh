@@ -10,14 +10,23 @@ sdk() { apptainer exec "$SDK_SIF" "$@"; }
 
 sdk riscv64-openchip-linux-gnu-gcc -march=rv64gcv_zvvmm_zvvmtls -mabi=lp64d -mcmodel=medany \
   -O2 -nostdlib -nostartfiles -ffreestanding -T link.ld start.S repro.c -o repro.elf
-sdk riscv64-openchip-linux-gnu-objdump -d repro.elf > repro.objdump
+sdk riscv64-openchip-linux-gnu-objdump -d repro.elf >repro.objdump
 
-{ "$SAIL" --build-info | sed -n 2p; "$SAIL" --enable-experimental-extensions \
-    --config-override sail-ime.json repro.elf; } > sail.out 2>&1
-{ sdk qemu-system-riscv64 --version | head -1; sdk qemu-system-riscv64 -nographic -machine spike \
-    -cpu max,vlen=256,x-zvvm=true -bios none -kernel repro.elf; } > qemu.out 2>&1
+{
+  "$SAIL" --build-info | sed -n 2p
+  "$SAIL" --enable-experimental-extensions \
+    --config-override sail-ime.json repro.elf
+} >sail.out 2>&1
+{
+  sdk qemu-system-riscv64 --version | head -1
+  sdk qemu-system-riscv64 -nographic -machine spike \
+    -cpu max,vlen=256,x-zvvm=true -bios none -kernel repro.elf
+} >qemu.out 2>&1
 if [ -n "${SAIL_FIXED:-}" ]; then
-  { echo "Sail RISC-V git: 0.16-8-gc69e3e22 + sail-fix.diff"; "$SAIL_FIXED" --enable-experimental-extensions \
-      --config-override sail-ime.json repro.elf; } > sail-fixed.out 2>&1
+  {
+    echo "Sail RISC-V git: 0.16-8-gc69e3e22 + sail-fix.diff"
+    "$SAIL_FIXED" --enable-experimental-extensions \
+      --config-override sail-ime.json repro.elf
+  } >sail-fixed.out 2>&1
 fi
 diff -u qemu.out sail.out || true
