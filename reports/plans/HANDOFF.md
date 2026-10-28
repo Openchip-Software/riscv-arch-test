@@ -6,7 +6,7 @@ This file is self-contained. It tells an agent or engineer what exists, how to s
 what to do next. The full testplan design is in [ime-act-testplan-design.md](ime-act-testplan-design.md) in this
 folder. Read this file first, then the design sections it names.
 
-State as of 2026-10-28, after step 2.
+State as of 2026-10-28, after step 3.
 
 ## 1. Goal
 
@@ -21,7 +21,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/` belo
 
 | What                       | Path                                                                              | Branch / commit                                                       |
 | -------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 9 commits on `act4` `d41bdd86a`    |
+| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 10 commits on `act4` `d41bdd86a`   |
 | ACT4 reports (docs work)   | `~/repo/ime/riscv-arch-test-docs` (worktree)                                      | `docs/act-ime-reports`, rebased on `origin/act4`                      |
 | Rust generator             | `~/repo/ime/riscv-ime-arch-tests`                                                 | `46f3781`, generator in `ime-test-gen/`, plans in `src/dsl_plans.rs`  |
 | Sail fork (reference)      | `~/repo/ime/sail-riscv`                                                           | `cgomez/0.16-plus-ime` @ `c69e3e22` (Sail 0.16 + 8 IME commits)       |
@@ -91,6 +91,7 @@ Done on `cgomez/import-ime-tests-to-act4`:
 | `2cd759066` | Step 2: `cp_vd_emul16`, `cp_vs1`, `cp_vs2`, `cp_altfmt`; λ chain for coverpoints that do not choose λ          |
 | `b1964e4bf` | Step 2: `cp_vd_edges`, `cp_vs1_edges`, `cp_vs2_edges` (`emulf2/4/8` for W>1, 4-bit edges for Int4)             |
 | `089da6013` | Step 2: `cp_tile_vl` (one column, VLMAX/2, VLMAX, random multiple of λ·LMUL)                                   |
+| `9b28cc1d1` | Step 3: `Zvvmtls.csv`, `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, `cr_tile_vtype_agnostic`              |
 
 Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from Sail):
 
@@ -100,6 +101,11 @@ Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from Sail):
   specification permits and Sail rejects (`ime_group_size_legal`, work item 11). λ=1 is the smallest λ at SEW 16,
   so every base-suite testcase uses it. With λ=1 removed from a scratch copy of the DUT configuration, the 3 files
   pass. Fixing work item 11 in Sail unblocks them.
+- `Zvvmtls`: all 8 files fail at the first `cp_ld` test with 0 in a register: Sail uses LD=0 there, the
+  specification the natural LD (finding 21). All earlier tests pass.
+- With the scratch Sail of `reports/issues/sail-ime-verification-patch/` (`export SAIL_IME_SIM=` that build), all 21
+  files of `Zvvmm` and `Zvvmtls` pass on QEMU. It fixes the tile register index, the natural LD and `EMUL_C`=16.
+  Accepting 16 in `ime_group_size_legal` alone is not enough: Sail's element access asserts groups of at most 8.
 - Full `make tests` changes no other suite.
 
 How to build and run Zvvmm. Make has no keep-going option, so call `act -k` to build past the SEW=16 failures:
@@ -121,7 +127,10 @@ IME code in testgen, for reuse in later steps:
   `handle_parameter_exclusions`. `params.lambda_ = None` emits an `#if/#elif` chain that selects the smallest λ the
   DUT supports. `load_ime_vtype` supports VL = n columns, `"half"`, `"vlmax"` and `"random"`.
 - `InstructionParams`: `lambda_`, `altfmt_a`, `altfmt_b`. `VectorLength` includes `"half"`. No `bs` or `ld_mode` yet.
-- Generators: `cr_lambda_lmul`, `cp_altfmt` (integer signedness), `cp_tile_vl`.
+- `formatters/types/tile_type.py`: `VLT` and `VST`. One data label per SEW (`ime_tile_data_e<SEW>`) serves every
+  tile load and store. `load_ime_vtype` takes per-λ values (LD), an immediate λ for the line size, and `keep_vl`.
+- Generators: `cr_lambda_lmul`, `cp_altfmt` (integer signedness), `cp_tile_vl`, and in `cp_tile.py` `cp_ld`,
+  `cp_imm_lambda` and `cr_tile_vtype_agnostic`.
 - Coverage: `get_csr_val` decodes `vtype.lambda`, `altfmt_a` and `altfmt_b`. `vs_edges_check` handles EEW 4.
   `ime_column_vl` gives λ·LMUL. Templates `sample_MMACC`, `cr_lambda_lmul`, `cp_altfmt`, `cp_tile_vl`,
   `cp_vd_emul16`, `cp_vd_edges`, `cp_vs1_edges_emulf2/4/8`. Coverage has not been run (needs step 6).
@@ -130,7 +139,7 @@ Known ACT issues (Report 2, §18, findings 23-28): `make tests` stamps ignore `E
 targets have no keep-going option; `run_tests.py` also runs stale ELFs left in `work/<config>/elfs`. Use the
 commands above and remove stale ELFs before a run.
 
-Not done: the `ramp` bin of step 2; other `testplans/Zvv*.csv`; tile formatters; IME decoding in `disassemble.svh`.
+Not done: the `ramp` bin of step 2; steps 3a and 3b; `Zvvfmm.csv` and `Zvvmttls.csv`; IME decoding in `disassemble.svh`.
 
 ## 6. Next steps
 
@@ -140,7 +149,7 @@ The full table, with effort and dependencies, is §9 of the design. Summary:
 | --- | -------------------------------------------------------------------------------------------------------- | -------- |
 | 1   | **Done** (`bf7ed4c5e`). Slice 1: `Zvvmm.csv` with one row, `vmmacc.vv` / `Zvvi32mm` / EFFEW32            | 3-4 days |
 | 2   | **Done** except the `ramp` bin (`52218040e`…`089da6013`). The other 12 integer MACC rows and coverpoints | 4-5 days |
-| 3   | `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking                                 | 4-5 days |
+| 3   | **Done** (`9b28cc1d1`). `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking         | 4-5 days |
 | 3a  | `cp_custom_tile_layout` and `cp_custom_tile_roundtrip`: the regression tests for the Sail tile-index bug | 2-3 days |
 | 3b  | `cp_custom_tile_macc`: MACC with tile-loaded A/B and tile-stored C                                       | 2 days   |
 | 4   | `Zvvfmm.csv` rows that Sail implements, exact-sum FP data, `cp_fp_subdot`                                | 5-7 days |

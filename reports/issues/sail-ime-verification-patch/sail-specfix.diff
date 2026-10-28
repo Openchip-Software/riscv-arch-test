@@ -1,0 +1,226 @@
+diff --git a/model/extensions/IME/ime_mem_insts.sail b/model/extensions/IME/ime_mem_insts.sail
+index 0af8f55..56ce8b6 100644
+--- a/model/extensions/IME/ime_mem_insts.sail
++++ b/model/extensions/IME/ime_mem_insts.sail
+@@ -3,6 +3,26 @@
+ // SPDX-License-Identifier: BSD-2-Clause
+ // =======================================================================================
+
++// Scratch verification patch: C can span 16 registers (EMUL_C=16), but read_single_element and
++// write_single_element assert a group of at most 8. Address the upper 8 registers as a second group.
++val ime_read_c : forall 'sew, is_sew_bitsize('sew) . (int('sew), nat, vregidx) -> bits('sew)
++function ime_read_c(EEW, index, vd) = {
++  let half : nat = 8 * (vlen / EEW);
++  if index >= half then {
++    let lo : nat = index - half;
++    read_single_element(EEW, lo, vd + 8)
++  } else read_single_element(EEW, index, vd)
++}
++
++val ime_write_c : forall 'sew, is_sew_bitsize('sew) . (int('sew), nat, vregidx, bits('sew)) -> unit
++function ime_write_c(EEW, index, vd, value) = {
++  let half : nat = 8 * (vlen / EEW);
++  if index >= half then {
++    let lo : nat = index - half;
++    write_single_element(EEW, lo, vd + 8, value)
++  } else write_single_element(EEW, index, vd, value)
++}
++
+ // vmtl.v — order-preserving tile load
+ union clause instruction = VMTLTYPE : (bits(3), ime_tile_mode, bits(1), regidx, regidx, vregidx)
+
+@@ -50,7 +70,7 @@ function clause execute VMTLTYPE(lambda_field, mode, vm, rs2, rs1, vd) = {
+
+   // rs2=x0 selects the natural leading dimension: lambda*LMUL for the
+   // order-preserving traversal, VLEN/(SEW*lambda) for the transposing one.
+-  let LD : nat = if rs2 == zreg then {
++  let LD : nat = if rs2 == zreg | X(rs2) == zeros() then {
+     if transposed then vlen / (SEW * lambda_nat) else cols
+   } else unsigned(X(rs2));
+
+@@ -68,26 +88,25 @@ function clause execute VMTLTYPE(lambda_field, mode, vm, rs2, rs1, vd) = {
+                     then ime_tile_transposed_mem_off(i, rows, cols, LD)
+                     else ime_tile_ordered_mem_off(i, cols, LD);
+       let byte_offset = mem_off * SEW_bytes;
++      let flat_idx = ime_tile_reg_idx(i, LMUL, lambda_nat, vlen / SEW);
+       match SEW {
+         8  => match vmem_read(rs1, to_bits_unsafe(xlen, byte_offset), 1, Load(Vector), false, false, false) {
+-               Ok(elem) => write_single_element(8, i, vd, elem),
++               Ok(elem) => write_single_element(8, flat_idx, vd, elem),
+                Err(e)   => return e,
+              },
+         16 => match vmem_read(rs1, to_bits_unsafe(xlen, byte_offset), 2, Load(Vector), false, false, false) {
+-               Ok(elem) => write_single_element(16, i, vd, elem),
++               Ok(elem) => write_single_element(16, flat_idx, vd, elem),
+                Err(e)   => return e,
+              },
+         32 => match vmem_read(rs1, to_bits_unsafe(xlen, byte_offset), 4, Load(Vector), false, false, false) {
+-               Ok(elem) => write_single_element(32, i, vd, elem),
++               Ok(elem) => write_single_element(32, flat_idx, vd, elem),
+                Err(e)   => return e,
+              },
+         64 => match vmem_read(rs1, to_bits_unsafe(xlen, byte_offset), 8, Load(Vector), false, false, false) {
+-               Ok(elem) => write_single_element(64, i, vd, elem),
++               Ok(elem) => write_single_element(64, flat_idx, vd, elem),
+                Err(e)   => return e,
+              },
+       }
+-    } else {
+-      write_single_element(SEW, i, vd, result[i])
+     }
+   };
+
+@@ -142,7 +161,7 @@ function clause execute VMTSTYPE(lambda_field, mode, vm, rs2, rs1, vs3) = {
+
+   // rs2=x0 selects the natural leading dimension: lambda*LMUL for the
+   // order-preserving traversal, VLEN/(SEW*lambda) for the transposing one.
+-  let LD : nat = if rs2 == zreg then {
++  let LD : nat = if rs2 == zreg | X(rs2) == zeros() then {
+     if transposed then vlen / (SEW * lambda_nat) else cols
+   } else unsigned(X(rs2));
+
+@@ -157,7 +176,7 @@ function clause execute VMTSTYPE(lambda_field, mode, vm, rs2, rs1, vs3) = {
+                     then ime_tile_transposed_mem_off(i, rows, cols, LD)
+                     else ime_tile_ordered_mem_off(i, cols, LD);
+       let byte_offset = mem_off * SEW_bytes;
+-      let data = read_single_element(SEW, i, vs3);
++      let data = read_single_element(SEW, ime_tile_reg_idx(i, LMUL, lambda_nat, vlen / SEW), vs3);
+       match SEW {
+         8  => match vmem_write(rs1, to_bits_unsafe(xlen, byte_offset), 1, data[7 .. 0], Store(Vector), false, false, false) {
+                Ok(true)  => (),
+@@ -248,7 +267,7 @@ function execute_ime_int_gemm(
+   foreach (j from 0 to (N - 1)) {
+     foreach (i from 0 to (M - 1)) {
+       let c_flat = ime_mat_C_idx(i, j, N_max, EMUL_C, lambda_value, epr_C);
+-      var acc : int = signed(read_single_element(EEW_C, c_flat, vd));
++      var acc : int = signed(ime_read_c(EEW_C, c_flat, vd));
+       foreach (k from 0 to (K_eff - 1)) {
+         let storage_col = ime_packed_storage_col(k, W);
+         let lane = ime_packed_lane(k, W);
+@@ -260,7 +279,7 @@ function execute_ime_int_gemm(
+         let b_val = ime_packed_subelement_value(b_storage, lane, EEW, signed_B);
+         acc = acc + a_val * b_val
+       };
+-      write_single_element(EEW_C, c_flat, vd, to_bits_unsafe(EEW_C, acc))
++      ime_write_c(EEW_C, c_flat, vd, to_bits_unsafe(EEW_C, acc))
+     }
+   };
+
+@@ -503,14 +522,14 @@ function execute_ime_fp_gemm(
+       foreach (j from 0 to (N - 1)) {
+         foreach (i from 0 to (M - 1)) {
+           let c_flat = ime_mat_C_idx(i, j, N_max, EMUL_C, lambda_value, epr_C);
+-          var acc : bits(16) = read_single_element(16, c_flat, vd);
++          var acc : bits(16) = ime_read_c(16, c_flat, vd);
+           foreach (k from 0 to (K_eff - 1)) {
+             let a_flat = ime_mat_A_idx(i, k, K_eff, LMUL, lambda_value * W, epr_A);
+             let b_flat = ime_mat_B_idx(k, j, K_eff, LMUL, lambda_value * W, epr_A);
+             let prod = fp_mul(rm_3b, read_single_element(16, a_flat, vs1), read_single_element(16, b_flat, vs2));
+             acc = fp_add(rm_3b, acc, prod)
+           };
+-          write_single_element(16, c_flat, vd, acc)
++          ime_write_c(16, c_flat, vd, acc)
+         }
+       }
+     },
+@@ -518,14 +537,14 @@ function execute_ime_fp_gemm(
+       foreach (j from 0 to (N - 1)) {
+         foreach (i from 0 to (M - 1)) {
+           let c_flat = ime_mat_C_idx(i, j, N_max, EMUL_C, lambda_value, epr_C);
+-          var acc : bits(32) = read_single_element(32, c_flat, vd);
++          var acc : bits(32) = ime_read_c(32, c_flat, vd);
+           foreach (k from 0 to (K_eff - 1)) {
+             let a_flat = ime_mat_A_idx(i, k, K_eff, LMUL, lambda_value * W, epr_A);
+             let b_flat = ime_mat_B_idx(k, j, K_eff, LMUL, lambda_value * W, epr_A);
+             let prod = fp_mul(rm_3b, read_single_element(32, a_flat, vs1), read_single_element(32, b_flat, vs2));
+             acc = fp_add(rm_3b, acc, prod)
+           };
+-          write_single_element(32, c_flat, vd, acc)
++          ime_write_c(32, c_flat, vd, acc)
+         }
+       }
+     },
+@@ -533,14 +552,14 @@ function execute_ime_fp_gemm(
+       foreach (j from 0 to (N - 1)) {
+         foreach (i from 0 to (M - 1)) {
+           let c_flat = ime_mat_C_idx(i, j, N_max, EMUL_C, lambda_value, epr_C);
+-          var acc : bits(64) = read_single_element(64, c_flat, vd);
++          var acc : bits(64) = ime_read_c(64, c_flat, vd);
+           foreach (k from 0 to (K_eff - 1)) {
+             let a_flat = ime_mat_A_idx(i, k, K_eff, LMUL, lambda_value * W, epr_A);
+             let b_flat = ime_mat_B_idx(k, j, K_eff, LMUL, lambda_value * W, epr_A);
+             let prod = fp_mul(rm_3b, read_single_element(64, a_flat, vs1), read_single_element(64, b_flat, vs2));
+             acc = fp_add(rm_3b, acc, prod)
+           };
+-          write_single_element(64, c_flat, vd, acc)
++          ime_write_c(64, c_flat, vd, acc)
+         }
+       }
+     },
+@@ -548,7 +567,7 @@ function execute_ime_fp_gemm(
+       foreach (j from 0 to (N - 1)) {
+         foreach (i from 0 to (M - 1)) {
+           let c_flat = ime_mat_C_idx(i, j, N_max, EMUL_C, lambda_value, epr_C);
+-          var acc : bits(32) = read_single_element(32, c_flat, vd);
++          var acc : bits(32) = ime_read_c(32, c_flat, vd);
+           foreach (k from 0 to (K_eff - 1)) {
+             let a_flat = ime_mat_A_idx(i, k, K_eff, LMUL, lambda_value * W, epr_A);
+             let b_flat = ime_mat_B_idx(k, j, K_eff, LMUL, lambda_value * W, epr_A);
+@@ -557,7 +576,7 @@ function execute_ime_fp_gemm(
+             let prod = fp_mul(rm_3b, a, b);
+             acc = fp_add(rm_3b, acc, prod)
+           };
+-          write_single_element(32, c_flat, vd, acc)
++          ime_write_c(32, c_flat, vd, acc)
+         }
+       }
+     },
+@@ -565,7 +584,7 @@ function execute_ime_fp_gemm(
+       foreach (j from 0 to (N - 1)) {
+         foreach (i from 0 to (M - 1)) {
+           let c_flat = ime_mat_C_idx(i, j, N_max, EMUL_C, lambda_value, epr_C);
+-          var acc : bits(64) = read_single_element(64, c_flat, vd);
++          var acc : bits(64) = ime_read_c(64, c_flat, vd);
+           foreach (k from 0 to (K_eff - 1)) {
+             let a_flat = ime_mat_A_idx(i, k, K_eff, LMUL, lambda_value * W, epr_A);
+             let b_flat = ime_mat_B_idx(k, j, K_eff, LMUL, lambda_value * W, epr_A);
+@@ -574,7 +593,7 @@ function execute_ime_fp_gemm(
+             let prod = fp_mul(rm_3b, a, b);
+             acc = fp_add(rm_3b, acc, prod)
+           };
+-          write_single_element(64, c_flat, vd, acc)
++          ime_write_c(64, c_flat, vd, acc)
+         }
+       }
+     },
+@@ -582,7 +601,7 @@ function execute_ime_fp_gemm(
+       foreach (j from 0 to (N - 1)) {
+         foreach (i from 0 to (M - 1)) {
+           let c_flat = ime_mat_C_idx(i, j, N_max, EMUL_C, lambda_value, epr_C);
+-          var acc : bits(64) = read_single_element(64, c_flat, vd);
++          var acc : bits(64) = ime_read_c(64, c_flat, vd);
+           foreach (k from 0 to (K_eff - 1)) {
+             let a_flat = ime_mat_A_idx(i, k, K_eff, LMUL, lambda_value * W, epr_A);
+             let b_flat = ime_mat_B_idx(k, j, K_eff, LMUL, lambda_value * W, epr_A);
+@@ -591,7 +610,7 @@ function execute_ime_fp_gemm(
+             let prod = fp_mul(rm_3b, a, b);
+             acc = fp_add(rm_3b, acc, prod)
+           };
+-          write_single_element(64, c_flat, vd, acc)
++          ime_write_c(64, c_flat, vd, acc)
+         }
+       }
+     },
+diff --git a/model/extensions/IME/ime_utils.sail b/model/extensions/IME/ime_utils.sail
+index 62ecdc5..2b71369 100644
+--- a/model/extensions/IME/ime_utils.sail
++++ b/model/extensions/IME/ime_utils.sail
+@@ -89,7 +89,7 @@ function ime_group_size_to_pow(group : nat) -> int =
+   else 4
+
+ function ime_group_size_legal(group : nat) -> bool =
+-  group == 1 | group == 2 | group == 4 | group == 8
++  group == 1 | group == 2 | group == 4 | group == 8 | group == 16
+
+ // Map a sequential tile element index to the flat architectural element
+ // index within a vector register group. The index and elems_per_reg use the

@@ -2195,11 +2195,12 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <span class="n">16a</span>Bring-up in the ACT repository, 2026-10-26
       </h2>
       <p>
-        Branch <code>cgomez/import-ime-tests-to-act4</code> adds nine commits on
+        Branch <code>cgomez/import-ime-tests-to-act4</code> adds ten commits on
         <code>act4</code> <code>d41bdd86a</code>. The first three complete work
         items 3 and 4 and mark the IME extensions experimental. The next two add
         slice 1 of the testplan design (§16b): the first generated IME test. The
-        last four complete step 2: all integer multiply-accumulate rows.
+        next four complete step 2: all integer multiply-accumulate rows. The
+        last one adds step 3: the tile loads and stores of <code>Zvvmtls</code>.
         <span class="ev run">run</span>
       </p>
       <div class="tablewrap">
@@ -2258,6 +2259,11 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td><code>089da6013</code></td>
               <td>Add the cp_tile_vl coverpoint to Zvvmm</td>
               <td>§16b step 2</td>
+            </tr>
+            <tr>
+              <td><code>9b28cc1d1</code></td>
+              <td>Add the Zvvmtls testplan for tile loads and stores</td>
+              <td>§16b step 3</td>
             </tr>
           </tbody>
         </table>
@@ -2616,6 +2622,90 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         data-label="riscv-arch-test, branch cgomez/import-ime-tests-to-act4"
       ><span class="line">uv run act config/ime/qemu-ime-rv64/test_config.yaml --workdir work --test-dir tests --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64 --enable-experimental-extensions -k</span>
 <span class="line">for d in work/qemu-ime-rv64/elfs/rv64i/Zvvmm*; do ./run_tests.py "$(cat config/ime/qemu-ime-rv64/run_cmd.txt)" $d; done</span></pre>
+
+      <h3>
+        Step 3: <code>Zvvmtls.csv</code>, tile loads and stores
+        (<code>9b28cc1d1</code>)
+      </h3>
+      <ul>
+        <li>
+          Rows <code>vmtl.v</code> (type <code>VLT</code>) and
+          <code>vmts.v</code> (type <code>VST</code>), expanded into
+          <code>Zvvmtls8</code>…<code>Zvvmtls64</code>. About 125 testcases per
+          file.
+        </li>
+        <li>
+          <code>VLT</code> preloads <code>vd</code> at VLMAX and checks it at
+          the tile LMUL after rewriting <code>vtype</code> with
+          <code>tu,mu</code> and the same VL. A tile load leaves inactive and
+          tail elements undisturbed for any <code>vta</code> and
+          <code>vma</code>, so the check stays strict.
+        </li>
+        <li>
+          <code>VST</code> reads back 2·LMUL registers of memory from
+          <code>rs1</code>. That covers the stored lines and the gaps between
+          them, for every LD up to 2·linesize.
+        </li>
+        <li>
+          New coverpoints: <code>cp_ld</code> (<code>x0</code>, 0 in a register,
+          linesize, linesize+1, 2·linesize), <code>cp_imm_lambda</code> (each
+          immediate λ, with a different λ in <code>vtype</code>, and a check
+          that <code>vtype</code> is unchanged) and
+          <code>cr_tile_vtype_agnostic</code>. Reused: <code>cp_vd</code>,
+          <code>cp_vs3</code>, <code>cp_rs1</code>, <code>cp_rs2</code>,
+          <code>cp_masking_edges</code>, <code>cr_lambda_lmul</code> and
+          <code>cp_tile_vl</code>.
+        </li>
+        <li>
+          Not done: <code>cp_custom_tile_layout</code> and
+          <code>cp_custom_tile_roundtrip</code> (step 3a).
+        </li>
+      </ul>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Reference model</th>
+              <th>Result on <code>qemu-ime-rv64</code></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>IME Sail fork <code>c69e3e22</code></td>
+              <td>
+                <code>Zvvmtls</code>: all 8 files fail. In each, the first
+                failing test is <code>cp_ld</code> with 0 in a register (finding
+                21). All earlier tests pass. <code>Zvvmm</code>: 10 of 13 pass;
+                the SEW=16 files fail (finding 20).
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <code>c69e3e22</code> with
+                <a href="issues/sail-ime-verification-patch/sail-specfix.diff"
+                  ><code>sail-specfix.diff</code></a
+                >
+              </td>
+              <td>
+                All 21 files of <code>Zvvmm</code> and
+                <code>Zvvmtls</code> pass, including the tile tests at
+                LMUL&gt;1, LD=0 in a register and <code>EMUL_C</code>=16.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The patch fixes the three Sail deviations that these tests hit: the tile
+        register index (work item 1), the natural LD for a register that holds 0
+        (work item 12) and <code>EMUL_C</code>=16 (work item 11). QEMU agrees
+        with the specification in all three, and the tests follow the
+        specification. The patch is a scratch build for verification (<a
+          href="issues/sail-ime-verification-patch/README.md"
+          ><code>README.md</code></a
+        >).
+        <span class="ev run">run</span>
+      </p>
 
       <h3>Sail tile-index bug: reproducer and patch (work item 1)</h3>
       <p>
@@ -4000,7 +4090,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td>
                 <code>Zvvmtls.csv</code>: <code>VLT</code>, <code>VST</code> and
                 the tile coverpoints. LMUL&gt;1 bins pass on QEMU only after the
-                Sail fix.
+                Sail fix. <strong>Done</strong>: <code>9b28cc1d1</code> (§16a).
               </td>
               <td>1</td>
               <td>4–5 days</td>
@@ -4619,7 +4709,11 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 At VLEN 256 this affects SEW=16 with λ=1. Observed on
                 2026-10-28: the Sail signature build of all three SEW=16 files
                 of <code>Zvvmm.csv</code> fails, because λ=1 is the default λ of
-                every base-suite testcase at SEW 16 (§16a, step 2).
+                every base-suite testcase at SEW 16 (§16a, step 2). Accepting 16
+                in <code>ime_group_size_legal</code> is not enough: the GEMM
+                then fails the assertion of <code>read_single_element</code>,
+                which allows a register group of at most 8 registers
+                (<code>vext_control.sail:56</code>).
               </td>
               <td>Sail violates the specification. Work item 11.</td>
               <td>

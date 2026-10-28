@@ -77,6 +77,12 @@ a draft and is not filed. There is no patch yet.
 `run.sh` takes `SDK_SIF` and `SAIL` from the environment. The defaults are paths on the author's
 machine.
 
+## Sail verification patch (`issues/sail-ime-verification-patch/`)
+
+`sail-specfix.diff` fixes the three Sail deviations that the ACT IME tests hit: the tile register index, the
+natural LD for a register that holds 0, and `EMUL_C`=16. It is a scratch patch for verifying the tests. Report 2,
+Section 16a, step 3, gives the results. See its `README.md`.
+
 ## Plans (`plans/`)
 
 | Path                         | Purpose                                                                                     |
