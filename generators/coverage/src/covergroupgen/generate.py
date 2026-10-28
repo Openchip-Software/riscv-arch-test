@@ -337,7 +337,7 @@ def read_testplans(testplan_dir: Path) -> tuple[dict[str, Testplan], dict[str, d
     for csv_path in testplan_dir.glob("*.csv"):
         arch = csv_path.stem
         groups = _parse_testplan_groups(csv_path)
-        tp = groups.pop(())
+        tp = groups.pop((), {})
         testplans[arch] = tp
         if groups:
             extra_testplans[arch] = groups
@@ -351,7 +351,16 @@ def read_testplans(testplan_dir: Path) -> tuple[dict[str, Testplan], dict[str, d
         if sew_variants is not None:
             for sew in sew_variants:
                 testplans[f"{arch}{sew}"] = tp
+                # Rows with an ExtraExtensions entry are kept only in the SEW variants their EFFEW columns select
+                sew_groups = {
+                    extension: rows
+                    for extension, group in groups.items()
+                    if (rows := {key: cps for key, cps in group.items() if f"EFFEW{sew}" in cps})
+                }
+                if sew_groups:
+                    extra_testplans[f"{arch}{sew}"] = sew_groups
             del testplans[arch]
+            extra_testplans.pop(arch, None)
 
     return testplans, extra_testplans
 
