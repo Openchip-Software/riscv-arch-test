@@ -76,3 +76,10 @@ a draft and is not filed. There is no patch yet.
 
 `run.sh` takes `SDK_SIF` and `SAIL` from the environment. The defaults are paths on the author's
 machine.
+
+## Plans (`plans/`)
+
+| Path                         | Purpose                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------- |
+| `HANDOFF.md`                 | Self-contained handoff for the next agent or engineer: setup, rules, status and next steps. |
+| `ime-act-testplan-design.md` | Full testplan design (option C) behind Report 2, Section 16b.                               |
