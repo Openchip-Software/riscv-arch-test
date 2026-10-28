@@ -2197,10 +2197,11 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <span class="n">16a</span>Bring-up in the ACT repository, 2026-10-26
       </h2>
       <p>
-        Branch <code>cgomez/import-ime-tests-to-act4</code> adds three commits
-        on <code>act4</code> <code>d41bdd86a</code>. They complete work items 3
-        and 4 and mark the IME extensions experimental. No IME test is checked
-        in yet. <span class="ev run">run</span>
+        Branch <code>cgomez/import-ime-tests-to-act4</code> adds five commits on
+        <code>act4</code> <code>d41bdd86a</code>. The first three complete work
+        items 3 and 4 and mark the IME extensions experimental. The last two add
+        slice 1 of the testplan design (§16b): the first generated IME test.
+        <span class="ev run">run</span>
       </p>
       <div class="tablewrap">
         <table>
@@ -2228,6 +2229,16 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td><code>732f78d72</code></td>
               <td>Add an IME DUT configuration with the SDK QEMU</td>
               <td>4</td>
+            </tr>
+            <tr>
+              <td><code>b8a6aaee7</code></td>
+              <td>Keep ExtraExtensions rows in per-SEW covergroups</td>
+              <td>§16b step 1</td>
+            </tr>
+            <tr>
+              <td><code>bf7ed4c5e</code></td>
+              <td>Add the Zvvmm testplan with vmmacc.vv for Zvvi32mm</td>
+              <td>§16b step 1</td>
             </tr>
           </tbody>
         </table>
@@ -2468,6 +2479,61 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           work item 11).
         </p>
       </div>
+
+      <h3>
+        Slice 1: <code>vmmacc.vv</code> for
+        <code>Zvvi32mm</code> (<code>b8a6aaee7</code>, <code>bf7ed4c5e</code>)
+      </h3>
+      <ul>
+        <li>
+          <code>testplans/Zvvmm.csv</code> has one row: <code>vmmacc.vv</code>,
+          type <code>MMACC</code>, <code>ExtraExtensions=Zvvi32mm</code>,
+          <code>EFFEW32</code>, with <code>cp_asm_count</code> and
+          <code>cr_lambda_lmul</code>. <code>Zvvmm</code> expands into
+          <code>Zvvmm8</code>…<code>Zvvmm64</code> in testgen and covergroupgen.
+          The test is
+          <code>tests/rv64i/Zvvmm32/Zvvmm32Zvvi32mm-vmmacc.vv-00.S</code>. It is
+          gitignored, like every <code>Zv*</code> suite.
+        </li>
+        <li>
+          The <code>MMACC</code> formatter follows §16b: C in a 16-register
+          window at <code>v0</code> or <code>v16</code> loaded with two m8
+          <code>vle32.v</code>; A and B loaded with <code>vle32.v</code> at
+          VL=VLMAX; vtype written with <code>LI</code> and <code>vsetvl</code>;
+          both m8 halves checked with <code>RVTEST_SIGUPD_V_LEN</code>.
+          <code>vd</code> does not overlap <code>vs1</code> or
+          <code>vs2</code> (open question 1). No tile load or store is used.
+        </li>
+        <li>
+          <code>cr_lambda_lmul</code> generates λ ∈ {1, 2, 4} × LMUL ∈ {1, 2, 4,
+          8} at SEW 32: 12 testcases. λ=8 and above need VLEN &gt; 1024, which
+          ACT does not support. Each testcase is guarded by
+          <code>UDB_SUPPORTED_LAMBDA_SEW32_&lt;λ&gt;</code>.
+        </li>
+        <li>
+          covergroupgen bug fix (<code>b8a6aaee7</code>): rows with
+          <code>ExtraExtensions</code> in a per-SEW testplan got no covergroup.
+          The rows were also not filtered by <code>EFFEW</code>. Both are fixed.
+          The existing covergroups do not change.
+        </li>
+        <li>
+          Result on <code>qemu-ime-rv64</code>: 8 of 8 compiled testcases pass
+          (λ ∈ {1, 2}, every LMUL). The λ=4 testcases compile out. The signature
+          comes from the Sail fork. Full <code>make tests</code> changes no
+          other suite. <span class="ev run">run</span>
+        </li>
+        <li>
+          <code>make tests EXTENSIONS=Zvvmm</code> selects nothing.
+          <code>EXTENSIONS</code> takes the per-SEW names, for example
+          <code>EXTENSIONS=Zvvmm32</code>.
+        </li>
+      </ul>
+      <pre
+        class="cmd"
+        data-label="riscv-arch-test, branch cgomez/import-ime-tests-to-act4"
+      ><span class="line">uv run covergroupgen testplans --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64</span>
+<span class="line">uv run testgen testplans -o tests --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64</span>
+<span class="line">EXTENSIONS=Zvvmm32 ENABLE_EXPERIMENTAL_EXTENSIONS=True make qemu-ime-rv64</span></pre>
 
       <h3>Sail tile-index bug: reproducer and patch (work item 1)</h3>
       <p>
@@ -3827,7 +3893,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 <code>cp_asm_count</code> and <code>cr_lambda_lmul</code>. Suite
                 expansion, the covergroupgen fix, <code>MMACC</code>,
                 <code>load_ime_vtype</code>, the λ gate. Passes on QEMU and Sail
-                before the Sail fix.
+                before the Sail fix. <strong>Done</strong>:
+                <code>bf7ed4c5e</code> (§16a).
               </td>
               <td>—</td>
               <td>3–4 days</td>

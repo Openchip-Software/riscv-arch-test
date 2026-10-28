@@ -6,7 +6,7 @@ This file is self-contained. It tells an agent or engineer what exists, how to s
 what to do next. The full testplan design is in [ime-act-testplan-design.md](ime-act-testplan-design.md) in this
 folder. Read this file first, then the design sections it names.
 
-State as of 2026-10-28.
+State as of 2026-10-28, after slice 1.
 
 ## 1. Goal
 
@@ -21,7 +21,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/` belo
 
 | What                       | Path                                                                              | Branch / commit                                                       |
 | -------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 3 commits on `act4` `d41bdd86a`    |
+| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 5 commits on `act4` `d41bdd86a`    |
 | ACT4 reports (docs work)   | `~/repo/ime/riscv-arch-test-docs` (worktree)                                      | `docs/act-ime-reports`, rebased on `origin/act4`                      |
 | Rust generator             | `~/repo/ime/riscv-ime-arch-tests`                                                 | `46f3781`, generator in `ime-test-gen/`, plans in `src/dsl_plans.rs`  |
 | Sail fork (reference)      | `~/repo/ime/sail-riscv`                                                           | `cgomez/0.16-plus-ime` @ `c69e3e22` (Sail 0.16 + 8 IME commits)       |
@@ -85,14 +85,24 @@ Done on `cgomez/import-ime-tests-to-act4`:
 | `d8e2f05ca` | UDB overlay `framework/src/act/data/udb_overlays/ime`: 65 Zvv\* extensions, `SUPPORTED_LAMBDA_SEW{8,16,32,64}` |
 | `24c90741c` | Zvv\* marked experimental; `.insn` macros for every IME instruction in `tests/env/rvtest_experimental.h`       |
 | `732f78d72` | DUT configuration `config/ime/qemu-ime-rv64`: SDK QEMU as DUT, Sail IME as reference; CI disabled              |
+| `b8a6aaee7` | covergroupgen: `ExtraExtensions` rows in per-SEW testplans get covergroups, filtered by `EFFEW`                |
+| `bf7ed4c5e` | Slice 1: `testplans/Zvvmm.csv`, `MMACC` formatter, `cr_lambda_lmul`, `fixed_emul`, `load_ime_vtype`, λ gate    |
 
-Verified: the I suite passes 51 of 51 on `qemu-ime-rv64`. A handwritten IME test
-(`~/tools/act4/ime-poc/act-min/rv64i/Zvvmm/Zvvmm-min-lmul1-00.S`, outside the repository) passes through the
-full ACT flow.
+Verified: the I suite passes 51 of 51 on `qemu-ime-rv64`. Slice 1 passes: 8 of 8 compiled testcases of
+`tests/rv64i/Zvvmm32/Zvvmm32Zvvi32mm-vmmacc.vv-00.S` (λ ∈ {1, 2} × LMUL ∈ {1, 2, 4, 8}) pass on QEMU with
+signatures from Sail. The λ=4 testcases compile out on this DUT. Full `make tests` changes no other suite.
 
-Not done: no `testplans/Zvv*.csv`, no IME formatter, no IME coverpoint generator, no covergroup template, no
-generated IME test in `tests/`, no IME coverage decoding. ime-test-gen produces 5372 tests at VLEN 512; 0 are in
-ACT.
+Slice 1 code, for reuse in step 2:
+
+- `formatters/types/mmacc_type.py`: the `MMACC` type. C is a 16-register window (`fixed_emul={"vd": 16}`).
+- `coverpoints/vector/cr_lambda_lmul.py`: generates only λ with SEW·λ² ≤ `VLEN_MAX`.
+- `asm/vector_helpers.py`: `ime_vtype_value`, `load_ime_vtype` (VL=VLMAX only), and the `ime_lambda` argument of
+  `handle_parameter_exclusions`.
+- `InstructionParams.lambda_`. No `altfmt_*`, `bs` or `ld_mode` field yet.
+- covergroupgen templates `sample_MMACC.sv` and `vector/cr_lambda_lmul.sv`. `get_csr_val` decodes `vtype.lambda`.
+
+Not done: other `Zvvmm.csv` rows, other `testplans/Zvv*.csv`, tile formatters, the other coverpoint generators,
+IME decoding in `disassemble.svh`. ime-test-gen produces 5372 tests at VLEN 512.
 
 ## 6. Next steps
 
@@ -100,7 +110,7 @@ The full table, with effort and dependencies, is §9 of the design. Summary:
 
 | #   | Step                                                                                                     | Effort   |
 | --- | -------------------------------------------------------------------------------------------------------- | -------- |
-| 1   | **Slice 1**: `Zvvmm.csv` with one row, `vmmacc.vv` / `Zvvi32mm` / EFFEW32 (details below)                | 3-4 days |
+| 1   | **Done** (`bf7ed4c5e`). Slice 1: `Zvvmm.csv` with one row, `vmmacc.vv` / `Zvvi32mm` / EFFEW32            | 3-4 days |
 | 2   | The other 12 integer MACC rows, `cp_altfmt`, register and edge coverpoints, Int4 data                    | 4-5 days |
 | 3   | `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking                                 | 4-5 days |
 | 3a  | `cp_custom_tile_layout` and `cp_custom_tile_roundtrip`: the regression tests for the Sail tile-index bug | 2-3 days |
@@ -113,7 +123,7 @@ The full table, with effort and dependencies, is §9 of the design. Summary:
 Steps 1-7 take about 6-8 engineer-weeks. Steps 8 (FP profile parameters) and 9 (OFP8, OFP4, BF16 output,
 microscaling) depend on Sail work outside ACT.
 
-### Slice 1 in detail
+### Slice 1 in detail (done)
 
 Design sections to read: §0, §0.1, §1, §2, §3.1, §3.2, §4.1, §5, §8.1, §8.4, §9.
 
@@ -138,7 +148,7 @@ Changes:
 Acceptance:
 
 ```bash
-make tests EXTENSIONS=Zvvmm                      # generates tests/rv64i/Zvvmm32/... (Zv* is gitignored)
+make tests EXTENSIONS=Zvvmm32                    # per-SEW names; EXTENSIONS=Zvvmm selects nothing
 EXTENSIONS=Zvvmm32 ENABLE_EXPERIMENTAL_EXTENSIONS=True make qemu-ime-rv64
 ```
 
