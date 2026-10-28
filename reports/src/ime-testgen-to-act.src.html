@@ -114,9 +114,7 @@
         <button type="button">Reference</button>
         <ol>
           <li>
-            <a href="#findings"
-              ><span class="n">18</span>Findings in the suite</a
-            >
+            <a href="#findings"><span class="n">18</span>Findings</a>
           </li>
           <li>
             <a href="#provenance"><span class="n">19</span>Provenance</a>
@@ -4293,9 +4291,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
       <!-- ============================ REFERENCE ============================ -->
       <div class="part-title">Reference</div>
 
-      <h2 id="findings">
-        <span class="n">18</span>Findings in riscv-ime-arch-tests
-      </h2>
+      <h2 id="findings"><span class="n">18</span>Findings</h2>
       <p>
         The Class column applies the source-of-truth rule of Section 16b. A
         finding in ime-test-gen, QEMU or GCC never changes a test; a finding in
@@ -4620,10 +4616,14 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 The Sail fork's MACC raises an illegal-instruction exception for
                 <code>EMUL_C</code>=16. The specification permits
                 <code>EMUL_C</code> ∈ {1, 2, 4, 8, 16} (spec:381, spec:811–815).
-                At VLEN 256 this affects SEW=16 with λ=1.
+                At VLEN 256 this affects SEW=16 with λ=1. Observed on
+                2026-10-28: the Sail signature build of all three SEW=16 files
+                of <code>Zvvmm.csv</code> fails, because λ=1 is the default λ of
+                every base-suite testcase at SEW 16 (§16a, step 2).
               </td>
               <td>Sail violates the specification. Work item 11.</td>
               <td>
+                <span class="ev run">run</span>
                 <span class="ev code">code</span>
                 <a
                   href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_utils.sail#L91-L92"
@@ -4669,6 +4669,136 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                   ><code>ime_mem_insts.sail:34-48</code></a
                 >
               </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>ACT framework issues found during the migration</h3>
+      <p>
+        These issues came up while steps 1 and 2 of §16b were implemented on
+        2026-10-28. They are in ACT, not in ime-test-gen or the models.
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Finding</th>
+              <th>Class</th>
+              <th>Evidence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">23</td>
+              <td>
+                covergroupgen dropped every <code>ExtraExtensions</code> row of
+                a vector testplan that expands into per-SEW suites. The rows
+                were stored under the testplan name, for example
+                <code>Zvbc</code>, and looked up under the per-SEW name, for
+                example <code>Zvbc64</code>. Copying them would also have put
+                them into every SEW, because they were not filtered by
+                <code>EFFEW</code>. A testplan whose rows all have
+                <code>ExtraExtensions</code> raised <code>KeyError</code>.
+              </td>
+              <td>
+                ACT defect. Fixed in <code>b8a6aaee7</code>. No existing
+                covergroup changed.
+              </td>
+              <td>
+                <span class="ev run">run</span>
+                <code>generators/coverage/src/covergroupgen/generate.py</code>,
+                <code>read_testplans</code>
+              </td>
+            </tr>
+            <tr>
+              <td class="num">24</td>
+              <td>
+                <code>make tests EXTENSIONS=Zvvmm</code> generates nothing.
+                <code>EXTENSIONS</code> matches the per-SEW suite names, for
+                example <code>Zvvmm32</code>. The handoff's acceptance command
+                used the testplan name.
+              </td>
+              <td>
+                ACT usability; documentation fixed in <code>HANDOFF.md</code>.
+                Not changed in ACT.
+              </td>
+              <td><span class="ev run">run</span></td>
+            </tr>
+            <tr>
+              <td class="num">25</td>
+              <td>
+                The stamps of <code>make covergroupgen</code> and
+                <code>make testgen</code> depend on the testplans, the generator
+                sources and the <code>Makefile</code>, but not on
+                <code>EXTENSIONS</code>. After a run with one
+                <code>EXTENSIONS</code> value, a run with another value prints
+                "Nothing to be done" and generates nothing.
+              </td>
+              <td>
+                ACT defect. Not fixed. Workaround: call
+                <code>uv run testgen</code> and
+                <code>uv run covergroupgen</code> directly.
+              </td>
+              <td>
+                <span class="ev run">run</span> <code>Makefile</code>, rules
+                <code>covergroupgen.stamp</code> and <code>testgen.stamp</code>
+              </td>
+            </tr>
+            <tr>
+              <td class="num">26</td>
+              <td>
+                The Make run targets cannot continue past a failed build task.
+                <code>act</code> stops at the first failure unless it gets
+                <code>-k</code>, and the <code>elfs</code> recipe has no
+                variable that passes it. One failing SEW=16 signature build
+                therefore hides the results of every other
+                <code>Zvvmm</code> file.
+              </td>
+              <td>
+                ACT usability. Not changed. Workaround:
+                <code>uv run act … -k</code>, then <code>run_tests.py</code>.
+              </td>
+              <td>
+                <span class="ev run">run</span> <code>Makefile</code>, rule
+                <code>elfs</code>
+              </td>
+            </tr>
+            <tr>
+              <td class="num">27</td>
+              <td>
+                <code>run_tests.py</code> runs every ELF under
+                <code>work/&lt;config&gt;/elfs</code>, including ELFs left by
+                earlier runs with other <code>EXTENSIONS</code>.
+                <code>make qemu-ime-rv64</code> with
+                <code>EXTENSIONS=Zvvmm32</code> reported three stale
+                <code>Svadu</code> failures.
+              </td>
+              <td>
+                ACT usability. Not changed. Workaround: remove the stale ELFs,
+                or run <code>run_tests.py</code> on a suite subdirectory.
+              </td>
+              <td>
+                <span class="ev run">run</span> <code>run_tests.py</code>:
+                <code>elf_dir.rglob("*.elf")</code>
+              </td>
+            </tr>
+            <tr>
+              <td class="num">28</td>
+              <td>
+                Functional coverage had no template for
+                <code>cp_vd_edges</code> without an EGS suffix, no
+                <code>cp_vs1_edges_emulf2/4/8</code>, and no EEW=4 case in
+                <code>vs_edges_check</code>. <code>get_csr_val</code> did not
+                decode the IME <code>vtype</code> fields.
+              </td>
+              <td>
+                Missing in ACT for IME. Added in <code>bf7ed4c5e</code>,
+                <code>2cd759066</code> and <code>b1964e4bf</code>. Not yet run
+                in a coverage simulation.
+              </td>
+              <td><span class="ev code">code</span></td>
             </tr>
           </tbody>
         </table>

@@ -126,6 +126,10 @@ IME code in testgen, for reuse in later steps:
   `ime_column_vl` gives λ·LMUL. Templates `sample_MMACC`, `cr_lambda_lmul`, `cp_altfmt`, `cp_tile_vl`,
   `cp_vd_emul16`, `cp_vd_edges`, `cp_vs1_edges_emulf2/4/8`. Coverage has not been run (needs step 6).
 
+Known ACT issues (Report 2, §18, findings 23-28): `make tests` stamps ignore `EXTENSIONS`; the Make run
+targets have no keep-going option; `run_tests.py` also runs stale ELFs left in `work/<config>/elfs`. Use the
+commands above and remove stale ELFs before a run.
+
 Not done: the `ramp` bin of step 2; other `testplans/Zvv*.csv`; tile formatters; IME decoding in `disassemble.svh`.
 
 ## 6. Next steps
