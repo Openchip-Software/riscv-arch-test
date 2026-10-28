@@ -6,7 +6,7 @@ This file is self-contained. It tells an agent or engineer what exists, how to s
 what to do next. The full testplan design is in [ime-act-testplan-design.md](ime-act-testplan-design.md) in this
 folder. Read this file first, then the design sections it names.
 
-State as of 2026-10-28, after slice 1.
+State as of 2026-10-28, after step 2.
 
 ## 1. Goal
 
@@ -21,7 +21,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/` belo
 
 | What                       | Path                                                                              | Branch / commit                                                       |
 | -------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 5 commits on `act4` `d41bdd86a`    |
+| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 9 commits on `act4` `d41bdd86a`    |
 | ACT4 reports (docs work)   | `~/repo/ime/riscv-arch-test-docs` (worktree)                                      | `docs/act-ime-reports`, rebased on `origin/act4`                      |
 | Rust generator             | `~/repo/ime/riscv-ime-arch-tests`                                                 | `46f3781`, generator in `ime-test-gen/`, plans in `src/dsl_plans.rs`  |
 | Sail fork (reference)      | `~/repo/ime/sail-riscv`                                                           | `cgomez/0.16-plus-ime` @ `c69e3e22` (Sail 0.16 + 8 IME commits)       |
@@ -87,22 +87,46 @@ Done on `cgomez/import-ime-tests-to-act4`:
 | `732f78d72` | DUT configuration `config/ime/qemu-ime-rv64`: SDK QEMU as DUT, Sail IME as reference; CI disabled              |
 | `b8a6aaee7` | covergroupgen: `ExtraExtensions` rows in per-SEW testplans get covergroups, filtered by `EFFEW`                |
 | `bf7ed4c5e` | Slice 1: `testplans/Zvvmm.csv`, `MMACC` formatter, `cr_lambda_lmul`, `fixed_emul`, `load_ime_vtype`, λ gate    |
+| `52218040e` | Step 2: the 13 integer rows of `Zvvmm.csv`                                                                     |
+| `2cd759066` | Step 2: `cp_vd_emul16`, `cp_vs1`, `cp_vs2`, `cp_altfmt`; λ chain for coverpoints that do not choose λ          |
+| `b1964e4bf` | Step 2: `cp_vd_edges`, `cp_vs1_edges`, `cp_vs2_edges` (`emulf2/4/8` for W>1, 4-bit edges for Int4)             |
+| `089da6013` | Step 2: `cp_tile_vl` (one column, VLMAX/2, VLMAX, random multiple of λ·LMUL)                                   |
 
-Verified: the I suite passes 51 of 51 on `qemu-ime-rv64`. Slice 1 passes: 8 of 8 compiled testcases of
-`tests/rv64i/Zvvmm32/Zvvmm32Zvvi32mm-vmmacc.vv-00.S` (λ ∈ {1, 2} × LMUL ∈ {1, 2, 4, 8}) pass on QEMU with
-signatures from Sail. The λ=4 testcases compile out on this DUT. Full `make tests` changes no other suite.
+Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from Sail):
 
-Slice 1 code, for reuse in step 2:
+- The I suite passes 51 of 51.
+- `Zvvmm`: the 10 files for SEW 8, 32 and 64 pass, Int4 rows included. QEMU and Sail both execute Int4.
+- The 3 files for SEW 16 fail in the Sail signature run. At VLEN 256, SEW 16 and λ=1, EMUL_C is 16, which the
+  specification permits and Sail rejects (`ime_group_size_legal`, work item 11). λ=1 is the smallest λ at SEW 16,
+  so every base-suite testcase uses it. With λ=1 removed from a scratch copy of the DUT configuration, the 3 files
+  pass. Fixing work item 11 in Sail unblocks them.
+- Full `make tests` changes no other suite.
 
-- `formatters/types/mmacc_type.py`: the `MMACC` type. C is a 16-register window (`fixed_emul={"vd": 16}`).
-- `coverpoints/vector/cr_lambda_lmul.py`: generates only λ with SEW·λ² ≤ `VLEN_MAX`.
-- `asm/vector_helpers.py`: `ime_vtype_value`, `load_ime_vtype` (VL=VLMAX only), and the `ime_lambda` argument of
-  `handle_parameter_exclusions`.
-- `InstructionParams.lambda_`. No `altfmt_*`, `bs` or `ld_mode` field yet.
-- covergroupgen templates `sample_MMACC.sv` and `vector/cr_lambda_lmul.sv`. `get_csr_val` decodes `vtype.lambda`.
+How to build and run Zvvmm. Make has no keep-going option, so call `act -k` to build past the SEW=16 failures:
 
-Not done: other `Zvvmm.csv` rows, other `testplans/Zvv*.csv`, tile formatters, the other coverpoint generators,
-IME decoding in `disassemble.svh`. ime-test-gen produces 5372 tests at VLEN 512.
+```bash
+uv run covergroupgen testplans --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64
+uv run testgen testplans -o tests --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64
+uv run act config/ime/qemu-ime-rv64/test_config.yaml --workdir work --test-dir tests \
+  --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64 --enable-experimental-extensions -k
+for d in work/qemu-ime-rv64/elfs/rv64i/Zvvmm*; do ./run_tests.py "$(cat config/ime/qemu-ime-rv64/run_cmd.txt)" $d; done
+```
+
+IME code in testgen, for reuse in later steps:
+
+- `formatters/types/mmacc_type.py`: the `MMACC` type. C is a 16-register window (`fixed_emul={"vd": 16}`). Base-suite
+  callers (the generic `cp_vd`, `cp_vs*`, `cp_*_edges` generators) run at VL=VLMAX. `extend_label` extends their
+  data labels to fill A, B and C, and packs narrow edge values into input element 0.
+- `asm/vector_helpers.py`: `ime_lambdas`, `ime_vtype_value`, `load_ime_vtype` and the `ime_lambda` argument of
+  `handle_parameter_exclusions`. `params.lambda_ = None` emits an `#if/#elif` chain that selects the smallest λ the
+  DUT supports. `load_ime_vtype` supports VL = n columns, `"half"`, `"vlmax"` and `"random"`.
+- `InstructionParams`: `lambda_`, `altfmt_a`, `altfmt_b`. `VectorLength` includes `"half"`. No `bs` or `ld_mode` yet.
+- Generators: `cr_lambda_lmul`, `cp_altfmt` (integer signedness), `cp_tile_vl`.
+- Coverage: `get_csr_val` decodes `vtype.lambda`, `altfmt_a` and `altfmt_b`. `vs_edges_check` handles EEW 4.
+  `ime_column_vl` gives λ·LMUL. Templates `sample_MMACC`, `cr_lambda_lmul`, `cp_altfmt`, `cp_tile_vl`,
+  `cp_vd_emul16`, `cp_vd_edges`, `cp_vs1_edges_emulf2/4/8`. Coverage has not been run (needs step 6).
+
+Not done: the `ramp` bin of step 2; other `testplans/Zvv*.csv`; tile formatters; IME decoding in `disassemble.svh`.
 
 ## 6. Next steps
 
@@ -111,7 +135,7 @@ The full table, with effort and dependencies, is §9 of the design. Summary:
 | #   | Step                                                                                                     | Effort   |
 | --- | -------------------------------------------------------------------------------------------------------- | -------- |
 | 1   | **Done** (`bf7ed4c5e`). Slice 1: `Zvvmm.csv` with one row, `vmmacc.vv` / `Zvvi32mm` / EFFEW32            | 3-4 days |
-| 2   | The other 12 integer MACC rows, `cp_altfmt`, register and edge coverpoints, Int4 data                    | 4-5 days |
+| 2   | **Done** except the `ramp` bin (`52218040e`…`089da6013`). The other 12 integer MACC rows and coverpoints | 4-5 days |
 | 3   | `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking                                 | 4-5 days |
 | 3a  | `cp_custom_tile_layout` and `cp_custom_tile_roundtrip`: the regression tests for the Sail tile-index bug | 2-3 days |
 | 3b  | `cp_custom_tile_macc`: MACC with tile-loaded A/B and tile-stored C                                       | 2 days   |

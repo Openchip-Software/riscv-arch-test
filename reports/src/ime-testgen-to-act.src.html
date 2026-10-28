@@ -2197,10 +2197,11 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <span class="n">16a</span>Bring-up in the ACT repository, 2026-10-26
       </h2>
       <p>
-        Branch <code>cgomez/import-ime-tests-to-act4</code> adds five commits on
+        Branch <code>cgomez/import-ime-tests-to-act4</code> adds nine commits on
         <code>act4</code> <code>d41bdd86a</code>. The first three complete work
-        items 3 and 4 and mark the IME extensions experimental. The last two add
-        slice 1 of the testplan design (§16b): the first generated IME test.
+        items 3 and 4 and mark the IME extensions experimental. The next two add
+        slice 1 of the testplan design (§16b): the first generated IME test. The
+        last four complete step 2: all integer multiply-accumulate rows.
         <span class="ev run">run</span>
       </p>
       <div class="tablewrap">
@@ -2239,6 +2240,26 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td><code>bf7ed4c5e</code></td>
               <td>Add the Zvvmm testplan with vmmacc.vv for Zvvi32mm</td>
               <td>§16b step 1</td>
+            </tr>
+            <tr>
+              <td><code>52218040e</code></td>
+              <td>Add the other integer multiply-accumulate rows to Zvvmm</td>
+              <td>§16b step 2</td>
+            </tr>
+            <tr>
+              <td><code>2cd759066</code></td>
+              <td>Add register and signedness coverpoints to Zvvmm</td>
+              <td>§16b step 2</td>
+            </tr>
+            <tr>
+              <td><code>b1964e4bf</code></td>
+              <td>Add edge coverpoints to Zvvmm</td>
+              <td>§16b step 2</td>
+            </tr>
+            <tr>
+              <td><code>089da6013</code></td>
+              <td>Add the cp_tile_vl coverpoint to Zvvmm</td>
+              <td>§16b step 2</td>
             </tr>
           </tbody>
         </table>
@@ -2534,6 +2555,69 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
       ><span class="line">uv run covergroupgen testplans --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64</span>
 <span class="line">uv run testgen testplans -o tests --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64</span>
 <span class="line">EXTENSIONS=Zvvmm32 ENABLE_EXPERIMENTAL_EXTENSIONS=True make qemu-ime-rv64</span></pre>
+
+      <h3>
+        Step 2: all integer rows of <code>Zvvmm.csv</code>
+        (<code>52218040e</code>…<code>089da6013</code>)
+      </h3>
+      <ul>
+        <li>
+          <code>testplans/Zvvmm.csv</code> has 13 rows, one per integer type
+          extension: <code>vmmacc.vv</code>, <code>vwmmacc.vv</code>,
+          <code>vqmmacc.vv</code> and <code>v8wmmacc.vv</code>, including the
+          Int4 rows. Coverpoints: <code>cp_vd_emul16</code>,
+          <code>cp_vs1</code>, <code>cp_vs2</code>, <code>cp_vd_edges</code>,
+          <code>cp_vs1_edges</code>/<code>cp_vs2_edges</code> (with
+          <code>emulf2</code>/<code>emulf4</code>/<code>emulf8</code> for
+          W&gt;1), <code>cp_altfmt</code>, <code>cr_lambda_lmul</code> and
+          <code>cp_tile_vl</code>. 118 to 122 testcases per file.
+        </li>
+        <li>
+          The generic register and edge generators call <code>MMACC</code> in
+          the base suite. The formatter runs them at VL=VLMAX. It extends their
+          data labels to fill A, B and the C window, with the edge value packed
+          into input element 0. λ comes from a preprocessor chain that selects
+          the smallest λ the DUT supports (§16b, λ gating).
+        </li>
+        <li>
+          <code>cp_tile_vl</code> sets VL to one C column (λ·LMUL), VLMAX/2,
+          VLMAX and a random multiple of λ·LMUL. The C check at VLMAX with
+          <code>vta=0</code> also checks that elements beyond VL are unchanged.
+        </li>
+        <li>
+          Coverage additions: <code>get_csr_val</code> decodes
+          <code>vtype.altfmt_A</code> and <code>altfmt_B</code>;
+          <code>vs_edges_check</code> handles EEW 4; new templates
+          <code>cp_vd_emul16</code>, <code>cp_vd_edges</code>,
+          <code>cp_vs1_edges_emulf2/4/8</code>, <code>cp_altfmt</code> and
+          <code>cp_tile_vl</code>. Coverage has not been run yet (step 6).
+        </li>
+        <li>
+          Result on <code>qemu-ime-rv64</code>: the 10 files for SEW 8, 32 and
+          64 pass, Int4 rows included. QEMU and Sail both execute Int4. The 3
+          files for SEW 16 fail in the Sail signature run.
+          <span class="ev run">run</span>
+        </li>
+      </ul>
+      <div class="note">
+        <span class="tag">Sail rejects EMUL_C=16</span>
+        <p>
+          At VLEN 256, SEW 16 and λ=1, EMUL_C is 16. The specification permits
+          it. <code>ime_group_size_legal</code> in the Sail fork accepts only 1,
+          2, 4 and 8, so Sail raises an illegal-instruction exception
+          <span class="ev code">code</span>. λ=1 is the smallest λ at SEW 16, so
+          every base-suite testcase of the three SEW=16 files uses it, and the
+          whole signature build fails. The testcases follow the specification
+          and stay in place (work item 11). With λ=1 removed from a scratch copy
+          of the DUT configuration, the three files pass for λ=2 and λ=4
+          <span class="ev run">run</span>.
+        </p>
+      </div>
+      <pre
+        class="cmd"
+        data-label="riscv-arch-test, branch cgomez/import-ime-tests-to-act4"
+      ><span class="line">uv run act config/ime/qemu-ime-rv64/test_config.yaml --workdir work --test-dir tests --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64 --enable-experimental-extensions -k</span>
+<span class="line">for d in work/qemu-ime-rv64/elfs/rv64i/Zvvmm*; do ./run_tests.py "$(cat config/ime/qemu-ime-rv64/run_cmd.txt)" $d; done</span></pre>
 
       <h3>Sail tile-index bug: reproducer and patch (work item 1)</h3>
       <p>
@@ -3904,7 +3988,11 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td>
                 All 13 integer rows and their coverpoints, with Int4 data.
                 <code>cr_lambda_lmul</code> bins with <code>EMUL_C</code>=16
-                fail until work item 11.
+                fail until work item 11. <strong>Done</strong> except the
+                <code>ramp</code> bin: <code>52218040e</code>…<code
+                  >089da6013</code
+                >
+                (§16a).
               </td>
               <td>1</td>
               <td>4–5 days</td>
