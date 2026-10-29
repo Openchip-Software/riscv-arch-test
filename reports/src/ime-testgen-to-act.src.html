@@ -2195,12 +2195,14 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <span class="n">16a</span>Bring-up in the ACT repository, 2026-10-26
       </h2>
       <p>
-        Branch <code>cgomez/import-ime-tests-to-act4</code> adds ten commits on
-        <code>act4</code> <code>d41bdd86a</code>. The first three complete work
-        items 3 and 4 and mark the IME extensions experimental. The next two add
-        slice 1 of the testplan design (§16b): the first generated IME test. The
-        next four complete step 2: all integer multiply-accumulate rows. The
-        last one adds step 3: the tile loads and stores of <code>Zvvmtls</code>.
+        Branch <code>cgomez/import-ime-tests-to-act4</code> adds eleven commits
+        on <code>act4</code> <code>d41bdd86a</code>. The first three complete
+        work items 3 and 4 and mark the IME extensions experimental. The next
+        two add slice 1 of the testplan design (§16b): the first generated IME
+        test. The next four complete step 2: all integer multiply-accumulate
+        rows. The next one adds step 3: the tile loads and stores of
+        <code>Zvvmtls</code>. The last one adds step 3b: multiply-accumulate
+        through tile loads and stores.
         <span class="ev run">run</span>
       </p>
       <div class="tablewrap">
@@ -2264,6 +2266,14 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td><code>9b28cc1d1</code></td>
               <td>Add the Zvvmtls testplan for tile loads and stores</td>
               <td>§16b step 3</td>
+            </tr>
+            <tr>
+              <td><code>f5563c522</code></td>
+              <td>
+                Add multiply-accumulate tests with tile loads and stores to
+                Zvvmm
+              </td>
+              <td>§16b step 3b</td>
             </tr>
           </tbody>
         </table>
@@ -2706,6 +2716,35 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         >).
         <span class="ev run">run</span>
       </p>
+
+      <h3>
+        Step 3b: <code>cp_custom_tile_macc</code> (<code>f5563c522</code>)
+      </h3>
+      <ul>
+        <li>
+          Four <code>vmmacc.vv</code> rows of <code>Zvvmm.csv</code>, one per
+          SEW, with <code>ExtraExtensions=Zvvi&lt;n&gt;mm:Zvvmtls</code>. Each
+          bin (λ × LMUL) zeroes C, loads A and B with <code>vmtl.v</code> at the
+          natural LD, runs <code>vmmacc.vv</code>, stores C with
+          <code>vmts.v</code> at LMUL = <code>EMUL_C</code> and LD = M, and
+          reads 16 registers of memory back. This is test M1 of §16b.
+        </li>
+        <li>
+          The data names each C element: C[i][j] = f·i + j, with f = 256 (16 at
+          SEW 8); C[i][j] = j when λ·LMUL = 1. An
+          <code>#if UDB_VLEN</code> chain selects the C store.
+          <code>EMUL_C</code>=16 is stored as two LMUL=8 halves with LD = 16λ,
+          as ime-test-gen does.
+        </li>
+        <li>
+          Result on <code>qemu-ime-rv64</code>: with Sail
+          <code>c69e3e22</code> the new files fail at their first bin (LMUL=1),
+          because the C store runs at <code>EMUL_C</code> &gt; 1 and hits the
+          tile-index bug. With <code>sail-specfix.diff</code>, all 17
+          <code>Zvvmm</code> files pass.
+          <span class="ev run">run</span>
+        </li>
+      </ul>
 
       <h3>Sail tile-index bug: reproducer and patch (work item 1)</h3>
       <p>

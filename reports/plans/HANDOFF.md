@@ -6,7 +6,7 @@ This file is self-contained. It tells an agent or engineer what exists, how to s
 what to do next. The full testplan design is in [ime-act-testplan-design.md](ime-act-testplan-design.md) in this
 folder. Read this file first, then the design sections it names.
 
-State as of 2026-10-28, after step 3.
+State as of 2026-10-29, after step 3b.
 
 ## 1. Goal
 
@@ -21,7 +21,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/` belo
 
 | What                       | Path                                                                              | Branch / commit                                                       |
 | -------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 10 commits on `act4` `d41bdd86a`   |
+| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 11 commits on `act4` `d41bdd86a`   |
 | ACT4 reports (docs work)   | `~/repo/ime/riscv-arch-test-docs` (worktree)                                      | `docs/act-ime-reports`, rebased on `origin/act4`                      |
 | Rust generator             | `~/repo/ime/riscv-ime-arch-tests`                                                 | `46f3781`, generator in `ime-test-gen/`, plans in `src/dsl_plans.rs`  |
 | Sail fork (reference)      | `~/repo/ime/sail-riscv`                                                           | `cgomez/0.16-plus-ime` @ `c69e3e22` (Sail 0.16 + 8 IME commits)       |
@@ -92,6 +92,7 @@ Done on `cgomez/import-ime-tests-to-act4`:
 | `b1964e4bf` | Step 2: `cp_vd_edges`, `cp_vs1_edges`, `cp_vs2_edges` (`emulf2/4/8` for W>1, 4-bit edges for Int4)             |
 | `089da6013` | Step 2: `cp_tile_vl` (one column, VLMAX/2, VLMAX, random multiple of λ·LMUL)                                   |
 | `9b28cc1d1` | Step 3: `Zvvmtls.csv`, `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, `cr_tile_vtype_agnostic`              |
+| `f5563c522` | Step 3b: `cp_custom_tile_macc` on four `vmmacc.vv` rows with `ExtraExtensions=Zvvi<n>mm:Zvvmtls`               |
 
 Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from Sail):
 
@@ -106,6 +107,8 @@ Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from Sail):
 - With the scratch Sail of `reports/issues/sail-ime-verification-patch/` (`export SAIL_IME_SIM=` that build), all 21
   files of `Zvvmm` and `Zvvmtls` pass on QEMU. It fixes the tile register index, the natural LD and `EMUL_C`=16.
   Accepting 16 in `ime_group_size_legal` alone is not enough: Sail's element access asserts groups of at most 8.
+- Step 3b (`cp_custom_tile_macc`): with Sail `c69e3e22` the new files fail at their first bin, because the C store
+  at EMUL_C > 1 hits the tile-index bug. With the scratch Sail all 17 `Zvvmm` files pass.
 - Full `make tests` changes no other suite.
 
 How to build and run Zvvmm. Make has no keep-going option, so call `act -k` to build past the SEW=16 failures:
@@ -139,7 +142,7 @@ Known ACT issues (Report 2, §18, findings 23-28): `make tests` stamps ignore `E
 targets have no keep-going option; `run_tests.py` also runs stale ELFs left in `work/<config>/elfs`. Use the
 commands above and remove stale ELFs before a run.
 
-Not done: the `ramp` bin of step 2; steps 3a and 3b; `Zvvfmm.csv` and `Zvvmttls.csv`; IME decoding in `disassemble.svh`.
+Not done: the `ramp` bin of step 2; step 3a (deferred); `Zvvfmm.csv` and `Zvvmttls.csv`; IME decoding in `disassemble.svh`.
 
 ## 6. Next steps
 
@@ -151,7 +154,7 @@ The full table, with effort and dependencies, is §9 of the design. Summary:
 | 2   | **Done** except the `ramp` bin (`52218040e`…`089da6013`). The other 12 integer MACC rows and coverpoints  | 4-5 days |
 | 3   | **Done** (`9b28cc1d1`). `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking          | 4-5 days |
 | 3a  | Deferred (2026-10-29). `cp_custom_tile_layout` and `cp_custom_tile_roundtrip` (Sail tile-index bug tests) | 2-3 days |
-| 3b  | `cp_custom_tile_macc`: MACC with tile-loaded A/B and tile-stored C                                        | 2 days   |
+| 3b  | **Done** (`f5563c522`). `cp_custom_tile_macc`: MACC with tile-loaded A/B and tile-stored C                | 2 days   |
 | 4   | `Zvvfmm.csv` rows that Sail implements, exact-sum FP data, `cp_fp_subdot`                                 | 5-7 days |
 | 5   | `Zvvmttls.csv` and the cross-mode pairs                                                                   | 2-3 days |
 | 6   | Coverage: `disassemble.svh`, vtype fields, all templates; `make coverage EXTENSIONS=Zvvmm32`              | 4-6 days |
