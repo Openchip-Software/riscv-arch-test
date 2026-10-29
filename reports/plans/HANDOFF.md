@@ -145,17 +145,17 @@ Not done: the `ramp` bin of step 2; steps 3a and 3b; `Zvvfmm.csv` and `Zvvmttls.
 
 The full table, with effort and dependencies, is §9 of the design. Summary:
 
-| #   | Step                                                                                                     | Effort   |
-| --- | -------------------------------------------------------------------------------------------------------- | -------- |
-| 1   | **Done** (`bf7ed4c5e`). Slice 1: `Zvvmm.csv` with one row, `vmmacc.vv` / `Zvvi32mm` / EFFEW32            | 3-4 days |
-| 2   | **Done** except the `ramp` bin (`52218040e`…`089da6013`). The other 12 integer MACC rows and coverpoints | 4-5 days |
-| 3   | **Done** (`9b28cc1d1`). `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking         | 4-5 days |
-| 3a  | `cp_custom_tile_layout` and `cp_custom_tile_roundtrip`: the regression tests for the Sail tile-index bug | 2-3 days |
-| 3b  | `cp_custom_tile_macc`: MACC with tile-loaded A/B and tile-stored C                                       | 2 days   |
-| 4   | `Zvvfmm.csv` rows that Sail implements, exact-sum FP data, `cp_fp_subdot`                                | 5-7 days |
-| 5   | `Zvvmttls.csv` and the cross-mode pairs                                                                  | 2-3 days |
-| 6   | Coverage: `disassemble.svh`, vtype fields, all templates; `make coverage EXTENSIONS=Zvvmm32`             | 4-6 days |
-| 7   | Privileged suite `ExceptionsZvvm`: illegal cases and vstart                                              | 4-5 days |
+| #   | Step                                                                                                      | Effort   |
+| --- | --------------------------------------------------------------------------------------------------------- | -------- |
+| 1   | **Done** (`bf7ed4c5e`). Slice 1: `Zvvmm.csv` with one row, `vmmacc.vv` / `Zvvi32mm` / EFFEW32             | 3-4 days |
+| 2   | **Done** except the `ramp` bin (`52218040e`…`089da6013`). The other 12 integer MACC rows and coverpoints  | 4-5 days |
+| 3   | **Done** (`9b28cc1d1`). `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking          | 4-5 days |
+| 3a  | Deferred (2026-10-29). `cp_custom_tile_layout` and `cp_custom_tile_roundtrip` (Sail tile-index bug tests) | 2-3 days |
+| 3b  | `cp_custom_tile_macc`: MACC with tile-loaded A/B and tile-stored C                                        | 2 days   |
+| 4   | `Zvvfmm.csv` rows that Sail implements, exact-sum FP data, `cp_fp_subdot`                                 | 5-7 days |
+| 5   | `Zvvmttls.csv` and the cross-mode pairs                                                                   | 2-3 days |
+| 6   | Coverage: `disassemble.svh`, vtype fields, all templates; `make coverage EXTENSIONS=Zvvmm32`              | 4-6 days |
+| 7   | Privileged suite `ExceptionsZvvm`: illegal cases and vstart                                               | 4-5 days |
 
 Steps 1-7 take about 6-8 engineer-weeks. Steps 8 (FP profile parameters) and 9 (OFP8, OFP4, BF16 output,
 microscaling) depend on Sail work outside ACT.
@@ -193,6 +193,9 @@ Every testcase passes for λ ∈ {1, 2} on QEMU, and the signature run on Sail s
 `make tests` produces no change in other suites.
 
 ## 7. Known bugs and expected failures
+
+The Sail fix for the tile register index is going upstream (project note, 2026-10-29). Do not work on that bug or on
+step 3a for now. The LMUL>1 tile bins stay in place.
 
 The Sail fork contradicts the specification in these cases. Tests follow the specification, so they fail on a
 conforming DUT until Sail is fixed. This is intended. Do not hide these failures.
