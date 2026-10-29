@@ -2195,14 +2195,15 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <span class="n">16a</span>Bring-up in the ACT repository, 2026-10-26
       </h2>
       <p>
-        Branch <code>cgomez/import-ime-tests-to-act4</code> adds eleven commits
+        Branch <code>cgomez/import-ime-tests-to-act4</code> adds fifteen commits
         on <code>act4</code> <code>d41bdd86a</code>. The first three complete
         work items 3 and 4 and mark the IME extensions experimental. The next
         two add slice 1 of the testplan design (§16b): the first generated IME
         test. The next four complete step 2: all integer multiply-accumulate
         rows. The next one adds step 3: the tile loads and stores of
-        <code>Zvvmtls</code>. The last one adds step 3b: multiply-accumulate
-        through tile loads and stores.
+        <code>Zvvmtls</code>. The next one adds step 3b: multiply-accumulate
+        through tile loads and stores. The last four add step 4: the
+        floating-point multiply-accumulate rows of <code>Zvvfmm</code>.
         <span class="ev run">run</span>
       </p>
       <div class="tablewrap">
@@ -2274,6 +2275,30 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
                 Zvvmm
               </td>
               <td>§16b step 3b</td>
+            </tr>
+            <tr>
+              <td><code>54864be49</code></td>
+              <td>Keep the V widening requirements off IME test suites</td>
+              <td>§16b step 4</td>
+            </tr>
+            <tr>
+              <td><code>a4464781c</code></td>
+              <td>
+                Add the Zvvfmm testplan for floating-point multiply-accumulate
+              </td>
+              <td>§16b step 4</td>
+            </tr>
+            <tr>
+              <td><code>247030db3</code></td>
+              <td>
+                Add floating-point edge, rounding and flag tests to Zvvfmm
+              </td>
+              <td>§16b step 4</td>
+            </tr>
+            <tr>
+              <td><code>ce5b13830</code></td>
+              <td>Add the cp_fp_subdot coverpoint to Zvvfmm</td>
+              <td>§16b step 4</td>
             </tr>
           </tbody>
         </table>
@@ -2743,6 +2768,64 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           tile-index bug. With <code>sail-specfix.diff</code>, all 17
           <code>Zvvmm</code> files pass.
           <span class="ev run">run</span>
+        </li>
+      </ul>
+
+      <h3>
+        Step 4: <code>Zvvfmm.csv</code>, floating-point multiply-accumulate
+        (<code>a4464781c</code>…<code>ce5b13830</code>)
+      </h3>
+      <ul>
+        <li>
+          The 8 rows that Sail implements, which are also the 8 FP type
+          extensions <code>qemu-ime-rv64</code> declares:
+          <code>vfmmacc.vv</code> for <code>Zvvfp16mm</code>,
+          <code>Zvvfp32mm</code> and <code>Zvvfp64mm</code>;
+          <code>vfwmmacc.vv</code> for <code>Zvvfp16fp32mm</code>,
+          <code>Zvvbf16fp32mm</code> and <code>Zvvfp32fp64mm</code>;
+          <code>vfqmmacc.vv</code> for <code>Zvvfp16fp64mm</code> and
+          <code>Zvvbf16fp64mm</code>. A BF16 row sets <code>altfmt_A</code> =
+          <code>altfmt_B</code> = 1.
+        </li>
+        <li>
+          Random data is exact (§16b, value patterns): inputs are sparse
+          integers in [−2, 2], C holds half-integers k + 0.5 with |k| ≤ 128.
+          Every product, partial sum and C value is exact in every format and
+          order, so the result does not depend on G, <code>psm</code>,
+          <code>rnd</code> or <code>frm</code>.
+        </li>
+        <li>
+          Edge tests make the edge the only nonzero product of its C elements:
+          an A edge meets B = +1.0 and A = 0 elsewhere, a B edge the reverse,
+          and a C edge meets A = B = 0. Every implementation then computes
+          round_frm(C + edge). A and B use separate registers, because an edge
+          that meets itself (A = B) gives an inexact product whose rounding the
+          specification leaves to the implementation. Sail raised UF and NX
+          there, QEMU only NX.
+        </li>
+        <li>
+          <code>cp_fp_subdot</code> (W &gt; 1): the W products of one
+          sub-dot-product of C[0][0] add up to one ULP of C₀. The specification
+          gives C₀ + 1 ULP with no flags in every rounding mode. Sail and QEMU
+          add each product on its own; at FP16→FP64 with <code>rne</code>, Sail
+          returns 2<sup>52</sup> for C₀ = 2<sup>52</sup> instead of 2<sup
+            >52</sup
+          >
+          + 1 (finding 30) <span class="ev run">run</span>.
+        </li>
+        <li>
+          Result on <code>qemu-ime-rv64</code>: the files for SEW 32 and 64 pass
+          with Sail <code>c69e3e22</code>; the SEW=16 file fails on
+          <code>EMUL_C</code>=16 (finding 20). With
+          <code>sail-specfix.diff</code> all 8 files pass. The
+          <code>cp_fp_subdot</code> bins pass only because QEMU shares Sail's
+          deviation. <span class="ev run">run</span>
+        </li>
+        <li>
+          Not done: the mixed FP16/BF16 rows, the OFP8, OFP4 and microscaling
+          rows (Sail does not implement them), and rounding-sensitive data for
+          <code>cp_csr_frm_v</code>, which now runs each rounding mode on exact
+          data.
         </li>
       </ul>
 
@@ -4162,7 +4245,10 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 data, <code>cp_csr_frm_v</code>, <code>cp_csr_fflags</code>,
                 <code>cp_fp_subdot</code>. The <code>cp_fp_subdot</code> bins
                 fail on a conforming DUT until work item 10, and pass on QEMU
-                until then.
+                until then. <strong>Done</strong>: <code>a4464781c</code>…<code
+                  >ce5b13830</code
+                >
+                (§16a).
               </td>
               <td>2</td>
               <td>5–7 days</td>
@@ -4932,6 +5018,41 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 in a coverage simulation.
               </td>
               <td><span class="ev code">code</span></td>
+            </tr>
+            <tr>
+              <td class="num">29</td>
+              <td>
+                <code>get_vector_base_extension</code> raises the base extension
+                of a <code>vw*</code> or <code>vfw*</code> instruction at SEW=32
+                to <code>Zve64x</code> or <code>Zve64d</code>, because a V
+                widening instruction has a 2·SEW operand. The rule also matched
+                <code>vwmmacc.vv</code> and <code>vfwmmacc.vv</code>, where SEW
+                is the accumulator width and no operand is wider than SEW.
+              </td>
+              <td>ACT defect for IME. Fixed in <code>54864be49</code>.</td>
+              <td>
+                <span class="ev run">run</span>
+                <code>generators/testgen/src/testgen/io/templates.py</code>
+              </td>
+            </tr>
+            <tr>
+              <td class="num">30</td>
+              <td>
+                Sail's <code>vfqmmacc.vv</code> (FP16→FP64) adds the four
+                products 0.25 to C₀ = 2<sup>52</sup> one at a time and returns
+                2<sup>52</sup> under <code>rne</code>. The specification forms S
+                = 1.0 first and gives 2<sup>52</sup> + 1. Sail also left
+                <code>fflags</code> at 0, although each of its additions is
+                inexact.
+              </td>
+              <td>
+                Sail violates the specification (work item 10). The missing NX
+                is an additional Sail observation.
+              </td>
+              <td>
+                <span class="ev run">run</span> Sail trace of
+                <code>cp_fp_subdot</code> bin <code>ulp_rne</code>
+              </td>
             </tr>
           </tbody>
         </table>
