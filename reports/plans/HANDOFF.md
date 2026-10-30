@@ -6,7 +6,7 @@ This file is self-contained. It tells an agent or engineer what exists, how to s
 what to do next. The full testplan design is in [ime-act-testplan-design.md](ime-act-testplan-design.md) in this
 folder. Read this file first, then the design sections it names.
 
-State as of 2026-10-30, after step 5.
+State as of 2026-10-30, after step 6.
 
 ## 1. Goal
 
@@ -21,7 +21,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/` belo
 
 | What                       | Path                                                                              | Branch / commit                                                       |
 | -------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 16 commits on `act4` `d41bdd86a`   |
+| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 17 commits on `act4` `d41bdd86a`   |
 | ACT4 reports (docs work)   | `~/repo/ime/riscv-arch-test-docs` (worktree)                                      | `docs/act-ime-reports`, rebased on `origin/act4`                      |
 | Rust generator             | `~/repo/ime/riscv-ime-arch-tests`                                                 | `46f3781`, generator in `ime-test-gen/`, plans in `src/dsl_plans.rs`  |
 | Sail fork (reference)      | `~/repo/ime/sail-riscv`                                                           | `cgomez/0.16-plus-ime` @ `c69e3e22` (Sail 0.16 + 8 IME commits)       |
@@ -98,6 +98,7 @@ Done on `cgomez/import-ime-tests-to-act4`:
 | `247030db3` | Step 4: FP edges (`f`, `f_emulf2`, `f_emulf4`, `f_bf16`), `cp_csr_frm_v`, `cp_csr_fflags_voun`                 |
 | `ce5b13830` | Step 4: `cp_fp_subdot` on the W>1 rows                                                                         |
 | `7ce0dce43` | Step 5: `Zvvmttls.csv`, run-time natural LD for the transposing instructions, `cp_custom_tile_crossmode`       |
+| `275ca57b9` | Step 6: IME encodings in `RISCV_decode_pkg.svh` and `disassemble()`                                            |
 
 Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from Sail):
 
@@ -121,6 +122,9 @@ Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from Sail):
   `sail.json`, `run_cmd.txt` = `sail_riscv_sim_ime --config <sail.json>`) passes all 16 files. That shows only that
   the tests build and run without traps; Sail is both DUT and reference.
 - Full `make tests` changes no other suite.
+- Coverage: no Questa or VCS here, so `make coverage` has not run. `reports/ime-poc/slang_check.py` compiles the
+  coverage testbench with pyslang (`uv run --no-project --with pyslang python reports/ime-poc/slang_check.py "$PWD"
+work/<config>/env ZVVMM32_COVERAGE,...`); with every `Zvv*` group enabled it reports no errors.
 
 How to build and run Zvvmm. Make has no keep-going option, so call `act -k` to build past the SEW=16 failures:
 
@@ -155,23 +159,23 @@ Known ACT issues (Report 2, §18, findings 23-28): `make tests` stamps ignore `E
 targets have no keep-going option; `run_tests.py` also runs stale ELFs left in `work/<config>/elfs`. Use the
 commands above and remove stale ELFs before a run.
 
-Not done: the `ramp` bin of step 2; step 3a (deferred); mixed FP16/BF16 and OFP8/OFP4/microscaling rows of `Zvvfmm.csv`; rounding-sensitive data for `cp_csr_frm_v`; IME decoding in `disassemble.svh`.
+Not done: the `ramp` bin of step 2; step 3a (deferred); mixed FP16/BF16 and OFP8/OFP4/microscaling rows of `Zvvfmm.csv`; rounding-sensitive data for `cp_csr_frm_v`; a coverage simulation run (needs Questa or VCS).
 
 ## 6. Next steps
 
 The full table, with effort and dependencies, is §9 of the design. Summary:
 
-| #   | Step                                                                                                      | Effort   |
-| --- | --------------------------------------------------------------------------------------------------------- | -------- |
-| 1   | **Done** (`bf7ed4c5e`). Slice 1: `Zvvmm.csv` with one row, `vmmacc.vv` / `Zvvi32mm` / EFFEW32             | 3-4 days |
-| 2   | **Done** except the `ramp` bin (`52218040e`…`089da6013`). The other 12 integer MACC rows and coverpoints  | 4-5 days |
-| 3   | **Done** (`9b28cc1d1`). `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking          | 4-5 days |
-| 3a  | Deferred (2026-10-29). `cp_custom_tile_layout` and `cp_custom_tile_roundtrip` (Sail tile-index bug tests) | 2-3 days |
-| 3b  | **Done** (`f5563c522`). `cp_custom_tile_macc`: MACC with tile-loaded A/B and tile-stored C                | 2 days   |
-| 4   | **Done** (`a4464781c`…`ce5b13830`). `Zvvfmm.csv` rows that Sail implements, exact FP data, `cp_fp_subdot` | 5-7 days |
-| 5   | **Done** (`7ce0dce43`). `Zvvmttls.csv` and the cross-mode pairs                                           | 2-3 days |
-| 6   | Coverage: `disassemble.svh`, vtype fields, all templates; `make coverage EXTENSIONS=Zvvmm32`              | 4-6 days |
-| 7   | Privileged suite `ExceptionsZvvm`: illegal cases and vstart                                               | 4-5 days |
+| #   | Step                                                                                                          | Effort   |
+| --- | ------------------------------------------------------------------------------------------------------------- | -------- |
+| 1   | **Done** (`bf7ed4c5e`). Slice 1: `Zvvmm.csv` with one row, `vmmacc.vv` / `Zvvi32mm` / EFFEW32                 | 3-4 days |
+| 2   | **Done** except the `ramp` bin (`52218040e`…`089da6013`). The other 12 integer MACC rows and coverpoints      | 4-5 days |
+| 3   | **Done** (`9b28cc1d1`). `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking              | 4-5 days |
+| 3a  | Deferred (2026-10-29). `cp_custom_tile_layout` and `cp_custom_tile_roundtrip` (Sail tile-index bug tests)     | 2-3 days |
+| 3b  | **Done** (`f5563c522`). `cp_custom_tile_macc`: MACC with tile-loaded A/B and tile-stored C                    | 2 days   |
+| 4   | **Done** (`a4464781c`…`ce5b13830`). `Zvvfmm.csv` rows that Sail implements, exact FP data, `cp_fp_subdot`     | 5-7 days |
+| 5   | **Done** (`7ce0dce43`). `Zvvmttls.csv` and the cross-mode pairs                                               | 2-3 days |
+| 6   | **Done** except the simulation run (`275ca57b9`). IME decoding, vtype fields, templates; checked with pyslang | 4-6 days |
+| 7   | Privileged suite `ExceptionsZvvm`: illegal cases and vstart                                                   | 4-5 days |
 
 Steps 1-7 take about 6-8 engineer-weeks. Steps 8 (FP profile parameters) and 9 (OFP8, OFP4, BF16 output,
 microscaling) depend on Sail work outside ACT.

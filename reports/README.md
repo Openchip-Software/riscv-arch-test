@@ -31,12 +31,13 @@ to the author's home directory and the SDK image. Adjust them before use. The to
 wrappers and job scripts that the configurations name are machine-specific and are not
 checked in. Report 2 describes them.
 
-| Path                | Purpose                                                                    |
-| ------------------- | -------------------------------------------------------------------------- |
-| `ir2act.py`         | Converts `ime-test-gen --emit-ir` JSON (integer MACC) into ACT test files. |
-| `make_sail_json.py` | Converts an ACT 0.16 `sail.json` to the schema of the IME Sail fork.       |
-| `crosscheck.py`     | Compares Sail signatures with the Rust golden values.                      |
-| `config/`           | DUT configurations: the IME Sail fork as DUT, and the SDK QEMU as DUT.     |
+| Path                | Purpose                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `ir2act.py`         | Converts `ime-test-gen --emit-ir` JSON (integer MACC) into ACT test files.           |
+| `make_sail_json.py` | Converts an ACT 0.16 `sail.json` to the schema of the IME Sail fork.                 |
+| `crosscheck.py`     | Compares Sail signatures with the Rust golden values.                                |
+| `slang_check.py`    | Compiles the ACT coverage testbench with pyslang when no Questa or VCS is available. |
+| `config/`           | DUT configurations: the IME Sail fork as DUT, and the SDK QEMU as DUT.               |
 
 ## Sail issue draft (`issues/sail-ime-tile-ls-index/`)
 

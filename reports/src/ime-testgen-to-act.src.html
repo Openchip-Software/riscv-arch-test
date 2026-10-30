@@ -2195,17 +2195,18 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <span class="n">16a</span>Bring-up in the ACT repository, 2026-10-26
       </h2>
       <p>
-        Branch <code>cgomez/import-ime-tests-to-act4</code> adds sixteen commits
-        on <code>act4</code> <code>d41bdd86a</code>. The first three complete
-        work items 3 and 4 and mark the IME extensions experimental. The next
-        two add slice 1 of the testplan design (§16b): the first generated IME
-        test. The next four complete step 2: all integer multiply-accumulate
-        rows. The next one adds step 3: the tile loads and stores of
-        <code>Zvvmtls</code>. The next one adds step 3b: multiply-accumulate
-        through tile loads and stores. The last four add step 4: the
-        floating-point multiply-accumulate rows of <code>Zvvfmm</code>. The last
-        one adds step 5: the transposing tile loads and stores of
-        <code>Zvvmttls</code>.
+        Branch <code>cgomez/import-ime-tests-to-act4</code> adds seventeen
+        commits on <code>act4</code> <code>d41bdd86a</code>. The first three
+        complete work items 3 and 4 and mark the IME extensions experimental.
+        The next two add slice 1 of the testplan design (§16b): the first
+        generated IME test. The next four complete step 2: all integer
+        multiply-accumulate rows. The next one adds step 3: the tile loads and
+        stores of <code>Zvvmtls</code>. The next one adds step 3b:
+        multiply-accumulate through tile loads and stores. The last four add
+        step 4: the floating-point multiply-accumulate rows of
+        <code>Zvvfmm</code>. The next one adds step 5: the transposing tile
+        loads and stores of <code>Zvvmttls</code>. The last one adds the IME
+        decoding of step 6.
         <span class="ev run">run</span>
       </p>
       <div class="tablewrap">
@@ -2308,6 +2309,13 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
                 Add the Zvvmttls testplan for transposing tile loads and stores
               </td>
               <td>§16b step 5</td>
+            </tr>
+            <tr>
+              <td><code>275ca57b9</code></td>
+              <td>
+                Decode IME instructions in the functional coverage disassembler
+              </td>
+              <td>§16b step 6</td>
             </tr>
           </tbody>
         </table>
@@ -2870,6 +2878,50 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           builds and passes all 16 files. Sail is then both DUT and reference,
           so the run shows that the tests assemble and run without traps, not
           that the results are right. <span class="ev run">run</span>
+        </li>
+      </ul>
+
+      <h3>Step 6: coverage (<code>275ca57b9</code>)</h3>
+      <ul>
+        <li>
+          The coverage flow names each traced instruction with
+          <code>disassemble()</code>, and the covergroups dispatch on that name.
+          It returned <code>illegal</code> for every IME instruction.
+          riscv-opcodes has no IME encodings, so the generated
+          <code>RISCV_imported_decode_pkg.svh</code> cannot provide them. The
+          handwritten <code>RISCV_decode_pkg.svh</code> now defines the four
+          tile load and store encodings and the eight multiply-accumulate
+          encodings with vm = 1.
+        </li>
+        <li>
+          No existing pattern overlaps an IME pattern, in either direction. For
+          the 5119 IME instructions in 49 built ELFs, the same patterns and
+          formats in Python reproduce the source line of each instruction.
+          <span class="ev run">run</span>
+        </li>
+        <li>
+          Templates and helpers added in steps 1–5:
+          <code>get_csr_val</code> decodes <code>vtype.lambda</code>,
+          <code>altfmt_a</code> and <code>altfmt_b</code>;
+          <code>vs_edges_check</code> handles EEW 4;
+          <code>ime_column_vl</code> and <code>ime_ld_check</code>; and one
+          template per IME coverpoint and row type.
+        </li>
+        <li>
+          No Questa or VCS is available, and ACT supports only those two
+          simulators, so <code>make coverage</code> has not run. Instead,
+          <a href="ime-poc/slang_check.py"
+            ><code>ime-poc/slang_check.py</code></a
+          >
+          compiles the coverage testbench with pyslang as the Questa script
+          does. With every <code>Zvv*</code> coverage group enabled, it reports
+          no errors. A planted syntax error and a planted undeclared function in
+          an IME covergroup were both reported, so the check elaborates the IME
+          covergroups. <span class="ev run">run</span>
+        </li>
+        <li>
+          Not done: running the coverage simulation and reading the bins that
+          the tests hit.
         </li>
       </ul>
 
@@ -4311,6 +4363,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td class="num">6</td>
               <td>
                 Coverage: decoder entries, <code>vtype</code> fields, templates.
+                <strong>Done</strong> except the simulation run:
+                <code>275ca57b9</code> (§16a).
               </td>
               <td>2–5</td>
               <td>4–6 days</td>
