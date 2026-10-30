@@ -2195,7 +2195,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <span class="n">16a</span>Bring-up in the ACT repository, 2026-10-26
       </h2>
       <p>
-        Branch <code>cgomez/import-ime-tests-to-act4</code> adds eighteen
+        Branch <code>cgomez/import-ime-tests-to-act4</code> adds nineteen
         commits on <code>act4</code> <code>35ecd9b5b</code> (rebased on
         2026-10-30). The first three complete work items 3 and 4 and mark the
         IME extensions experimental. The next two add slice 1 of the testplan
@@ -2206,8 +2206,8 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         step 4, the floating-point multiply-accumulate rows of
         <code>Zvvfmm</code>. The next one adds step 5, the transposing tile
         loads and stores of <code>Zvvmttls</code>, and the one after it the IME
-        decoding of step 6. The last one regenerates the IME covergroups after
-        the rebase.
+        decoding of step 6. The next one regenerates the IME covergroups after
+        the rebase, and the last one adds the privileged suite of step 7.
         <span class="ev run">run</span>
       </p>
       <div class="tablewrap">
@@ -2322,6 +2322,13 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td><code>ed58aa1d6</code></td>
               <td>Regenerate the IME covergroups after the rebase onto act4</td>
               <td>—</td>
+            </tr>
+            <tr>
+              <td><code>2d95436c3</code></td>
+              <td>
+                Add the ExceptionsZvvm privileged suite for IME exceptions
+              </td>
+              <td>§16b step 7</td>
             </tr>
           </tbody>
         </table>
@@ -2928,6 +2935,46 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <li>
           Not done: running the coverage simulation and reading the bins that
           the tests hit.
+        </li>
+      </ul>
+
+      <h3>
+        Step 7: <code>ExceptionsZvvm</code> privileged suite
+        (<code>2d95436c3</code>)
+      </h3>
+      <ul>
+        <li>
+          <code>testplans/priv/ExceptionsZvvm.csv</code> and four generators,
+          one per family extension, in
+          <code>priv/extensions/ExceptionsZvvm.py</code>. Each trap case sets a
+          legal IME <code>vtype</code>, breaks one rule and runs the
+          instruction; the trap handler records the trap. Cases are guarded by
+          the type extension, ELEN and the supported λ.
+        </li>
+        <li>
+          Multiply-accumulate: <code>vill</code>, <code>vstart</code> = 1, VL
+          not a multiple of λ·LMUL, LMUL = 1/2, <code>vd</code> misaligned to
+          <code>EMUL_C</code>, odd <code>vs1</code> or <code>vs2</code> at LMUL
+          = 2, vm = 0 on <code>vmmacc.vv</code> and <code>vfmmacc.vv</code>, and
+          <code>vqmmacc.vv</code>/<code>v8wmmacc.vv</code> at a reserved SEW.
+          Tile loads and stores: <code>vill</code>, VL not a multiple, LMUL =
+          1/2, a misaligned group, a masked load into <code>v0</code>, the
+          immediate λ L64, and the legal resume from <code>vstart</code> = 1 and
+          VL/2. λ = 000 in <code>vtype</code> is not tested: <code>vsetvl</code>
+          does not let software select it.
+        </li>
+        <li>
+          Privileged tests serve both XLENs, so the IME <code>vtype</code> value
+          is an assembler expression over <code>UDB_MXLEN</code>.
+        </li>
+        <li>
+          With the Sail fork as DUT and reference, all 5 files pass. On
+          <code>qemu-ime-rv64</code>, run one case at a time against the patched
+          Sail, the multiply-accumulate cases <code>vill</code>, LMUL = 1/2,
+          misaligned groups, vm = 0 and reserved SEW pass, as do the tile cases
+          LMUL = 1/2, misaligned group and <code>vstart</code> resume. The other
+          cases expose QEMU deviations (findings 31 and 32) and Sail deviations
+          (finding 22). <span class="ev run">run</span>
         </li>
       </ul>
 
@@ -4379,7 +4426,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td class="num">7</td>
               <td>
                 <code>ExceptionsZvvm</code>: illegal cases and
-                <code>vstart</code>.
+                <code>vstart</code>. <strong>Done</strong>:
+                <code>2d95436c3</code> (§16a).
               </td>
               <td>3, 4</td>
               <td>4–5 days</td>
@@ -5157,6 +5205,41 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td>
                 <span class="ev run">run</span> Sail trace of
                 <code>cp_fp_subdot</code> bin <code>ulp_rne</code>
+              </td>
+            </tr>
+            <tr>
+              <td class="num">31</td>
+              <td>
+                The SDK QEMU runs <code>vmmacc.vv</code> and
+                <code>vfmmacc.vv</code> with <code>vstart</code> = 1, and with
+                VL not a multiple of λ·LMUL. The specification requires an
+                illegal-instruction exception in both cases. QEMU also clears
+                <code>vstart</code>.
+              </td>
+              <td>QEMU (DUT finding). Sail traps as required.</td>
+              <td>
+                <span class="ev run">run</span> <code>ExceptionsZvvm</code>,
+                QEMU <code>-d int</code> trace
+              </td>
+            </tr>
+            <tr>
+              <td class="num">32</td>
+              <td>
+                The SDK QEMU runs <code>vmtl.v</code> and
+                <code>vmts.v</code> with <code>vtype.vill</code> = 1, with the
+                immediate λ L64, with VL not a multiple of λ·LMUL, and as a
+                masked load into <code>v0</code>. The specification requires an
+                illegal-instruction exception in every case. With L64 the test
+                then crashes QEMU with an M-mode double trap at the end of the
+                test.
+              </td>
+              <td>
+                QEMU (DUT finding). Sail traps on <code>vill</code> and L64, but
+                not on the last two cases (finding 22).
+              </td>
+              <td>
+                <span class="ev run">run</span> <code>ExceptionsZvvm</code>,
+                QEMU <code>-d int</code> trace
               </td>
             </tr>
           </tbody>
