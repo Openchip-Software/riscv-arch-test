@@ -6,7 +6,7 @@ This file is self-contained. It tells an agent or engineer what exists, how to s
 what to do next. The full testplan design is in [ime-act-testplan-design.md](ime-act-testplan-design.md) in this
 folder. Read this file first, then the design sections it names.
 
-State as of 2026-10-30, after step 6.
+State as of 2026-10-30, after step 6 and the rebase onto `act4` `35ecd9b5b`.
 
 ## 1. Goal
 
@@ -21,7 +21,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/` belo
 
 | What                       | Path                                                                              | Branch / commit                                                       |
 | -------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 17 commits on `act4` `d41bdd86a`   |
+| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 18 commits on `act4` `35ecd9b5b`   |
 | ACT4 reports (docs work)   | `~/repo/ime/riscv-arch-test-docs` (worktree)                                      | `docs/act-ime-reports`, rebased on `origin/act4`                      |
 | Rust generator             | `~/repo/ime/riscv-ime-arch-tests`                                                 | `46f3781`, generator in `ime-test-gen/`, plans in `src/dsl_plans.rs`  |
 | Sail fork (reference)      | `~/repo/ime/sail-riscv`                                                           | `cgomez/0.16-plus-ime` @ `c69e3e22` (Sail 0.16 + 8 IME commits)       |
@@ -80,25 +80,26 @@ export SAIL_IME_SIM=~/repo/ime/sail-riscv/build-016/c_emulator/sail_riscv_sim
 
 Done on `cgomez/import-ime-tests-to-act4`:
 
-| Commit      | What                                                                                                           |
-| ----------- | -------------------------------------------------------------------------------------------------------------- |
-| `d8e2f05ca` | UDB overlay `framework/src/act/data/udb_overlays/ime`: 65 Zvv\* extensions, `SUPPORTED_LAMBDA_SEW{8,16,32,64}` |
-| `24c90741c` | Zvv\* marked experimental; `.insn` macros for every IME instruction in `tests/env/rvtest_experimental.h`       |
-| `732f78d72` | DUT configuration `config/ime/qemu-ime-rv64`: SDK QEMU as DUT, Sail IME as reference; CI disabled              |
-| `b8a6aaee7` | covergroupgen: `ExtraExtensions` rows in per-SEW testplans get covergroups, filtered by `EFFEW`                |
-| `bf7ed4c5e` | Slice 1: `testplans/Zvvmm.csv`, `MMACC` formatter, `cr_lambda_lmul`, `fixed_emul`, `load_ime_vtype`, λ gate    |
-| `52218040e` | Step 2: the 13 integer rows of `Zvvmm.csv`                                                                     |
-| `2cd759066` | Step 2: `cp_vd_emul16`, `cp_vs1`, `cp_vs2`, `cp_altfmt`; λ chain for coverpoints that do not choose λ          |
-| `b1964e4bf` | Step 2: `cp_vd_edges`, `cp_vs1_edges`, `cp_vs2_edges` (`emulf2/4/8` for W>1, 4-bit edges for Int4)             |
-| `089da6013` | Step 2: `cp_tile_vl` (one column, VLMAX/2, VLMAX, random multiple of λ·LMUL)                                   |
-| `9b28cc1d1` | Step 3: `Zvvmtls.csv`, `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, `cr_tile_vtype_agnostic`              |
-| `f5563c522` | Step 3b: `cp_custom_tile_macc` on four `vmmacc.vv` rows with `ExtraExtensions=Zvvi<n>mm:Zvvmtls`               |
-| `54864be49` | IME suites keep the base extension: no Zve64* for `vw*`/`vfw*` at SEW=32 (finding 29)                          |
-| `a4464781c` | Step 4: `Zvvfmm.csv` (8 rows), `FMMACC` formatter, exact FP data                                               |
-| `247030db3` | Step 4: FP edges (`f`, `f_emulf2`, `f_emulf4`, `f_bf16`), `cp_csr_frm_v`, `cp_csr_fflags_voun`                 |
-| `ce5b13830` | Step 4: `cp_fp_subdot` on the W>1 rows                                                                         |
-| `7ce0dce43` | Step 5: `Zvvmttls.csv`, run-time natural LD for the transposing instructions, `cp_custom_tile_crossmode`       |
-| `275ca57b9` | Step 6: IME encodings in `RISCV_decode_pkg.svh` and `disassemble()`                                            |
+| Commit      | What                                                                                                                      |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `2981b50da` | UDB overlay `framework/src/act/data/udb_overlays/ime`: 65 Zvv\* extensions, `SUPPORTED_LAMBDA_SEW{8,16,32,64}`            |
+| `1930e3b95` | Zvv\* marked experimental; `.insn` macros for every IME instruction in `tests/env/rvtest_experimental.h`                  |
+| `d07cd619a` | DUT configuration `config/ime/qemu-ime-rv64`: SDK QEMU as DUT, Sail IME as reference; CI disabled                         |
+| `fcf03a233` | covergroupgen: `ExtraExtensions` rows in per-SEW testplans get covergroups, filtered by `EFFEW`                           |
+| `55228ac25` | Slice 1: `testplans/Zvvmm.csv`, `MMACC` formatter, `cr_lambda_lmul`, `fixed_emul`, `load_ime_vtype`, λ gate               |
+| `9876d3b9e` | Step 2: the 13 integer rows of `Zvvmm.csv`                                                                                |
+| `eaeb535b8` | Step 2: `cp_vd_emul16`, `cp_vs1`, `cp_vs2`, `cp_altfmt`; λ chain for coverpoints that do not choose λ                     |
+| `09305d492` | Step 2: `cp_vd_edges`, `cp_vs1_edges`, `cp_vs2_edges` (`emulf2/4/8` for W>1, 4-bit edges for Int4)                        |
+| `290b452b7` | Step 2: `cp_tile_vl` (one column, VLMAX/2, VLMAX, random multiple of λ·LMUL)                                              |
+| `d8dde9d7d` | Step 3: `Zvvmtls.csv`, `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, `cr_tile_vtype_agnostic`                         |
+| `d67aab5d6` | Step 3b: `cp_custom_tile_macc` on four `vmmacc.vv` rows with `ExtraExtensions=Zvvi<n>mm:Zvvmtls`                          |
+| `cb1bfd50e` | IME suites keep the base extension: no Zve64* for `vw*`/`vfw*` at SEW=32 (finding 29)                                     |
+| `00884d3c2` | Step 4: `Zvvfmm.csv` (8 rows), `FMMACC` formatter, exact FP data                                                          |
+| `efce97317` | Step 4: FP edges (`f`, `f_emulf2`, `f_emulf4`, `f_bf16`), `cp_csr_frm_v`, `cp_csr_fflags_voun`                            |
+| `3cf48d9c9` | Step 4: `cp_fp_subdot` on the W>1 rows                                                                                    |
+| `ab3d8a8a3` | Step 5: `Zvvmttls.csv`, run-time natural LD for the transposing instructions, `cp_custom_tile_crossmode`                  |
+| `3418c10de` | Step 6: IME encodings in `RISCV_decode_pkg.svh` and `disassemble()`                                                       |
+| `ed58aa1d6` | Regenerated IME covergroups after the rebase onto `act4` `35ecd9b5b` (sample function from the Verilator coverage change) |
 
 Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from Sail):
 
@@ -167,14 +168,14 @@ The full table, with effort and dependencies, is §9 of the design. Summary:
 
 | #   | Step                                                                                                          | Effort   |
 | --- | ------------------------------------------------------------------------------------------------------------- | -------- |
-| 1   | **Done** (`bf7ed4c5e`). Slice 1: `Zvvmm.csv` with one row, `vmmacc.vv` / `Zvvi32mm` / EFFEW32                 | 3-4 days |
-| 2   | **Done** except the `ramp` bin (`52218040e`…`089da6013`). The other 12 integer MACC rows and coverpoints      | 4-5 days |
-| 3   | **Done** (`9b28cc1d1`). `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking              | 4-5 days |
+| 1   | **Done** (`55228ac25`). Slice 1: `Zvvmm.csv` with one row, `vmmacc.vv` / `Zvvi32mm` / EFFEW32                 | 3-4 days |
+| 2   | **Done** except the `ramp` bin (`9876d3b9e`…`290b452b7`). The other 12 integer MACC rows and coverpoints      | 4-5 days |
+| 3   | **Done** (`d8dde9d7d`). `Zvvmtls.csv`: `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, masking              | 4-5 days |
 | 3a  | Deferred (2026-10-29). `cp_custom_tile_layout` and `cp_custom_tile_roundtrip` (Sail tile-index bug tests)     | 2-3 days |
-| 3b  | **Done** (`f5563c522`). `cp_custom_tile_macc`: MACC with tile-loaded A/B and tile-stored C                    | 2 days   |
-| 4   | **Done** (`a4464781c`…`ce5b13830`). `Zvvfmm.csv` rows that Sail implements, exact FP data, `cp_fp_subdot`     | 5-7 days |
-| 5   | **Done** (`7ce0dce43`). `Zvvmttls.csv` and the cross-mode pairs                                               | 2-3 days |
-| 6   | **Done** except the simulation run (`275ca57b9`). IME decoding, vtype fields, templates; checked with pyslang | 4-6 days |
+| 3b  | **Done** (`d67aab5d6`). `cp_custom_tile_macc`: MACC with tile-loaded A/B and tile-stored C                    | 2 days   |
+| 4   | **Done** (`00884d3c2`…`3cf48d9c9`). `Zvvfmm.csv` rows that Sail implements, exact FP data, `cp_fp_subdot`     | 5-7 days |
+| 5   | **Done** (`ab3d8a8a3`). `Zvvmttls.csv` and the cross-mode pairs                                               | 2-3 days |
+| 6   | **Done** except the simulation run (`3418c10de`). IME decoding, vtype fields, templates; checked with pyslang | 4-6 days |
 | 7   | Privileged suite `ExceptionsZvvm`: illegal cases and vstart                                                   | 4-5 days |
 
 Steps 1-7 take about 6-8 engineer-weeks. Steps 8 (FP profile parameters) and 9 (OFP8, OFP4, BF16 output,
