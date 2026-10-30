@@ -5106,7 +5106,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <span class="n">16a</span>Bring-up in the ACT repository, 2026-10-26
       </h2>
       <p>
-        Branch <code>cgomez/import-ime-tests-to-act4</code> adds fifteen commits
+        Branch <code>cgomez/import-ime-tests-to-act4</code> adds sixteen commits
         on <code>act4</code> <code>d41bdd86a</code>. The first three complete
         work items 3 and 4 and mark the IME extensions experimental. The next
         two add slice 1 of the testplan design (§16b): the first generated IME
@@ -5114,7 +5114,9 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         rows. The next one adds step 3: the tile loads and stores of
         <code>Zvvmtls</code>. The next one adds step 3b: multiply-accumulate
         through tile loads and stores. The last four add step 4: the
-        floating-point multiply-accumulate rows of <code>Zvvfmm</code>.
+        floating-point multiply-accumulate rows of <code>Zvvfmm</code>. The last
+        one adds step 5: the transposing tile loads and stores of
+        <code>Zvvmttls</code>.
         <span class="ev run">run</span>
       </p>
       <div class="tablewrap">
@@ -5210,6 +5212,13 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td><code>ce5b13830</code></td>
               <td>Add the cp_fp_subdot coverpoint to Zvvfmm</td>
               <td>§16b step 4</td>
+            </tr>
+            <tr>
+              <td><code>7ce0dce43</code></td>
+              <td>
+                Add the Zvvmttls testplan for transposing tile loads and stores
+              </td>
+              <td>§16b step 5</td>
             </tr>
           </tbody>
         </table>
@@ -5737,6 +5746,41 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           rows (Sail does not implement them), and rounding-sensitive data for
           <code>cp_csr_frm_v</code>, which now runs each rounding mode on exact
           data.
+        </li>
+      </ul>
+
+      <h3>
+        Step 5: <code>Zvvmttls.csv</code>, transposing tile loads and stores
+        (<code>7ce0dce43</code>)
+      </h3>
+      <ul>
+        <li>
+          Rows <code>vmttl.v</code> and <code>vmtts.v</code> with the
+          coverpoints of <code>Zvvmtls</code>, and two rows with
+          <code>ExtraExtensions=Zvvmtls</code> for
+          <code>cp_custom_tile_crossmode</code> (§16b, round-trip and cross-mode
+          tests).
+        </li>
+        <li>
+          The natural LD of a transposing instruction is M = VLEN/(SEW·λ), which
+          depends on VLEN. The formatter computes it at run time as
+          <code>vlenb</code> &gt;&gt; log2(SEW·λ/8); tight, padded and double
+          are M, M+1 and 2M.
+        </li>
+        <li>
+          <code>cp_custom_tile_crossmode</code>: <code>vmtl.v</code> then
+          <code>vmtts.v</code>, and <code>vmttl.v</code> then
+          <code>vmts.v</code>, for each λ, LMUL and LD (natural or padded). The
+          destination window is read back.
+        </li>
+        <li>
+          Verification: the SDK QEMU does not decode these instructions. A
+          scratch configuration with the IME Sail fork as DUT (Sail
+          <code>rvmodel_macros.h</code> and <code>link.ld</code>,
+          <code>Zvvmttls</code> enabled in UDB and <code>sail.json</code>)
+          builds and passes all 16 files. Sail is then both DUT and reference,
+          so the run shows that the tests assemble and run without traps, not
+          that the results are right. <span class="ev run">run</span>
         </li>
       </ul>
 
@@ -7198,6 +7242,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td>
                 <code>Zvvmttls.csv</code> with
                 <code>cp_custom_tile_crossmode</code>; Sail only.
+                <strong>Done</strong>: <code>7ce0dce43</code> (§16a).
               </td>
               <td>3, 3a</td>
               <td>2–3 days</td>
