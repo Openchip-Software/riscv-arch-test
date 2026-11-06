@@ -2,7 +2,7 @@
 
 Design only. This file is the testplan design behind Report 2, Section 16b. Sources and commits:
 
-- ACT: `riscv-arch-test` branch `cgomez/import-ime-tests-to-act4` at `d07cd619a`. Paths are relative to that repository unless they start with `ime-test-gen/` (riscv-ime-arch-tests `46f3781`), `sail/` (Sail fork `c69e3e22`), `qemu/` (`Openchip-Software/riscv-ime-qemu` branch `vrull/ime-wip` at `d856b96`, which is also the SDK QEMU pin) or `spec:` (integrated-matrix.adoc at `6effbcae`, still the head of `main` on 2026-10-27).
+- ACT: `riscv-arch-test` branch `cgomez/import-ime-tests-to-act4` at `394462f26`. Paths are relative to that repository unless they start with `ime-test-gen/` (riscv-ime-arch-tests `46f3781`), `sail/` (Sail fork `c69e3e22`), `qemu/` (`Openchip-Software/riscv-ime-qemu` branch `vrull/ime-wip` at `d856b96`, which is also the SDK QEMU pin) or `spec:` (integrated-matrix.adoc at `6effbcae`, still the head of `main` on 2026-10-27).
 - Sail fork citations for the source-of-truth decisions are `sail/model/extensions/IME/…`, `sail/model/extensions/V/…` and `sail/model/core/extensions.sail` at `c69e3e22`, read on 2026-10-27.
 - Tags: **[Spec]** = specification requirement. **[ACT]** = existing ACT convention or code. **[Proposal]** = this design. **[Uncertain]** = not verified. **[Decision]** = project decision of 2026-10-27. **[Inferred]** = derived from code or the specification, not run.
 - Two experiments ran in the scratchpad, with no repository change: `testgen` and `covergroupgen` on a copy of `Zvbc.csv` with an `ExtraExtensions` column (§1.3).

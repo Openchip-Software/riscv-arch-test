@@ -127,7 +127,7 @@
       riscv-arch-test <code>act4</code> @ <code>aadb742</code><br />
       Sail IME fork @ <code>efd0d7dc</code>, <code>c69e3e22</code><br />
       IME spec @ <code>6effbcae</code><br />
-      ACT import branch @ <code>d07cd619a</code><br />
+      ACT import branch @ <code>394462f26</code><br />
       SDK 2026.10.14 · QEMU 10.2.50<br />
       Written 2026-10-23, updated 2026-10-27
     </div>
@@ -250,17 +250,17 @@
               </li>
               <li>
                 UDB extension definitions: an ACT UDB overlay defines the 65 IME
-                extensions and the supported λ sets (<code>2981b50da</code>).
+                extensions and the supported λ sets (<code>fa3641965</code>).
               </li>
               <li>
                 Experimental-extension flag: ACT marks the IME extensions
                 experimental and assembles them through <code>.insn</code>
-                macros (<code>1930e3b95</code>).
+                macros (<code>85586531e</code>).
               </li>
               <li>
                 DUT configuration: <code>config/ime/qemu-ime-rv64</code>, with
                 the SDK QEMU as DUT and the Sail fork as reference model
-                (<code>d07cd619a</code>).
+                (<code>394462f26</code>).
               </li>
             </ul>
           </li>
@@ -1103,14 +1103,14 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                   <li>
                     ACT now lists the 65 IME extensions in
                     <code>EXPERIMENTAL_EXTENSIONS</code>
-                    (<code>1930e3b95</code>). ACT selects an IME test only with
+                    (<code>85586531e</code>). ACT selects an IME test only with
                     <code>--enable-experimental-extensions</code>, or
                     <code>ENABLE_EXPERIMENTAL_EXTENSIONS=True</code> in Make.
                     Without it, ACT skips the test.
                   </li>
                   <li>
                     The wrapper <code>sail_riscv_sim_ime</code> passes the flag
-                    to Sail (<code>d07cd619a</code>).
+                    to Sail (<code>394462f26</code>).
                   </li>
                 </ul>
               </td>
@@ -1126,7 +1126,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                 <strong>Yes, through an ACT overlay.</strong> UDB 0.1.18 has no
                 IME extension definition. The overlay
                 <code>framework/src/act/data/udb_overlays/ime/</code>
-                (<code>2981b50da</code>) defines the 65 extensions of the
+                (<code>fa3641965</code>) defines the 65 extensions of the
                 specification at <code>6effbcae</code>. A UDB configuration
                 selects it with <code>arch_overlay: ime</code>. Test headers can
                 now require <code>Zvvmm</code> and its type extensions (Section
@@ -1147,7 +1147,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                 <code>-march</code>, so IME instructions assemble through the
                 <code>.insn</code> macros in
                 <code>tests/env/rvtest_experimental.h</code>
-                (<code>1930e3b95</code>). ACT uses only the extension names and
+                (<code>85586531e</code>). ACT uses only the extension names and
                 mnemonics of the specification. The GCC-only names are not used
                 (Section 18).
               </td>
@@ -1187,7 +1187,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                 <code>smpmpmt</code> property that ACT's
                 <code>qemu-rv64-max</code> run command uses. The ACT
                 configuration <code>config/ime/qemu-ime-rv64</code>
-                (<code>d07cd619a</code>) uses it as DUT (Section 16a).
+                (<code>394462f26</code>) uses it as DUT (Section 16a).
               </td>
               <td><span class="ev run">run</span></td>
             </tr>
@@ -1463,7 +1463,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
             <strong>Schema: not compatible.</strong> Three upstream commits
             after the <code>0.16</code> tag add required configuration keys that
             no ACT <code>sail.json</code> has, at <code>aadb742</code> or at
-            <code>origin/act4</code> <code>35ecd9b5b</code>. The keys are
+            <code>origin/act4</code> <code>8b9ddedcd</code>. The keys are
             <code>base.misa_implemented</code> (#2037),
             <code>H.hedeleg_zero_writable</code> (#2028) and
             <code>Sdtrig.mcontrol6.supported_{address,data}_access_sizes</code>
@@ -1557,11 +1557,11 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
           <li>
             <strong>Schema: compatible.</strong> The unmodified
             <code>sail-rv64-max</code> <code>sail.json</code> at
-            <code>35ecd9b5b</code> fails only on the 4 missing IME blocks.
+            <code>8b9ddedcd</code> fails only on the 4 missing IME blocks.
             <code>make_sail_json.py --no-ime</code> adds exactly those 4 blocks,
             and the file then validates. 63 of the 64 non-symlink ACT
             <code>sail.json</code> files pass the same check, at
-            <code>35ecd9b5b</code> and at <code>origin/act4</code>
+            <code>8b9ddedcd</code> and at <code>origin/act4</code>
             <code>c509bcd60</code>. The exception,
             <code>cores/cva6/cv32a65x</code>, fails with the same 28 errors on
             official Sail 0.16. Its <code>sail.json</code> is out of date in
@@ -1569,7 +1569,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
           </li>
           <li>
             <strong>Behaviour outside IME: matches 0.16.</strong> ACT at
-            <code>35ecd9b5b</code> built the I suite with the fork as reference
+            <code>8b9ddedcd</code> built the I suite with the fork as reference
             model: 255 build tasks succeeded. With the fork as DUT, 51 of 51
             tests passed. All 51 <code>.results</code> files are byte-identical
             to the ones official Sail 0.16 produces. SLURM job 46954.
@@ -1599,7 +1599,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
           Work item 2 is done. ACT can use this binary without a version shim.
           Each DUT's <code>sail.json</code> needs only the 4 IME blocks. The
           <code>act4</code> head <code>c509bcd60</code> is one commit after
-          <code>35ecd9b5b</code> and changes neither
+          <code>8b9ddedcd</code> and changes neither
           <code>framework/src/act/config.py</code> nor
           <code>config/sail/</code>. <span class="ev run">run</span>
         </p>
@@ -1620,7 +1620,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
             </li>
             <li>
               Keep the IME extensions experimental. Done in ACT:
-              <code>1930e3b95</code>. Every IME build needs
+              <code>85586531e</code>. Every IME build needs
               <code>--enable-experimental-extensions</code>.
             </li>
           </ul>
@@ -1634,7 +1634,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
           This gives ACT runnable IME tests quickly. It also exercises the DUT
           configurations, wrappers and Sail. The first DUT configuration,
           <code>config/ime/qemu-ime-rv64</code>, exists
-          (<code>d07cd619a</code>).
+          (<code>394462f26</code>).
         </li>
         <li>
           <strong>Keep the Rust golden model as a differential check.</strong>
@@ -1653,7 +1653,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
         </li>
         <li>
           <strong>Add UDB definitions.</strong> <strong>Done</strong> in ACT as
-          a UDB overlay (<code>2981b50da</code>), with one λ-set parameter per
+          a UDB overlay (<code>fa3641965</code>), with one λ-set parameter per
           accumulator SEW. Test headers now use
           <code
             >REQUIRED_EXTENSIONS: ['V', 'Zvvmm', 'Zvvmtls', 'Zvvi32mm']</code
@@ -1721,7 +1721,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <td><code>LambdaProbe</code></td>
               <td>
                 UDB parameters <code>SUPPORTED_LAMBDA_SEW8</code> to
-                <code>SUPPORTED_LAMBDA_SEW64</code> (<code>2981b50da</code>),
+                <code>SUPPORTED_LAMBDA_SEW64</code> (<code>fa3641965</code>),
                 required in the header <code>params</code>
               </td>
               <td>
@@ -1778,7 +1778,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                 IME is removed from
                 <code>-march</code>
               </td>
-              <td>Done (<code>1930e3b95</code>)</td>
+              <td>Done (<code>85586531e</code>)</td>
             </tr>
             <tr>
               <td><code>record_skip</code> (VL too small)</td>
@@ -2196,8 +2196,8 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
       </h2>
       <p>
         Branch <code>cgomez/import-ime-tests-to-act4</code> adds nineteen
-        commits on <code>act4</code> <code>35ecd9b5b</code> (rebased on
-        2026-10-30). The first three complete work items 3 and 4 and mark the
+        commits on <code>act4</code> <code>8b9ddedcd</code> (rebased on
+        2026-11-06). The first three complete work items 3 and 4 and mark the
         IME extensions experimental. The next two add slice 1 of the testplan
         design (§16b): the first generated IME test. The next four complete step
         2: all integer multiply-accumulate rows. The next one adds step 3, the
@@ -2221,59 +2221,59 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           </thead>
           <tbody>
             <tr>
-              <td><code>2981b50da</code></td>
+              <td><code>fa3641965</code></td>
               <td>Add a UDB overlay for the Integrated Matrix Extension</td>
               <td>3</td>
             </tr>
             <tr>
-              <td><code>1930e3b95</code></td>
+              <td><code>85586531e</code></td>
               <td>
                 Mark the Integrated Matrix Extension extensions experimental
               </td>
               <td>3a</td>
             </tr>
             <tr>
-              <td><code>d07cd619a</code></td>
+              <td><code>394462f26</code></td>
               <td>Add an IME DUT configuration with the SDK QEMU</td>
               <td>4</td>
             </tr>
             <tr>
-              <td><code>fcf03a233</code></td>
+              <td><code>34afab1e9</code></td>
               <td>Keep ExtraExtensions rows in per-SEW covergroups</td>
               <td>§16b step 1</td>
             </tr>
             <tr>
-              <td><code>55228ac25</code></td>
+              <td><code>9ef93d17a</code></td>
               <td>Add the Zvvmm testplan with vmmacc.vv for Zvvi32mm</td>
               <td>§16b step 1</td>
             </tr>
             <tr>
-              <td><code>9876d3b9e</code></td>
+              <td><code>978527c1e</code></td>
               <td>Add the other integer multiply-accumulate rows to Zvvmm</td>
               <td>§16b step 2</td>
             </tr>
             <tr>
-              <td><code>eaeb535b8</code></td>
+              <td><code>ea4f9edd7</code></td>
               <td>Add register and signedness coverpoints to Zvvmm</td>
               <td>§16b step 2</td>
             </tr>
             <tr>
-              <td><code>09305d492</code></td>
+              <td><code>38c196f92</code></td>
               <td>Add edge coverpoints to Zvvmm</td>
               <td>§16b step 2</td>
             </tr>
             <tr>
-              <td><code>290b452b7</code></td>
+              <td><code>6e9f5b04b</code></td>
               <td>Add the cp_tile_vl coverpoint to Zvvmm</td>
               <td>§16b step 2</td>
             </tr>
             <tr>
-              <td><code>d8dde9d7d</code></td>
+              <td><code>feb5d61a4</code></td>
               <td>Add the Zvvmtls testplan for tile loads and stores</td>
               <td>§16b step 3</td>
             </tr>
             <tr>
-              <td><code>d67aab5d6</code></td>
+              <td><code>797fc5784</code></td>
               <td>
                 Add multiply-accumulate tests with tile loads and stores to
                 Zvvmm
@@ -2281,50 +2281,50 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>§16b step 3b</td>
             </tr>
             <tr>
-              <td><code>cb1bfd50e</code></td>
+              <td><code>52a08ff97</code></td>
               <td>Keep the V widening requirements off IME test suites</td>
               <td>§16b step 4</td>
             </tr>
             <tr>
-              <td><code>00884d3c2</code></td>
+              <td><code>a25873963</code></td>
               <td>
                 Add the Zvvfmm testplan for floating-point multiply-accumulate
               </td>
               <td>§16b step 4</td>
             </tr>
             <tr>
-              <td><code>efce97317</code></td>
+              <td><code>e052081f7</code></td>
               <td>
                 Add floating-point edge, rounding and flag tests to Zvvfmm
               </td>
               <td>§16b step 4</td>
             </tr>
             <tr>
-              <td><code>3cf48d9c9</code></td>
+              <td><code>dd060485c</code></td>
               <td>Add the cp_fp_subdot coverpoint to Zvvfmm</td>
               <td>§16b step 4</td>
             </tr>
             <tr>
-              <td><code>ab3d8a8a3</code></td>
+              <td><code>4fd96e97a</code></td>
               <td>
                 Add the Zvvmttls testplan for transposing tile loads and stores
               </td>
               <td>§16b step 5</td>
             </tr>
             <tr>
-              <td><code>3418c10de</code></td>
+              <td><code>0c44e37ae</code></td>
               <td>
                 Decode IME instructions in the functional coverage disassembler
               </td>
               <td>§16b step 6</td>
             </tr>
             <tr>
-              <td><code>ed58aa1d6</code></td>
+              <td><code>07a604f4d</code></td>
               <td>Regenerate the IME covergroups after the rebase onto act4</td>
               <td>—</td>
             </tr>
             <tr>
-              <td><code>2d95436c3</code></td>
+              <td><code>a4e9bc82b</code></td>
               <td>
                 Add the ExceptionsZvvm privileged suite for IME exceptions
               </td>
@@ -2334,7 +2334,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </table>
       </div>
 
-      <h3>UDB overlay (<code>2981b50da</code>)</h3>
+      <h3>UDB overlay (<code>fa3641965</code>)</h3>
       <ul>
         <li>
           <code>framework/src/act/data/udb_overlays/ime/</code> defines the 65
@@ -2395,7 +2395,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </p>
       </div>
 
-      <h3>Experimental extensions (<code>1930e3b95</code>)</h3>
+      <h3>Experimental extensions (<code>85586531e</code>)</h3>
       <ul>
         <li>
           <code>EXPERIMENTAL_EXTENSIONS</code> in
@@ -2434,7 +2434,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </li>
       </ul>
 
-      <h3>DUT configuration (<code>d07cd619a</code>)</h3>
+      <h3>DUT configuration (<code>394462f26</code>)</h3>
       <ul>
         <li>
           <code>config/ime/qemu-ime-rv64</code>: the SDK QEMU 10.2.50 as DUT,
@@ -2572,7 +2572,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
 
       <h3>
         Slice 1: <code>vmmacc.vv</code> for
-        <code>Zvvi32mm</code> (<code>fcf03a233</code>, <code>55228ac25</code>)
+        <code>Zvvi32mm</code> (<code>34afab1e9</code>, <code>9ef93d17a</code>)
       </h3>
       <ul>
         <li>
@@ -2601,7 +2601,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           <code>UDB_SUPPORTED_LAMBDA_SEW32_&lt;λ&gt;</code>.
         </li>
         <li>
-          covergroupgen bug fix (<code>fcf03a233</code>): rows with
+          covergroupgen bug fix (<code>34afab1e9</code>): rows with
           <code>ExtraExtensions</code> in a per-SEW testplan got no covergroup.
           The rows were also not filtered by <code>EFFEW</code>. Both are fixed.
           The existing covergroups do not change.
@@ -2627,7 +2627,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
 
       <h3>
         Step 2: all integer rows of <code>Zvvmm.csv</code>
-        (<code>9876d3b9e</code>…<code>290b452b7</code>)
+        (<code>978527c1e</code>…<code>6e9f5b04b</code>)
       </h3>
       <ul>
         <li>
@@ -2690,7 +2690,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
 
       <h3>
         Step 3: <code>Zvvmtls.csv</code>, tile loads and stores
-        (<code>d8dde9d7d</code>)
+        (<code>feb5d61a4</code>)
       </h3>
       <ul>
         <li>
@@ -2773,7 +2773,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
       </p>
 
       <h3>
-        Step 3b: <code>cp_custom_tile_macc</code> (<code>d67aab5d6</code>)
+        Step 3b: <code>cp_custom_tile_macc</code> (<code>797fc5784</code>)
       </h3>
       <ul>
         <li>
@@ -2803,7 +2803,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
 
       <h3>
         Step 4: <code>Zvvfmm.csv</code>, floating-point multiply-accumulate
-        (<code>00884d3c2</code>…<code>3cf48d9c9</code>)
+        (<code>a25873963</code>…<code>dd060485c</code>)
       </h3>
       <ul>
         <li>
@@ -2861,7 +2861,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
 
       <h3>
         Step 5: <code>Zvvmttls.csv</code>, transposing tile loads and stores
-        (<code>ab3d8a8a3</code>)
+        (<code>4fd96e97a</code>)
       </h3>
       <ul>
         <li>
@@ -2894,7 +2894,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </li>
       </ul>
 
-      <h3>Step 6: coverage (<code>3418c10de</code>)</h3>
+      <h3>Step 6: coverage (<code>0c44e37ae</code>)</h3>
       <ul>
         <li>
           The coverage flow names each traced instruction with
@@ -2940,7 +2940,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
 
       <h3>
         Step 7: <code>ExceptionsZvvm</code> privileged suite
-        (<code>2d95436c3</code>)
+        (<code>a4e9bc82b</code>)
       </h3>
       <ul>
         <li>
@@ -3058,7 +3058,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         This section designs native ACT testplans for the ime-test-gen plan
         (option C, work item 7). It is a design only: no ACT file is changed.
         Paths without a link are on the import branch at
-        <code>d07cd619a</code>. The specification is
+        <code>394462f26</code>. The specification is
         <code>integrated-matrix.adoc</code> at <code>6effbcae</code>, cited as
         <code>spec:</code> line numbers.
       </p>
@@ -4337,7 +4337,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 expansion, the covergroupgen fix, <code>MMACC</code>,
                 <code>load_ime_vtype</code>, the λ gate. Passes on QEMU and Sail
                 before the Sail fix. <strong>Done</strong>:
-                <code>55228ac25</code> (§16a).
+                <code>9ef93d17a</code> (§16a).
               </td>
               <td>—</td>
               <td>3–4 days</td>
@@ -4348,8 +4348,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 All 13 integer rows and their coverpoints, with Int4 data.
                 <code>cr_lambda_lmul</code> bins with <code>EMUL_C</code>=16
                 fail until work item 11. <strong>Done</strong> except the
-                <code>ramp</code> bin: <code>9876d3b9e</code>…<code
-                  >290b452b7</code
+                <code>ramp</code> bin: <code>978527c1e</code>…<code
+                  >6e9f5b04b</code
                 >
                 (§16a).
               </td>
@@ -4361,7 +4361,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td>
                 <code>Zvvmtls.csv</code>: <code>VLT</code>, <code>VST</code> and
                 the tile coverpoints. LMUL&gt;1 bins pass on QEMU only after the
-                Sail fix. <strong>Done</strong>: <code>d8dde9d7d</code> (§16a).
+                Sail fix. <strong>Done</strong>: <code>feb5d61a4</code> (§16a).
               </td>
               <td>1</td>
               <td>4–5 days</td>
@@ -4394,8 +4394,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 data, <code>cp_csr_frm_v</code>, <code>cp_csr_fflags</code>,
                 <code>cp_fp_subdot</code>. The <code>cp_fp_subdot</code> bins
                 fail on a conforming DUT until work item 10, and pass on QEMU
-                until then. <strong>Done</strong>: <code>00884d3c2</code>…<code
-                  >3cf48d9c9</code
+                until then. <strong>Done</strong>: <code>a25873963</code>…<code
+                  >dd060485c</code
                 >
                 (§16a).
               </td>
@@ -4407,7 +4407,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td>
                 <code>Zvvmttls.csv</code> with
                 <code>cp_custom_tile_crossmode</code>; Sail only.
-                <strong>Done</strong>: <code>ab3d8a8a3</code> (§16a).
+                <strong>Done</strong>: <code>4fd96e97a</code> (§16a).
               </td>
               <td>3, 3a</td>
               <td>2–3 days</td>
@@ -4417,7 +4417,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td>
                 Coverage: decoder entries, <code>vtype</code> fields, templates.
                 <strong>Done</strong> except the simulation run:
-                <code>3418c10de</code> (§16a).
+                <code>0c44e37ae</code> (§16a).
               </td>
               <td>2–5</td>
               <td>4–6 days</td>
@@ -4427,7 +4427,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td>
                 <code>ExceptionsZvvm</code>: illegal cases and
                 <code>vstart</code>. <strong>Done</strong>:
-                <code>2d95436c3</code> (§16a).
+                <code>a4e9bc82b</code> (§16a).
               </td>
               <td>3, 4</td>
               <td>4–5 days</td>
@@ -4526,7 +4526,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 Define Zvvm, Zvvmm, Zvvfmm, Zvvmtls and Zvvmttls, plus a λ-set
                 parameter, in UDB, or through <code>UDB_LOCAL_PATH</code>.
                 <strong>Done:</strong> ACT UDB overlay <code>ime</code>
-                (<code>2981b50da</code>) with 65 extensions and
+                (<code>fa3641965</code>) with 65 extensions and
                 <code>SUPPORTED_LAMBDA_SEW&lt;n&gt;</code>. Not through
                 <code>UDB_LOCAL_PATH</code>.
               </td>
@@ -4538,7 +4538,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
               <td>
                 Mark the IME extensions experimental in ACT, and add
                 <code>.insn</code> macros for every IME instruction.
-                <strong>Done:</strong> <code>1930e3b95</code>.
+                <strong>Done:</strong> <code>85586531e</code>.
               </td>
               <td>ACT</td>
               <td>3</td>
@@ -4549,7 +4549,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 Add an IME DUT configuration under <code>config/</code>: Sail
                 IME as reference, SDK QEMU as DUT, an SDK toolchain wrapper.
                 <strong>Done:</strong> <code>config/ime/qemu-ime-rv64</code>
-                (<code>d07cd619a</code>).
+                (<code>394462f26</code>).
               </td>
               <td>ACT</td>
               <td>2, 3</td>
@@ -5075,7 +5075,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 <code>ExtraExtensions</code> raised <code>KeyError</code>.
               </td>
               <td>
-                ACT defect. Fixed in <code>fcf03a233</code>. No existing
+                ACT defect. Fixed in <code>34afab1e9</code>. No existing
                 covergroup changed.
               </td>
               <td>
@@ -5166,8 +5166,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 decode the IME <code>vtype</code> fields.
               </td>
               <td>
-                Missing in ACT for IME. Added in <code>55228ac25</code>,
-                <code>eaeb535b8</code> and <code>09305d492</code>. Not yet run
+                Missing in ACT for IME. Added in <code>9ef93d17a</code>,
+                <code>ea4f9edd7</code> and <code>38c196f92</code>. Not yet run
                 in a coverage simulation.
               </td>
               <td><span class="ev code">code</span></td>
@@ -5182,7 +5182,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 <code>vwmmacc.vv</code> and <code>vfwmmacc.vv</code>, where SEW
                 is the accumulator width and no operand is wider than SEW.
               </td>
-              <td>ACT defect for IME. Fixed in <code>cb1bfd50e</code>.</td>
+              <td>ACT defect for IME. Fixed in <code>52a08ff97</code>.</td>
               <td>
                 <span class="ev run">run</span>
                 <code>generators/testgen/src/testgen/io/templates.py</code>
@@ -5268,7 +5268,7 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           <code>0.16</code> tag <code>e5acebb0</code> plus 8 commits. Built at
           <code>sail-riscv/build-016/c_emulator/sail_riscv_sim</code> on
           2026-10-26. The Section 12a check used ACT at
-          <code>35ecd9b5b</code> in the worktree
+          <code>8b9ddedcd</code> in the worktree
           <code>~/tools/act4/act-item2</code>, with the script
           <code>~/tools/act4/jobs/item2-I.sh</code> and output in
           <code>~/tools/act4/item2/</code> (SLURM job 46954 on
@@ -5307,8 +5307,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
         <li>
           <strong>ACT import branch:</strong>
           <code>cgomez/import-ime-tests-to-act4</code> on <code>act4</code>
-          <code>35ecd9b5b</code>, with <code>2981b50da</code>,
-          <code>1930e3b95</code> and <code>d07cd619a</code> (2026-10-26). The
+          <code>8b9ddedcd</code>, with <code>fa3641965</code>,
+          <code>85586531e</code> and <code>394462f26</code> (2026-10-26). The
           IME tests of Section 16a are in
           <code>~/tools/act4/ime-poc/act-min</code>.
         </li>
