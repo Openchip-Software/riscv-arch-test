@@ -1,5 +1,7 @@
 # IME: `vmtl.v`/`vmts.v` use the flat element index instead of `tile_reg_idx`, so tiles are transposed in registers when LMUL>1
 
+> Status on 2026-11-06: fixed by `a545cc41` ("zvvm: Use the spec's register layout for tile loads/stores with LMUL > 1"). The reproducer prints the QEMU values on that commit. Do not file.
+
 ## Summary
 
 The tile load and store instructions in `model/extensions/IME/ime_mem_insts.sail` read and write vector register elements at the sequential tile index `i`.
@@ -89,13 +91,13 @@ Elements per register (`epr`) = 8 and `linesize` = 2.
 The specification maps tile element `i` to register-group element `tile_reg_idx(i, 2, 1, 8) = (i % 2) * 8 + i / 2`.
 So even tile elements go to `v8` and odd tile elements go to `v9`.
 
-| Step | Register or memory | Spec / QEMU | Sail @ c69e3e22 |
-| --- | --- | --- | --- |
-| 1. `vmtl.v v8` from `A = 0..15`, then `vse32.v v8` | `v8[0..7]` | `0 2 4 6 8 10 12 14` | `0 1 2 3 4 5 6 7` |
-| | `v9[0..7]` | `1 3 5 7 9 11 13 15` | `8 9 10 11 12 13 14 15` |
-| 2. `vid.v v16` (`v16`,`v17` = `0..15`), then `vmts.v v16` | `mem[0..7]` | `0 8 1 9 2 10 3 11` | `0 1 2 3 4 5 6 7` |
-| | `mem[8..15]` | `4 12 5 13 6 14 7 15` | `8 9 10 11 12 13 14 15` |
-| 3. `vmtl.v` then `vmts.v`, same geometry | `mem[0..15]` | `0..15` | `0..15` |
+| Step                                                      | Register or memory | Spec / QEMU           | Sail @ c69e3e22         |
+| --------------------------------------------------------- | ------------------ | --------------------- | ----------------------- |
+| 1. `vmtl.v v8` from `A = 0..15`, then `vse32.v v8`        | `v8[0..7]`         | `0 2 4 6 8 10 12 14`  | `0 1 2 3 4 5 6 7`       |
+|                                                           | `v9[0..7]`         | `1 3 5 7 9 11 13 15`  | `8 9 10 11 12 13 14 15` |
+| 2. `vid.v v16` (`v16`,`v17` = `0..15`), then `vmts.v v16` | `mem[0..7]`        | `0 8 1 9 2 10 3 11`   | `0 1 2 3 4 5 6 7`       |
+|                                                           | `mem[8..15]`       | `4 12 5 13 6 14 7 15` | `8 9 10 11 12 13 14 15` |
+| 3. `vmtl.v` then `vmts.v`, same geometry                  | `mem[0..15]`       | `0..15`               | `0..15`                 |
 
 Step 3 shows why the defect is hidden by round-trip tests: the load and the store apply the same wrong mapping, so they cancel.
 

@@ -2993,6 +2993,10 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
       </p>
       <ul>
         <li>
+          <code>a545cc41</code> fixed the bug (Sail fork update, below). The
+          issue no longer needs filing.
+        </li>
+        <li>
           The bug is still present at <code>c69e3e22</code>.
           <code>ime_mem_insts.sail</code> writes loaded elements at the flat
           index on lines 73, 77, 81 and 85. Line 90 writes inactive elements;
@@ -3050,6 +3054,105 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           </tbody>
         </table>
       </div>
+
+      <h3>Sail fork update, 2026-11-06</h3>
+      <p>
+        Branch <code>cgomez/0.16-plus-ime</code> of the Sail fork moved from
+        <code>c69e3e22</code> to <code>a545cc41</code> on GitHub. Three local
+        commits on top (<code>6cccec69</code>) change only first-party tests and
+        CI, not the model. The rebuilt <code>build-016</code> binary still
+        reports <code>0.16-8-gc69e3e22</code> in <code>--build-info</code>: the
+        version string is set when CMake configures the build. The model
+        commits:
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Commit</th>
+              <th>Change</th>
+              <th>Effect on ACT</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>128a5b74</code></td>
+              <td><code>vf8wmmacc.vv</code> (W=8 FP)</td>
+              <td>
+                Not tested yet. The W=8 rows copy the per-product accumulation
+                of finding 30.
+              </td>
+            </tr>
+            <tr>
+              <td><code>c9361710</code></td>
+              <td>VL=0 for transposing tile loads and stores</td>
+              <td>None.</td>
+            </tr>
+            <tr>
+              <td><code>fd88fd86</code></td>
+              <td>
+                Masked tile load with <code>vd</code> = <code>v0</code> traps
+              </td>
+              <td>Fixes half of finding 22.</td>
+            </tr>
+            <tr>
+              <td><code>c1d96b3e</code></td>
+              <td>Natural LD for any zero value of <code>rs2</code></td>
+              <td>Fixes finding 21. All <code>Zvvmtls</code> files pass.</td>
+            </tr>
+            <tr>
+              <td><code>a545cc41</code></td>
+              <td>
+                Tile loads and stores use the register layout of the
+                specification
+              </td>
+              <td>
+                Fixes the tile-index bug (work item 1). The
+                <code>cp_custom_tile_macc</code> files pass.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Runs with the unpatched Sail as reference, on
+        <code>qemu-ime-rv64</code>: <code>Zvvmm</code> SEW 8, 32 and 64 pass (13
+        files), <code>Zvvfmm</code> SEW 32 and 64 pass (7 files), and all 8
+        <code>Zvvmtls</code> files pass. The 5 SEW=16 files of
+        <code>Zvvmm</code> and <code>Zvvfmm</code> still fail to build their
+        signature on <code>EMUL_C</code>=16 (finding 20). With Sail as DUT, the
+        16 <code>Zvvmttls</code> files and the 5
+        <code>ExceptionsZvvm</code> files pass. A Sail trace of
+        <code>ExceptionsZvvm</code> shows that the masked loads into
+        <code>v0</code> and the immediate λ L64 trap, and that the 16 VL-not-a-
+        multiple cases of the four tile instructions do not.
+        <span class="ev run">run</span>
+      </p>
+      <p>
+        Three Sail deviations remain. Each has a draft issue with a reproducer:
+      </p>
+      <ul>
+        <li>
+          <code>EMUL_C</code>=16 (finding 20, work item 11):
+          <a href="issues/sail-ime-legality/ISSUE-emulc16.md"
+            ><code>issues/sail-ime-legality/ISSUE-emulc16.md</code></a
+          >.
+        </li>
+        <li>
+          Tile loads and stores with VL not a multiple of λ·LMUL (finding 22,
+          work item 12):
+          <a href="issues/sail-ime-legality/ISSUE-tile-vl.md"
+            ><code>issues/sail-ime-legality/ISSUE-tile-vl.md</code></a
+          >. The reproducer <code>legal.c</code> serves both issues.
+        </li>
+        <li>
+          W&gt;1 partial sum (finding 30, work item 10):
+          <a href="issues/sail-ime-wmmacc-partial-sum/ISSUE.md"
+            ><code>issues/sail-ime-wmmacc-partial-sum/ISSUE.md</code></a
+          >, now pinned to <code>a545cc41</code>. The reproducer output is
+          unchanged.
+        </li>
+      </ul>
 
       <h2 id="testplan">
         <span class="n">16b</span>Testplan design (option C), 2026-10-27
@@ -4993,7 +5096,10 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 which allows a register group of at most 8 registers
                 (<code>vext_control.sail:56</code>).
               </td>
-              <td>Sail violates the specification. Work item 11.</td>
+              <td>
+                Sail violates the specification. Work item 11. Still open at
+                <code>a545cc41</code> (§16a, Sail fork update).
+              </td>
               <td>
                 <span class="ev run">run</span>
                 <span class="ev code">code</span>
@@ -5015,7 +5121,10 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 0 gives LD = 0. The specification selects the natural LD when
                 the value of <code>rs2</code> is 0 (spec:2278–2291).
               </td>
-              <td>Sail violates the specification. Work item 12.</td>
+              <td>
+                Sail violated the specification. Work item 12. Fixed by
+                <code>c1d96b3e</code>.
+              </td>
               <td>
                 <span class="ev code">code</span>
                 <a
@@ -5033,7 +5142,12 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 requires both (spec:5874–5881). This affects only the negative
                 tests of <code>ExceptionsZvvm</code>.
               </td>
-              <td>Sail violates the specification. Work item 12.</td>
+              <td>
+                Sail violates the specification. Work item 12.
+                <code>fd88fd86</code> fixed the masked load into
+                <code>v0</code>. The VL check is still missing at
+                <code>a545cc41</code>, in loads and in stores.
+              </td>
               <td>
                 <span class="ev code">code</span>
                 <a

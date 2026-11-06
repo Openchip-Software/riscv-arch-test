@@ -19,15 +19,15 @@ Sail reference model, not from the Rust golden model.
 
 All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/` below).
 
-| What                       | Path                                                                              | Branch / commit                                                       |
-| -------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 19 commits on `act4` `8b9ddedcd`   |
-| ACT4 reports (docs work)   | `~/repo/ime/riscv-arch-test-docs` (worktree)                                      | `docs/act-ime-reports`, rebased on `origin/act4`                      |
-| Rust generator             | `~/repo/ime/riscv-ime-arch-tests`                                                 | `46f3781`, generator in `ime-test-gen/`, plans in `src/dsl_plans.rs`  |
-| Sail fork (reference)      | `~/repo/ime/sail-riscv`                                                           | `cgomez/0.16-plus-ime` @ `c69e3e22` (Sail 0.16 + 8 IME commits)       |
-| Sail binary                | `~/repo/ime/sail-riscv/build-016/c_emulator/sail_riscv_sim`                       | built from `c69e3e22`; do not rebuild into this dir                   |
-| SDK image (GCC 16.1, QEMU) | `~/repo/ime/sdk-2026.10.14.sif`                                                   | QEMU = `Openchip-Software/riscv-ime-qemu` `vrull/ime-wip` @ `d856b96` |
-| IME specification          | https://github.com/riscv/integrated-matrix-extension `src/integrated-matrix.adoc` | `6effbcae` (head of `main` on 2026-10-27)                             |
+| What                       | Path                                                                              | Branch / commit                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| ACT4 (code work)           | `~/repo/ime/riscv-arch-test`                                                      | `cgomez/import-ime-tests-to-act4`, 19 commits on `act4` `8b9ddedcd`                     |
+| ACT4 reports (docs work)   | `~/repo/ime/riscv-arch-test-docs` (worktree)                                      | `docs/act-ime-reports`, rebased on `origin/act4`                                        |
+| Rust generator             | `~/repo/ime/riscv-ime-arch-tests`                                                 | `46f3781`, generator in `ime-test-gen/`, plans in `src/dsl_plans.rs`                    |
+| Sail fork (reference)      | `~/repo/ime/sail-riscv`                                                           | `cgomez/0.16-plus-ime` @ `a545cc41` on GitHub (model); `6cccec69` local                 |
+| Sail binary                | `~/repo/ime/sail-riscv/build-016/c_emulator/sail_riscv_sim`                       | rebuilt by the user from `6cccec69` on 2026-11-06; `--build-info` still says `c69e3e22` |
+| SDK image (GCC 16.1, QEMU) | `~/repo/ime/sdk-2026.10.14.sif`                                                   | QEMU = `Openchip-Software/riscv-ime-qemu` `vrull/ime-wip` @ `d856b96`                   |
+| IME specification          | https://github.com/riscv/integrated-matrix-extension `src/integrated-matrix.adoc` | `6effbcae` (head of `main` on 2026-10-27)                                               |
 
 Reports (HTML, open in a browser) in `~/repo/ime/riscv-arch-test-docs/reports/`:
 
@@ -102,23 +102,22 @@ Done on `cgomez/import-ime-tests-to-act4`:
 | `07a604f4d` | Regenerated IME covergroups after the rebase onto `act4` `8b9ddedcd` (sample function from the Verilator coverage change) |
 | `a4e9bc82b` | Step 7: `ExceptionsZvvm` privileged suite (`testplans/priv/ExceptionsZvvm.csv`, `priv/extensions/ExceptionsZvvm.py`)      |
 
-Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from Sail):
+Sail fork update (2026-11-06): `c1d96b3e` fixed the natural LD (finding 21), `a545cc41` fixed the tile index
+(work item 1), and `fd88fd86` made masked tile loads into `v0` trap. Still open: `EMUL_C`=16 (finding 20), no
+VL check in tile loads and stores (finding 22), and the W>1 partial sum (finding 30). Draft issues with reproducers:
+`issues/sail-ime-legality/ISSUE-emulc16.md`, `issues/sail-ime-legality/ISSUE-tile-vl.md` and
+`issues/sail-ime-wmmacc-partial-sum/ISSUE.md`. None is filed yet. The scratch patch of
+`issues/sail-ime-verification-patch/` is now needed only for `EMUL_C`=16.
+
+Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from the unpatched Sail at `6cccec69`):
 
 - The I suite passes 51 of 51.
-- `Zvvmm`: the 10 files for SEW 8, 32 and 64 pass, Int4 rows included. QEMU and Sail both execute Int4.
-- The 3 files for SEW 16 fail in the Sail signature run. At VLEN 256, SEW 16 and λ=1, EMUL_C is 16, which the
-  specification permits and Sail rejects (`ime_group_size_legal`, work item 11). λ=1 is the smallest λ at SEW 16,
-  so every base-suite testcase uses it. With λ=1 removed from a scratch copy of the DUT configuration, the 3 files
-  pass. Fixing work item 11 in Sail unblocks them.
-- `Zvvmtls`: all 8 files fail at the first `cp_ld` test with 0 in a register: Sail uses LD=0 there, the
-  specification the natural LD (finding 21). All earlier tests pass.
-- With the scratch Sail of `reports/issues/sail-ime-verification-patch/` (`export SAIL_IME_SIM=` that build), all 21
-  files of `Zvvmm` and `Zvvmtls` pass on QEMU. It fixes the tile register index, the natural LD and `EMUL_C`=16.
-  Accepting 16 in `ime_group_size_legal` alone is not enough: Sail's element access asserts groups of at most 8.
-- Step 3b (`cp_custom_tile_macc`): with Sail `c69e3e22` the new files fail at their first bin, because the C store
-  at EMUL_C > 1 hits the tile-index bug. With the scratch Sail all 17 `Zvvmm` files pass.
-- `Zvvfmm`: SEW 32 and 64 pass with Sail `c69e3e22`; SEW 16 fails on EMUL_C=16. With the scratch Sail all 8 pass.
-  The `cp_fp_subdot` bins pass only because QEMU shares Sail's per-product accumulation (finding 30).
+- `Zvvmm`: the 13 files for SEW 8, 32 and 64 pass, Int4 rows and `cp_custom_tile_macc` included.
+- The 4 `Zvvmm` files and the `Zvvfmm` file for SEW 16 fail in the Sail signature run. At VLEN 256, SEW 16 and
+  λ=1, EMUL_C is 16, which the specification permits and Sail rejects (finding 20, work item 11).
+- `Zvvmtls`: all 8 files pass.
+- `Zvvfmm`: SEW 32 and 64 pass.
+- The `cp_fp_subdot` bins pass only because QEMU shares Sail's per-product accumulation (finding 30).
 - `Zvvmttls`: QEMU does not decode it. A scratch config with Sail as DUT (copy `qemu-ime-rv64`, take
   `rvmodel_macros.h` and `link.ld` from `config/sail/sail-rv64-max`, enable `Zvvmttls` in the UDB yaml and
   `sail.json`, `run_cmd.txt` = `sail_riscv_sim_ime --config <sail.json>`) passes all 16 files. That shows only that

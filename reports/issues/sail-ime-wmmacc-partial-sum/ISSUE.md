@@ -7,12 +7,13 @@ For W>1, the IME specification requires the W products of a sub-dot-product to b
 C is then updated once per group with `round_frm(C + S)`.
 The two results can differ whenever one of the per-product additions into C is inexact.
 No (G, psm, rnd) tuple describes the per-product result.
-That includes G=1, psm=0, rnd=frm, which the comment at `ime_mem_insts.sail#L450-L453` discloses.
+That includes G=1, psm=0, rnd=frm, which the comment at `ime_mem_insts.sail#L515-L518` discloses.
 
-Affected rows: `vfwmmacc.vv` FP16 or BF16 into FP32, `vfwmmacc.vv` FP32 into FP64, and `vfqmmacc.vv` FP16 or BF16 into FP64.
+Affected rows: `vfwmmacc.vv` FP16 or BF16 into FP32, `vfwmmacc.vv` FP32 into FP64, `vfqmmacc.vv` FP16 or BF16 into FP64, and `vf8wmmacc.vv` OFP4 into FP32 or OFP8 into FP64.
 The W=1 rows of `vfmmacc.vv` are not affected: a sub-dot-product of W=1 holds one product.
 
-Affected commit: Openchip-Software/sail-riscv `cgomez/0.16-plus-ime` @ [`c69e3e22`](https://github.com/Openchip-Software/sail-riscv/tree/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b).
+Affected commit: Openchip-Software/sail-riscv `cgomez/0.16-plus-ime` @ [`a545cc41`](https://github.com/Openchip-Software/sail-riscv/tree/a545cc412ba022edae38b87f2caf8f2f54caf1e9).
+The defect was first observed at `c69e3e22`. `128a5b74` ("Implement IME vf8wmmacc.vv (W=8 FP matmul)") added the W=8 rows with the same accumulation loop.
 
 ## Specification requirement
 
@@ -68,7 +69,7 @@ With G=1, a group is one sub-dot-product, so C is updated once per W products.
 
 ## Offending code
 
-[`ime_mem_insts.sail#L547-L563`](https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L547-L563), the FP16/BF16 into FP32 row:
+[`ime_mem_insts.sail#L612-L628`](https://github.com/Openchip-Software/sail-riscv/blob/a545cc412ba022edae38b87f2caf8f2f54caf1e9/model/extensions/IME/ime_mem_insts.sail#L612-L628), the FP16/BF16 into FP32 row:
 
 ```sail
           var acc : bits(32) = read_single_element(32, c_flat, vd);
@@ -77,14 +78,15 @@ With G=1, a group is one sub-dot-product, so C is updated once per W products.
             let a = ime_fp16_or_bf16_to_fp32(rm_3b, altfmt_A, read_single_element(16, a_flat, vs1));
             let b = ime_fp16_or_bf16_to_fp32(rm_3b, altfmt_B, read_single_element(16, b_flat, vs2));
             let prod = fp_mul(rm_3b, a, b);
-            acc = fp_add(rm_3b, acc, prod)                    // L558: one rounding into C per product
+            acc = fp_add(rm_3b, acc, prod)                    // L623: one rounding into C per product
           };
 ```
 
 The loop runs over all K_eff = λ·W·LMUL products and rounds into `acc` after each one.
-The FP32 into FP64 row (lines 564–580, `fp_add` at line 575) and the FP16/BF16 into FP64 row (lines 581–597, `fp_add` at line 592) have the same structure.
+The FP32 into FP64 row (lines 629–645, `fp_add` at line 640) and the FP16/BF16 into FP64 row (lines 646–662, `fp_add` at line 657) have the same structure.
+So do the W=8 rows: OFP4 into FP32 (lines 663–679, `fp_add` at line 674) and OFP8 into FP64 (lines 680–696, `fp_add` at line 691).
 
-The comment at [`ime_mem_insts.sail#L450-L453`](https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L450-L453) discloses G=1, psm=0, rnd=frm, and describes the W=1 behaviour: "Each product is rounded to the C format and then accumulated into C under the dynamic frm".
+The comment at [`ime_mem_insts.sail#L515-L518`](https://github.com/Openchip-Software/sail-riscv/blob/a545cc412ba022edae38b87f2caf8f2f54caf1e9/model/extensions/IME/ime_mem_insts.sail#L515-L518) discloses G=1, psm=0, rnd=frm, and describes the W=1 behaviour: "Each product is rounded to the C format and then accumulated into C under the dynamic frm".
 For W>1, G=1 and psm=0 require the exact sum of the W products of one sub-dot-product before C is updated.
 
 ## Expected vs. actual
@@ -94,7 +96,7 @@ A[0, k] are the packed inputs in element 0 of `vs1`, and B[k, 0] the packed inpu
 The other rows of A are zero, so only C[0,0] changes.
 In each case, every product is exact in the C format, every product is at most half an ULP of C₀, and the W products add up to one ULP of C₀.
 
-| Case                             | A[0, k], B[k, 0]                   | C₀  | Specification, psm=0, any G, any rnd | Sail @ c69e3e22          |
+| Case                             | A[0, k], B[k, 0]                   | C₀  | Specification, psm=0, any G, any rnd | Sail @ a545cc41          |
 | -------------------------------- | ---------------------------------- | --- | ------------------------------------ | ------------------------ |
 | `vfwmmacc.vv` FP16→FP32 (SEW=32) | A = B = (2⁻¹², 2⁻¹²)               | 1.0 | `0x3f800001`, no flags               | `0x3f800000`, NX         |
 | `vfwmmacc.vv` FP32→FP64 (SEW=64) | A = (2⁻²⁶, 2⁻²⁶), B = (2⁻²⁷, 2⁻²⁷) | 1.0 | `0x3ff0000000000001`, no flags       | `0x3ff0000000000000`, NX |
@@ -109,10 +111,9 @@ C₀ + S is exact, so `round_frm(C₀ + S)` raises no flag.
 Sail adds each product separately.
 The first row shows the mechanism: 1 + 2⁻²⁴ is a tie and rounds to the even value 1.0, and so does the second addition.
 
-Sail output (`sail.out`):
+Sail output (`sail.out`), identical at `c69e3e22` and `a545cc41`:
 
 ```
-Sail RISC-V git: 0.16-8-gc69e3e22
 W2 f16>f32 rne C[0,0]=0x3f800000 fflags=0x00000001
 W2 f32>f64 rne C[0,0]=0x3ff0000000000000 fflags=0x00000001
 W4 f16>f64 rne C[0,0]=0x4330000000000000 fflags=0x00000001

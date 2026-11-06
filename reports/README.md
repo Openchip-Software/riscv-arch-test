@@ -43,6 +43,7 @@ checked in. Report 2 describes them.
 
 These files back Report 2, Sections 16 and 16a. They document that the IME Sail fork's `vmtl.v` and
 `vmts.v` use the flat element index instead of `tile_reg_idx`. The issue is a draft and is not filed.
+`a545cc41` fixed the bug on 2026-11-06, so the issue no longer needs filing.
 
 | Path                          | Purpose                                                                      |
 | ----------------------------- | ---------------------------------------------------------------------------- |
@@ -61,9 +62,9 @@ are paths on the author's machine.
 
 ## Sail issue draft (`issues/sail-ime-wmmacc-partial-sum/`)
 
-These files back Report 2, Section 16b. They document that the IME Sail fork's `vfwmmacc.vv` and
-`vfqmmacc.vv` add each product into C instead of forming the sub-dot-product sum first. The issue is
-a draft and is not filed. There is no patch yet.
+These files back Report 2, Section 16b. They document that the IME Sail fork's `vfwmmacc.vv`,
+`vfqmmacc.vv` and `vf8wmmacc.vv` add each product into C instead of forming the sub-dot-product sum first.
+The issue is a draft and is not filed. It is pinned to `a545cc41`. There is no patch yet.
 
 | Path                           | Purpose                                                                    |
 | ------------------------------ | -------------------------------------------------------------------------- |
@@ -78,10 +79,28 @@ a draft and is not filed. There is no patch yet.
 `run.sh` takes `SDK_SIF` and `SAIL` from the environment. The defaults are paths on the author's
 machine.
 
+## Sail issue drafts (`issues/sail-ime-legality/`)
+
+These files back Report 2, Section 16a (Sail fork update, 2026-11-06). They document two legality checks of the
+IME Sail fork at `a545cc41` that disagree with the specification. The issues are drafts and are not filed.
+
+| Path                   | Purpose                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| `ISSUE-emulc16.md`     | Issue text: matrix multiply-accumulate traps for `EMUL_C`=16.                        |
+| `ISSUE-tile-vl.md`     | Issue text: tile loads and stores do not trap when VL is not a multiple of λ·LMUL.   |
+| `legal.c`, `start.S`   | Bare-metal probe at VLEN=256 with a trap handler that records `mcause`; serves both. |
+| `link.ld`, `sail.json` | Linker script and Sail configuration override for the probe.                         |
+| `run.sh`               | Builds the probe with the SDK GCC and runs it on Sail.                               |
+| `sail.out`             | Output of `run.sh` on Sail `a545cc41`.                                               |
+
+`run.sh` takes `SDK_SIF` and `SAIL` from the environment. The defaults are paths on the author's
+machine.
+
 ## Sail verification patch (`issues/sail-ime-verification-patch/`)
 
 `sail-specfix.diff` fixes the three Sail deviations that the ACT IME tests hit: the tile register index, the
-natural LD for a register that holds 0, and `EMUL_C`=16. It is a scratch patch for verifying the tests. Report 2,
+natural LD for a register that holds 0, and `EMUL_C`=16. It is a scratch patch for verifying the tests. Sail
+`a545cc41` fixes the first two, so only `EMUL_C`=16 still needs it. Report 2,
 Section 16a, step 3, gives the results. See its `README.md`.
 
 ## Plans (`plans/`)
