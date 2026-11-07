@@ -1,5 +1,7 @@
 # IME: tile loads and stores execute when `VL` is not a multiple of λ × `LMUL`
 
+> Status on 2026-11-07: not filed. [Openchip-Software/sail-riscv#8](https://github.com/Openchip-Software/sail-riscv/issues/8) reported the same deviation and was closed on 2026-11-06. The ARC review draft of the specification (`jmoreira/arc-review-updates-01`, commit `ad6de478da`) makes every `0 ≤ VL ≤ VLMAX` legal for tile loads and stores and transfers the partial final line. Sail's current behaviour matches that draft. The text below follows `main` @ `6effbcae` and is kept for reference only.
+
 ## Summary
 
 The four tile instructions `vmtl.v`, `vmttl.v`, `vmts.v` and `vmtts.v` in `model/extensions/IME/ime_mem_insts.sail` do not check `VL`.

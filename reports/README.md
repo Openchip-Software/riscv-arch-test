@@ -82,16 +82,19 @@ machine.
 ## Sail issue drafts (`issues/sail-ime-legality/`)
 
 These files back Report 2, Section 16a (Sail fork update, 2026-11-06). They document two legality checks of the
-IME Sail fork at `a545cc41` that disagree with the specification. The issues are drafts and are not filed.
+IME Sail fork at `a545cc41` that disagree with the specification at `6effbcae`. `ISSUE-emulc16.md` is filed as
+Openchip-Software/sail-riscv#10. `ISSUE-tile-vl.md` is not filed: fork issue #8 covered it, and the ARC review draft
+of the specification makes every VL legal for tile loads and stores.
 
-| Path                   | Purpose                                                                              |
-| ---------------------- | ------------------------------------------------------------------------------------ |
-| `ISSUE-emulc16.md`     | Issue text: matrix multiply-accumulate traps for `EMUL_C`=16.                        |
-| `ISSUE-tile-vl.md`     | Issue text: tile loads and stores do not trap when VL is not a multiple of λ·LMUL.   |
-| `legal.c`, `start.S`   | Bare-metal probe at VLEN=256 with a trap handler that records `mcause`; serves both. |
-| `link.ld`, `sail.json` | Linker script and Sail configuration override for the probe.                         |
-| `run.sh`               | Builds the probe with the SDK GCC and runs it on Sail.                               |
-| `sail.out`             | Output of `run.sh` on Sail `a545cc41`.                                               |
+| Path                                           | Purpose                                                                              |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `ISSUE-emulc16.md`                             | Issue text: matrix multiply-accumulate traps for `EMUL_C`=16.                        |
+| `ISSUE-tile-vl.md`                             | Issue text: tile loads and stores do not trap when VL is not a multiple of λ·LMUL.   |
+| `legal.c`, `start.S`                           | Bare-metal probe at VLEN=256 with a trap handler that records `mcause`; serves both. |
+| `link.ld`, `sail.json`                         | Linker script and Sail configuration override for the probe.                         |
+| `run.sh`                                       | Builds the probe with the SDK GCC and runs it on Sail.                               |
+| `sail.out`                                     | Output of `run.sh` on Sail `a545cc41`.                                               |
+| `emulc16.S`, `zvvm-on.json`, `link-emulc16.ld` | Standalone `EMUL_C`=16 reproducer of issue #10; needs only a stock RISC-V GCC.       |
 
 `run.sh` takes `SDK_SIF` and `SAIL` from the environment. The defaults are paths on the author's
 machine.

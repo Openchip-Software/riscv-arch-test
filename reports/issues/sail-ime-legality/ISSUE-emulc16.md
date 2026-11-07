@@ -1,5 +1,7 @@
 # IME: matrix multiply-accumulate raises an illegal-instruction exception for `EMUL_C` = 16
 
+> Status on 2026-11-07: filed as [Openchip-Software/sail-riscv#10](https://github.com/Openchip-Software/sail-riscv/issues/10). The filed issue uses the standalone reproducer `emulc16.S` (with `zvvm-on.json` and `link-emulc16.ld`), which needs only a stock RISC-V GCC.
+
 ## Summary
 
 `execute_ime_int_gemm` and `execute_ime_fp_gemm` in `model/extensions/IME/ime_mem_insts.sail` reject `EMUL_C` = 16.

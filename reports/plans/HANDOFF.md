@@ -106,7 +106,10 @@ Sail fork update (2026-11-06): `c1d96b3e` fixed the natural LD (finding 21), `a5
 (work item 1), and `fd88fd86` made masked tile loads into `v0` trap. Still open: `EMUL_C`=16 (finding 20), no
 VL check in tile loads and stores (finding 22), and the W>1 partial sum (finding 30). Draft issues with reproducers:
 `issues/sail-ime-legality/ISSUE-emulc16.md`, `issues/sail-ime-legality/ISSUE-tile-vl.md` and
-`issues/sail-ime-wmmacc-partial-sum/ISSUE.md`. None is filed yet. The scratch patch of
+`issues/sail-ime-wmmacc-partial-sum/ISSUE.md`. `EMUL_C`=16 is filed as Openchip-Software/sail-riscv#10 (2026-11-07). The
+tile VL draft is not filed: fork issue #8 covered it and was closed, because the ARC review draft of the specification
+(`jmoreira/arc-review-updates-01`) makes every VL legal for tile loads and stores and makes a non-multiple VL
+reserved for multiply-accumulate. Review the `cp_ime_vl_not_multiple` bins of `ExceptionsZvvm` when that draft merges. The scratch patch of
 `issues/sail-ime-verification-patch/` is now needed only for `EMUL_C`=16.
 
 Verified on `qemu-ime-rv64` (QEMU as DUT, signatures from the unpatched Sail at `6cccec69`):

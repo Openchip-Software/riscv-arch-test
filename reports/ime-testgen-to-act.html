@@ -6040,7 +6040,19 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <span class="ev run">run</span>
       </p>
       <p>
-        Three Sail deviations remain. Each has a draft issue with a reproducer:
+        Three Sail deviations from the specification at <code>6effbcae</code>
+        remain. Each has a draft issue with a reproducer. On 2026-11-07 the
+        first was filed as
+        <a href="https://github.com/Openchip-Software/sail-riscv/issues/10"
+          >Openchip-Software/sail-riscv#10</a
+        >. The second is not filed: issue #8 of the fork reported it and was
+        closed, because the ARC review draft of the specification
+        (<code>jmoreira/arc-review-updates-01</code>) makes every VL legal for
+        tile loads and stores. The same draft makes a multiply-accumulate VL
+        that is not a multiple of λ·LMUL reserved. The
+        <code>cp_ime_vl_not_multiple</code> bins of
+        <code>ExceptionsZvvm</code> follow <code>main</code> and need review
+        when that draft is merged.
       </p>
       <ul>
         <li>
