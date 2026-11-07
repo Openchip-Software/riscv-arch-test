@@ -1,0 +1,12 @@
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_lmul_fractional
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_lmul_fractional : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vlmul") {
+        // Fractional LMUL, which is reserved for IME instructions
+        bins f8 = {5};
+        bins f4 = {6};
+        bins f2 = {7};
+    }
+
+    //// end cp_ime_lmul_fractional////////////////////////////////////////////////

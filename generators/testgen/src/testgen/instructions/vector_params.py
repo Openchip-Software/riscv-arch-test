@@ -35,6 +35,9 @@ def get_register_emul(
     if register_name in vector_type_config.mask_regs or register_name in vector_type_config.scalar_regs:
         return 1
 
+    if register_name in vector_type_config.fixed_emul:
+        return vector_type_config.fixed_emul[register_name]
+
     if info.whole_registers is not None:
         return info.whole_registers
 
@@ -321,6 +324,8 @@ def get_occupied_v_registers(
     emul = math.ceil(info.get_size_multiplier(register, sew, vector_type_config) * lmul) * info.segments
     if info.whole_registers:
         emul = info.whole_registers
+    if register in vector_type_config.fixed_emul:
+        emul = vector_type_config.fixed_emul[register]
 
     if start_no_overlap or single_register or emul < 1:
         start_no_register_overlap = 0
@@ -524,7 +529,8 @@ def generate_random_vector_params(
 
             # Register the label
             eew = int(sew * info.get_size_multiplier(register, sew, instr_type_config.vector_data))
-            element_count = 1 if suite == "base" else math.ceil(VLEN_MAX * lmul / sew)
+            label_emul = instr_type_config.vector_data.fixed_emul.get(register, lmul)
+            element_count = 1 if suite == "base" else math.ceil(VLEN_MAX * label_emul / sew)
             if instr_type_config.vector_data.random_element_generator:
                 elements = instr_type_config.vector_data.random_element_generator(element_count, eew, register)
                 test_data.register_vector_data(label, eew, elements=elements)

@@ -153,6 +153,9 @@ def canonicalize_extensions(
     return ext_components, params
 
 
+IME_SUITE_PREFIXES = ("Zvvmm", "Zvvfmm", "Zvvmtls", "Zvvmttls")
+
+
 def get_vector_base_extension(testsuite: str, instr_name: str, xlen: int, sew: int) -> list[str] | None:
     """
     Helper function to derive the smallest possible vector extension containing an instruction. This is necessary because
@@ -176,9 +179,18 @@ def get_vector_base_extension(testsuite: str, instr_name: str, xlen: int, sew: i
         "Zvfbfmin": ["Zve32f"],
         "Zvfbfwma": ["Zve32f", "Zfbfmin", "F"],
         "Zvfhmin": ["Zve32f", "F"],
+        "Zvvfmm8": ["Zve32f", "F"],
+        "Zvvfmm16": ["Zve32f", "F"],
+        "Zvvfmm32": ["Zve32f", "F"],
+        "Zvvfmm64": ["Zve64d", "F", "D"],
     }
 
     mapped = vector_map[testsuite] if testsuite in vector_map else [f"Zve{max(sew, 32)}x"]
+
+    # In the Integrated Matrix Extension, SEW is the accumulator width and inputs are SEW/W wide, so no operand is
+    # wider than SEW. The V adjustments below for widening instructions do not apply.
+    if testsuite.startswith(IME_SUITE_PREFIXES):
+        return mapped
 
     if testsuite == "Vf16" and instr_name in [
         "vfwcvt.f.x.v",

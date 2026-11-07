@@ -1,0 +1,11 @@
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_reserved_sew
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_reserved_sew : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vsew") {
+        // SEW of a reserved encoding-map cell (vqmmacc.vv at SEW 8, v8wmmacc.vv at SEW 8 and 16)
+        bins e8 = {0};
+        bins e16 = {1};
+    }
+
+    //// end cp_ime_reserved_sew////////////////////////////////////////////////

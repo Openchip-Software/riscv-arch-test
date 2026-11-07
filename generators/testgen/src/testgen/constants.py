@@ -38,7 +38,83 @@ PRIV_TRAP_SIGUPD_COUNT = 1500
 # Extension Configuration
 # =============================================================================
 
-EXPERIMENTAL_EXTENSIONS = frozenset({"Zibi"})
+# Integrated Matrix Extension (IME) extensions. These are the extensions that the ACT UDB overlay
+# framework/src/act/data/udb_overlays/ime/ext/ defines. testgen does not depend on the act package,
+# so it cannot read the overlay, and the names are listed here.
+IME_EXTENSIONS = frozenset(
+    {
+        # Family extensions
+        "Zvvmm",
+        "Zvvfmm",
+        "Zvvmtls",
+        "Zvvmttls",
+        # Computational extensions
+        "Zvvbf16fp32mm",
+        "Zvvbf16fp64mm",
+        "Zvvbf16mm",
+        "Zvvfp16fp32mm",
+        "Zvvfp16fp64mm",
+        "Zvvfp16mm",
+        "Zvvfp32fp64mm",
+        "Zvvfp32mm",
+        "Zvvfp64mm",
+        "Zvvi16i32mm",
+        "Zvvi16i64mm",
+        "Zvvi16mm",
+        "Zvvi32i64mm",
+        "Zvvi32mm",
+        "Zvvi4i16mm",
+        "Zvvi4i32mm",
+        "Zvvi4i8mm",
+        "Zvvi64mm",
+        "Zvvi8i16mm",
+        "Zvvi8i32mm",
+        "Zvvi8i64mm",
+        "Zvvi8mm",
+        "Zvvofp4bf16mm",
+        "Zvvofp4fp16mm",
+        "Zvvofp4fp32mm",
+        "Zvvofp4ofp8mm",
+        "Zvvofp8bf16mm",
+        "Zvvofp8fp16mm",
+        "Zvvofp8fp32mm",
+        "Zvvofp8fp64mm",
+        "Zvvofp8mm",
+        # Microscaling extensions
+        "Zvvxi4bf16mm",
+        "Zvvxi4fp16mm",
+        "Zvvxi4fp32mm",
+        "Zvvxi8bf16mm",
+        "Zvvxi8fp16mm",
+        "Zvvxi8fp32mm",
+        "Zvvxi8fp64mm",
+        "Zvvxni4bf16mm",
+        "Zvvxni4fp16mm",
+        "Zvvxni4fp32mm",
+        "Zvvxni8bf16mm",
+        "Zvvxni8fp16mm",
+        "Zvvxni8fp32mm",
+        "Zvvxni8fp64mm",
+        "Zvvxnofp4bf16mm",
+        "Zvvxnofp4fp16mm",
+        "Zvvxnofp4fp32mm",
+        "Zvvxnofp4ofp8mm",
+        "Zvvxnofp8bf16mm",
+        "Zvvxnofp8fp16mm",
+        "Zvvxnofp8fp32mm",
+        "Zvvxnofp8fp64mm",
+        "Zvvxofp4bf16mm",
+        "Zvvxofp4fp16mm",
+        "Zvvxofp4fp32mm",
+        "Zvvxofp4ofp8mm",
+        "Zvvxofp8bf16mm",
+        "Zvvxofp8fp16mm",
+        "Zvvxofp8fp32mm",
+        "Zvvxofp8fp64mm",
+    }
+)
+
+EXPERIMENTAL_EXTENSIONS = frozenset({"Zibi", *IME_EXTENSIONS})
 
 # Extensions that should generate RV32E/RV64E variants
 # TODO: Add Zcmp and Zcmt when implemented

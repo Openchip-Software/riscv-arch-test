@@ -1,0 +1,12 @@
+Instruction,Type,RV32,RV64,EFFEW8,EFFEW16,EFFEW32,EFFEW64,cp_vill,cp_ime_vstart,cp_ime_vl_not_multiple,cp_ime_lmul_fractional,cp_ime_vd_misaligned,cp_ime_vs1_misaligned,cp_ime_vs2_misaligned,cp_ime_vm0,cp_ime_reserved_sew,cp_ime_masked_vd_v0,cp_ime_imm_lambda_unsupported
+vmmacc.vv,MMACC,x,x,x,x,x,x,x,x,x,x,x,x,x,x,,,
+vwmmacc.vv,MMACC,x,x,x,x,x,x,x,x,x,x,x,x,x,,,,
+vqmmacc.vv,MMACC,x,x,,x,x,x,x,x,x,x,x,x,x,,x,,
+v8wmmacc.vv,MMACC,x,x,,,x,x,x,x,x,x,x,x,x,,x,,
+vfmmacc.vv,FMMACC,x,x,,x,x,x,x,x,x,x,x,x,x,x,,,
+vfwmmacc.vv,FMMACC,x,x,,,x,x,x,x,x,x,x,x,x,,,,
+vfqmmacc.vv,FMMACC,x,x,,,,x,x,x,x,x,x,x,x,,,,
+vmtl.v,VLT,x,x,x,x,x,x,x,x,x,x,x,,,,,x,x
+vmts.v,VST,x,x,x,x,x,x,x,x,x,x,x,,,,,,x
+vmttl.v,VLT,x,x,x,x,x,x,x,x,x,x,x,,,,,x,x
+vmtts.v,VST,x,x,x,x,x,x,x,x,x,x,x,,,,,,x

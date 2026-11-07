@@ -766,6 +766,14 @@ def get_vector_edge(edge: str, suffix: str, sew: int) -> int:
     if suffix == "f_bf16":
         return VECTOR_EDGES.bf16[edge]
 
+    if suffix in ("f_emulf2", "f_emulf4"):
+        # Narrow floating-point inputs packed into SEW storage elements (IME widening multiply-accumulate)
+        width = sew // int(suffix[-1])
+        tables = {16: VECTOR_EDGES.f16, 32: VECTOR_EDGES.f32, 64: VECTOR_EDGES.f64}
+        if width not in tables:
+            raise ValueError(f"Unsupported narrow floating-point width {width} for SEW={sew}")
+        return tables[width][edge]
+
     if "f_" in suffix:
         raise ValueError(f"Unknown Floating Point Edge, {suffix}")
 

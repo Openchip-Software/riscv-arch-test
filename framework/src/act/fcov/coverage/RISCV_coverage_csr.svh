@@ -1144,9 +1144,15 @@ function `XLEN_BITS get_csr_val_addr(int hart, int issue, int prev, int addr, st
     case(field)
 `ifdef UDB_MXLEN_32
       "vill" : val = (val >> 31) & 32'h1;
+      "lambda" : val = (val >> 28) & 32'h7;
+      "altfmt_a" : val = (val >> 26) & 32'h1;
+      "altfmt_b" : val = (val >> 25) & 32'h1;
 `endif
 `ifdef UDB_MXLEN_64
       "vill" : val = (val >> 63) & 64'h1;
+      "lambda" : val = (val >> 60) & 64'h7;
+      "altfmt_a" : val = (val >> 58) & 64'h1;
+      "altfmt_b" : val = (val >> 57) & 64'h1;
 `endif
       "vlmul" : val = val & 'h7;
       "vma" : val = (val >> 7) & 'h1;

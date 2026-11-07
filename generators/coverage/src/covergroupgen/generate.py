@@ -83,6 +83,7 @@ SSSTRICTV_SKIP_COMBINATIONS = _load_ssstrictv_skip_combinations()
 SEW_DEPENDENT_CPS = {
     "cp_vs2_edges_f",
     "cp_vs1_edges_f",
+    "cp_vd_edges_f",
     "cp_custom_shift_wv",
     "cp_custom_shift_wx",
     "cp_custom_shift_vv",
@@ -121,7 +122,7 @@ def _sew_variants_for(arch: str) -> list[str] | None:
     A vector testplan is duplicated into one variant per returned SEW, replacing
     the base entry.
     """
-    if any(prefix in arch for prefix in ("Vx", "Vls", "Zvbb", "Zvkb")):
+    if any(prefix in arch for prefix in ("Vx", "Vls", "Zvbb", "Zvkb", "Zvvmm", "Zvvmtls", "Zvvfmm", "Zvvmttls")):
         return ["8", "16", "32", "64"]
     if arch == "Vf":
         # SEW=8 has only Zvfh's conversions between 8-bit integers and binary16
@@ -200,6 +201,10 @@ _TYPE_OPERANDS: dict[str, tuple[bool, bool, bool]] = {
     "VMVR": (True, False, True),
     "VCOMPRESS": (True, True, True),
     "VID": (True, False, False),
+    "MMACC": (True, True, True),
+    "VLT": (True, False, False),
+    "VST": (True, False, False),
+    "FMMACC": (True, True, True),
 }
 
 

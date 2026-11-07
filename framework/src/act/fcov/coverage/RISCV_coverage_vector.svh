@@ -137,6 +137,7 @@ function edge_vs_values_t vs_edges_check(int hart, int issue, `VLEN_BITS val, st
   endcase
 
   case (eew)
+    4:   return vs_edges_check_eew_4(val);
     8:   return vs_edges_check_eew_8(val);
     `ifdef SEW16_SUPPORTED
     16:  return vs_edges_check_eew_16(val);
@@ -158,6 +159,24 @@ function edge_vs_values_t vs_edges_check_eew_1(`VLEN_BITS val);
   casez (val)
     {{(`UDB_VLEN-1){1'b?}}, {1'b1}}:  return vs_one;
     default:                      return vs_zero;
+  endcase
+endfunction
+
+// 4-bit inputs of the IME Int4 multiply-accumulate instructions
+function edge_vs_values_t vs_edges_check_eew_4(`VLEN_BITS val);
+  casez (val)
+    {{(`UDB_VLEN-4){1'b?}},         {(4){1'b0}}}:            return vs_zero;
+    {{(`UDB_VLEN-4){1'b?}},         {(4-1){1'b0}}, {1'b1}}:  return vs_one;
+    {{(`UDB_VLEN-4){1'b?}},         {(4-2){1'b0}}, {2'b10}}: return vs_two;
+    {{(`UDB_VLEN-4){1'b?}}, {1'b1}, {(4-1){1'b0}}}:          return vs_min;
+    {{(`UDB_VLEN-4){1'b?}}, {1'b1}, {(4-2){1'b0}}, {1'b1}}:  return vs_minp1;
+    {{(`UDB_VLEN-4){1'b?}}, {1'b0}, {(4-1){1'b1}}}        :  return vs_max;
+    {{(`UDB_VLEN-4){1'b?}}, {1'b0}, {(4-2){1'b1}}, {1'b0}}:  return vs_maxm1;
+    {{(`UDB_VLEN-4){1'b?}},         {(4){1'b1}}}:            return vs_ones;
+    {{(`UDB_VLEN-4){1'b?}},         {(4-1){1'b1}}, {1'b0}}:  return vs_onesm1;
+    {{(`UDB_VLEN-4){1'b?}},         {(4/2){2'b10}}}:         return vs_walkodd;
+    {{(`UDB_VLEN-4){1'b?}},         {(4/2){2'b01}}}:         return vs_walkeven;
+    default:                                             return vs_random;
   endcase
 endfunction
 
@@ -463,6 +482,37 @@ typedef enum {
   vl_legal,
   vl_illegal
 } vl_t;
+
+// IME multiply-accumulate: VL counts C elements, and one C column has lambda*LMUL elements
+function int ime_column_vl(int hart, int issue);
+  int lambda_field = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "lambda"));
+  int vlmul = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "vlmul"));
+  if (lambda_field == 0 || vlmul > 3) return 1;
+  return (1 << (lambda_field - 1)) * (1 << vlmul);
+endfunction
+
+typedef enum {
+  ime_ld_x0,
+  ime_ld_zero,
+  ime_ld_tight,
+  ime_ld_padded,
+  ime_ld_double,
+  ime_ld_other
+} ime_ld_t;
+
+// IME tile loads and stores: classify LD in rs2 against linesize = lambda*LMUL. A nonzero immediate lambda
+// (instruction bits 31:29) overrides vtype.lambda. rs2 = x0, or a register that holds 0, selects the natural LD.
+function ime_ld_t ime_ld_check(int hart, int issue, bit rs2_is_x0, `XLEN_BITS rs2_val, bit [2:0] imm_lambda);
+  int vlmul = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "vlmul"));
+  int linesize = ime_column_vl(hart, issue);
+  if (imm_lambda != 0 && vlmul <= 3) linesize = (1 << (imm_lambda - 1)) * (1 << vlmul);
+  if (rs2_is_x0)                     return ime_ld_x0;
+  else if (rs2_val == 0)             return ime_ld_zero;
+  else if (rs2_val == linesize)      return ime_ld_tight;
+  else if (rs2_val == linesize + 1)  return ime_ld_padded;
+  else if (rs2_val == 2 * linesize)  return ime_ld_double;
+  else                               return ime_ld_other;
+endfunction
 
 function vl_t vl_check(int hart, int issue, int egs = 1);
   int vl = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vl", "vl"));

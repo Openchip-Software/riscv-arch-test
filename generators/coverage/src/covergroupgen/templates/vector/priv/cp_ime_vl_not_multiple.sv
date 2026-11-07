@@ -1,0 +1,10 @@
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_vl_not_multiple
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_vl_not_multiple : coverpoint (int'(get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vl", "vl")) % ime_column_vl(ins.hart, ins.issue)) != 0 {
+        // VL is not a multiple of lambda*LMUL
+        bins not_multiple = {1};
+    }
+
+    //// end cp_ime_vl_not_multiple////////////////////////////////////////////////

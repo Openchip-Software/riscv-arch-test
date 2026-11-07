@@ -1,0 +1,5 @@
+Instruction,Type,RV32,RV64,ExtraExtensions,EFFEW8,EFFEW16,EFFEW32,EFFEW64,cp_asm_count,cp_vd,cp_vs3,cp_rs1,cp_rs2,cp_ld,cp_imm_lambda,cp_masking_edges,cr_lambda_lmul,cp_tile_vl,cr_tile_vtype_agnostic,cp_custom_tile_crossmode
+vmttl.v,VLT,x,x,,x,x,x,x,x,x,,nx0,x,x,x,x,x,x,x,
+vmtts.v,VST,x,x,,x,x,x,x,x,,x,nx0,x,x,x,x,x,x,,
+vmttl.v,VLT,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,x
+vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,x

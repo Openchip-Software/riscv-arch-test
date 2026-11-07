@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: BSD-3-Clause-Clear OR Apache-2.0
+#
+# Zvvm (Integrated Matrix Extension) definition for the ACT UDB overlay.
+# Source: https://github.com/riscv/integrated-matrix-extension/blob/6effbcae3204e5a8a9c9d15ff53959918144870c/src/integrated-matrix.adoc
+
+$schema: "ext_schema.json#"
+kind: extension
+name: Zvvfmm
+long_name: Floating-point matrix multiply-accumulate on vector register groups
+description: |
+  The Zvvfmm family extension provides the floating-point matrix tile
+  multiply-accumulate instructions `vfmmacc.vv`, `vfwmmacc.vv`,
+  `vfqmmacc.vv` and `vf8wmmacc.vv`, and the microscaled integer-input
+  instructions `vfwimmacc.vv`, `vfqimmacc.vv` and `vf8wimmacc.vv`.
+
+  The input and accumulator types that are legal for each instruction are
+  selected by the individual extensions (`Zvvofp4ofp8mm` ... `Zvvfp64mm`)
+  and the microscaling extensions (`Zvvx*mm`, `Zvvxn*mm`).
+  Each of those extensions requires Zvvfmm.
+type: unprivileged
+versions:
+  - version: "1.0.0"
+    state: development
+    repositories:
+      - url: https://github.com/riscv/integrated-matrix-extension
+        branch: main
+requirements:
+  extension:
+    name: Zve32f

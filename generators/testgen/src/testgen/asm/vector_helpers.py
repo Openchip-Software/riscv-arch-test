@@ -8,12 +8,13 @@
 
 import math
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
 from testgen.asm.helpers import write_sigupd
 from testgen.constants import INDENT, VLEN_MAX
-from testgen.data.params import InstructionParams, PresetMask
+from testgen.data.params import InstructionParams, PresetMask, VectorLength
 from testgen.data.random import random_int, random_range
 from testgen.data.state import TestData
 
@@ -503,7 +504,7 @@ class VectorLoad:
 
     reg: Literal["vd", "vs1", "vs2", "vs3"]
     widen: bool = False
-    vl: int | Literal["vlmax", "random"] | None = None
+    vl: VectorLength | None = None
     lmul: int | float | None = None
     sew: int | float | None = None
     no_fractional_load: bool = False
@@ -597,9 +598,7 @@ def load_vec_regs(regs: list[VectorLoad], params: InstructionParams, test_data: 
     params.
     """
 
-    vtype_code: defaultdict[tuple[Literal["vlmax", "random"] | int, int | float, int | float], list[str]] = defaultdict(
-        list
-    )
+    vtype_code: defaultdict[tuple[VectorLength, int | float, int | float], list[str]] = defaultdict(list)
     max_egs = 1
 
     for reg in regs:
@@ -679,6 +678,155 @@ def load_vec_regs(regs: list[VectorLoad], params: InstructionParams, test_data: 
     return code, random_vl_reg
 
 
+IME_LAMBDAS = [1, 2, 4, 8, 16, 32, 64]
+
+
+def ime_lambdas(sew: int) -> list[int]:
+    """
+    Return the lambda values that some VLEN up to VLEN_MAX permits at this SEW. A lambda is legal only when
+    EMUL_C = VLEN/(SEW*lambda^2) is at least 1.
+    """
+    return [lambda_value for lambda_value in IME_LAMBDAS if sew * lambda_value * lambda_value <= VLEN_MAX]
+
+
+def ime_lambda_macro(sew: int, lambda_value: int) -> str:
+    """Return the rvtest_config.h macro that UDB defines when SUPPORTED_LAMBDA_SEW<sew> contains lambda_value."""
+    return f"UDB_SUPPORTED_LAMBDA_SEW{sew}_{lambda_value}"
+
+
+def ime_lambda_condition(sew: int, lambda_values: list[int]) -> str:
+    """Return a preprocessor condition that is true when the DUT supports any of lambda_values at this SEW."""
+    terms = [f"defined({ime_lambda_macro(sew, value)})" for value in lambda_values]
+    return terms[0] if len(terms) == 1 else f"({' || '.join(terms)})"
+
+
+def ime_extend_label(test_data: TestData, label: str, reg: str, sew: int, emul: float) -> str:
+    """
+    Register a label of SEW-wide storage elements that fills emul registers at VLEN_MAX. It starts with the elements
+    of label, packed into the storage elements in standard element order, and continues with random elements.
+    """
+    elements, eew = test_data.vector_labels[label]
+    lanes = sew // eew
+    count = int(VLEN_MAX * emul) // sew
+    narrow = elements + [random_int(eew, signed=False) for _ in range(count * lanes - len(elements))]
+    storage = [sum(narrow[j * lanes + i] << (i * eew) for i in range(lanes)) for j in range(count)]
+    new_label = f"{reg}_ime_{test_data.test_count:03d}"
+    test_data.register_vector_data(new_label, sew, elements=storage)
+    return new_label
+
+
+def ime_vtype_value(params: InstructionParams, lambda_value: int, xlen: int) -> int | str:
+    """
+    Compute a vtype value with the IME fields. vsetvli cannot set them, so IME tests write vtype with vsetvl.
+    lambda[2:0] is at bits XLEN-2:XLEN-4 and holds log2(lambda) + 1. altfmt_A is at bit XLEN-6 and altfmt_B at
+    bit XLEN-7. bs stays 0. Privileged tests serve both XLENs (xlen = 0); they get an assembler expression over
+    UDB_MXLEN instead of a number.
+    """
+    assert params.sew is not None, "sew must be set for IME instructions"
+    assert params.lmul is not None and params.lmul >= 1, "IME instructions require an integer LMUL"
+
+    lambda_field = int(math.log2(lambda_value)) + 1
+    vsew = int(math.log2(params.sew)) - 3
+    vlmul = int(math.log2(params.lmul))
+    low = (int(bool(params.ma)) << 7) | (int(bool(params.ta)) << 6) | (vsew << 3) | vlmul
+    high = [(lambda_field, 4), (int(params.altfmt_a), 6), (int(params.altfmt_b), 7)]
+    if xlen == 0:
+        terms = [f"({value} << (UDB_MXLEN - {offset}))" for value, offset in high if value]
+        return f"({' | '.join([*terms, f'{low:#x}'])})"
+    return sum(value << (xlen - offset) for value, offset in high) | low
+
+
+def load_ime_vtype(
+    params: InstructionParams,
+    test_data: TestData,
+    *,
+    lambdas: list[int] | None = None,
+    line_lambda: int | None = None,
+    per_lambda: Callable[[int], list[tuple[int, int]]] | None = None,
+    keep_vl: bool = False,
+) -> list[str]:
+    """
+    Set vtype with the IME fields through vsetvl, and set VL. VL counts elements in units of lambda*LMUL: one C
+    column for multiply-accumulate, one line for tile loads and stores. Every VL is a multiple of lambda*LMUL:
+        int n: n units
+        "half": VLMAX/2. VLMAX/(lambda*LMUL) is VLEN/(SEW*lambda), a power of 2 that is at least 2.
+        "vlmax": VLMAX
+        "random": a random multiple of lambda*LMUL in [lambda*LMUL, VLMAX - lambda*LMUL]
+
+    vtype.lambda is params.lambda_. When it is None, a preprocessor chain selects the smallest value of lambdas
+    (default: ime_lambdas) that the DUT supports. LI has a fixed length, so every branch assembles to the same size.
+
+    line_lambda is the lambda that sets the unit of VL, when it differs from vtype.lambda (a tile instruction with an
+    immediate lambda). per_lambda returns (register, value) pairs to load in each branch; it receives that lambda.
+    keep_vl writes vtype with vsetvl x0, x0, which keeps VL; the new vtype must keep VLMAX.
+    """
+    assert params.sew is not None, "sew must be set for IME instructions"
+    assert params.lmul is not None, "lmul must be set for IME instructions"
+    assert params.temp_reg is not None, "temp_reg must be set for IME instructions"
+    vl = params.vl if params.vl is not None else "vlmax"
+    lmul = int(params.lmul)
+    vtype_reg, column_reg = test_data.int_regs.get_registers(2, exclude_regs=[0])
+    fields = (
+        f"altfmt_A={int(params.altfmt_a)}, altfmt_B={int(params.altfmt_b)}, vma={int(bool(params.ma))}, "
+        f"vta={int(bool(params.ta))}, vsew=e{params.sew}, vlmul=m{lmul}, VL={'unchanged' if keep_vl else vl}"
+    )
+
+    def lambda_lines(lambda_value: int, indent: str) -> list[str]:
+        unit = (line_lambda or lambda_value) * lmul
+        loads: list[tuple[int, int | str]] = [(vtype_reg, ime_vtype_value(params, lambda_value, test_data.xlen))]
+        if not keep_vl and isinstance(vl, int):
+            loads.append((column_reg, vl * unit))
+        elif not keep_vl and vl == "random":
+            loads.append((column_reg, unit))
+        if per_lambda is not None:
+            loads.extend(per_lambda(line_lambda or lambda_value))
+        return [f"{indent}LI(x{reg}, {value if isinstance(value, str) else hex(value)})" for reg, value in loads]
+
+    if params.lambda_ is not None:
+        lines = [f"# vtype: lambda={params.lambda_}, {fields}", *lambda_lines(params.lambda_, "")]
+    else:
+        lines = [f"# vtype: lambda = smallest supported lambda, {fields}"]
+        for i, lambda_value in enumerate(lambdas or ime_lambdas(params.sew)):
+            directive = "#if" if i == 0 else "#elif"
+            lines.append(f"{directive} defined({ime_lambda_macro(params.sew, lambda_value)})")
+            lines.extend(lambda_lines(lambda_value, INDENT))
+        lines.append("#endif")
+
+    if keep_vl:
+        lines.append(f"vsetvl x0, x0, x{vtype_reg}")
+    elif isinstance(vl, int):
+        lines.append(f"vsetvl x{params.temp_reg}, x{column_reg}, x{vtype_reg}")
+    elif vl == "vlmax":
+        lines.append(f"vsetvl x{params.temp_reg}, x0, x{vtype_reg}")
+    elif vl == "half":
+        lines.extend(
+            [
+                f"vsetvl x{params.temp_reg}, x0, x{vtype_reg}",
+                f"srli x{params.temp_reg}, x{params.temp_reg}, 1",
+                f"vsetvl x{params.temp_reg}, x{params.temp_reg}, x{vtype_reg}",
+            ]
+        )
+    else:
+        random_reg = test_data.int_regs.get_register(exclude_regs=[0])
+        lines.extend(
+            [
+                f"# AVL = ((random & (VLMAX-1)) | L) & -L, with L = lambda*LMUL in x{column_reg}",
+                f"vsetvl x{params.temp_reg}, x0, x{vtype_reg}",
+                f"addi x{params.temp_reg}, x{params.temp_reg}, -1",
+                f"LI(x{random_reg}, {random_int(32, signed=False)})",
+                f"and x{random_reg}, x{random_reg}, x{params.temp_reg}",
+                f"or x{random_reg}, x{random_reg}, x{column_reg}",
+                f"sub x{column_reg}, x0, x{column_reg}",
+                f"and x{random_reg}, x{random_reg}, x{column_reg}",
+                f"vsetvl x{params.temp_reg}, x{random_reg}, x{vtype_reg}",
+            ]
+        )
+        test_data.int_regs.return_register(random_reg)
+
+    test_data.int_regs.return_registers([vtype_reg, column_reg])
+    return lines
+
+
 def handle_parameter_exclusions(
     lmul: float,
     setup: list[str],
@@ -687,11 +835,12 @@ def handle_parameter_exclusions(
     encoded_eew: int | None = None,
     index_eew: int | None = None,
     min_vlen: int | None = None,
+    ime_condition: str | None = None,
 ) -> None:
     """
     Modifies setup and check in place to ensure that the test is only run if the test is supported by the core. This
     includes, but is not limited to parameters defining support of fractional LMUL, maximum indew EEWs, minimum SEWs,
-    and ELEN.
+    and ELEN. ime_condition is a lambda condition from ime_lambda_condition.
     """
 
     parameters_needed: list[str] = []
@@ -713,6 +862,9 @@ def handle_parameter_exclusions(
 
     if min_vlen is not None and min_vlen > 32:
         parameters_needed.append(f"defined (ZVL{min_vlen}B_SUPPORTED)")
+
+    if ime_condition is not None:
+        parameters_needed.append(ime_condition)
 
     if parameters_needed:
         setup.insert(0, "#if " + " && ".join(parameters_needed))

@@ -56,6 +56,9 @@
 `ifdef EXCEPTIONSVX_COVERAGE
   `include "ExceptionsVx_coverage.svh"
 `endif
+`ifdef EXCEPTIONSZVVM_COVERAGE
+  `include "ExceptionsZvvm_coverage.svh"
+`endif
 `ifdef F_COVERAGE
   `include "F_coverage.svh"
 `endif
@@ -427,4 +430,52 @@
 `endif
 `ifdef ZVKSH_COVERAGE
   `include "Zvksh_coverage.svh"
+`endif
+`ifdef ZVVFMM16_COVERAGE
+  `include "Zvvfmm16_coverage.svh"
+`endif
+`ifdef ZVVFMM32_COVERAGE
+  `include "Zvvfmm32_coverage.svh"
+`endif
+`ifdef ZVVFMM64_COVERAGE
+  `include "Zvvfmm64_coverage.svh"
+`endif
+`ifdef ZVVFMM8_COVERAGE
+  `include "Zvvfmm8_coverage.svh"
+`endif
+`ifdef ZVVMM16_COVERAGE
+  `include "Zvvmm16_coverage.svh"
+`endif
+`ifdef ZVVMM32_COVERAGE
+  `include "Zvvmm32_coverage.svh"
+`endif
+`ifdef ZVVMM64_COVERAGE
+  `include "Zvvmm64_coverage.svh"
+`endif
+`ifdef ZVVMM8_COVERAGE
+  `include "Zvvmm8_coverage.svh"
+`endif
+`ifdef ZVVMTLS16_COVERAGE
+  `include "Zvvmtls16_coverage.svh"
+`endif
+`ifdef ZVVMTLS32_COVERAGE
+  `include "Zvvmtls32_coverage.svh"
+`endif
+`ifdef ZVVMTLS64_COVERAGE
+  `include "Zvvmtls64_coverage.svh"
+`endif
+`ifdef ZVVMTLS8_COVERAGE
+  `include "Zvvmtls8_coverage.svh"
+`endif
+`ifdef ZVVMTTLS16_COVERAGE
+  `include "Zvvmttls16_coverage.svh"
+`endif
+`ifdef ZVVMTTLS32_COVERAGE
+  `include "Zvvmttls32_coverage.svh"
+`endif
+`ifdef ZVVMTTLS64_COVERAGE
+  `include "Zvvmttls64_coverage.svh"
+`endif
+`ifdef ZVVMTTLS8_COVERAGE
+  `include "Zvvmttls8_coverage.svh"
 `endif

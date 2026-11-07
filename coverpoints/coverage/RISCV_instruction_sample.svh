@@ -1797,6 +1797,11 @@
             ins.current.inst_category = INST_CAT_STORE;
             ins.add_eff_addr();
         end
+        "v8wmmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
+        end
         "vaadd.vv"     : begin
             ins.add_vd(0);
             ins.add_vs2(1);
@@ -2212,6 +2217,11 @@
             ins.add_vm(3);
             ins.add_v0();
         end
+        "vfmmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
+        end
         "vfmsac.vf"     : begin
             ins.add_vd(0);
             ins.add_fs1(1);
@@ -2375,6 +2385,11 @@
             ins.add_vs2(2);
             ins.add_vm(3);
             ins.add_v0();
+        end
+        "vfqmmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
         end
         "vfrdiv.vf"     : begin
             ins.add_vd(0);
@@ -2609,6 +2624,11 @@
             ins.add_vs2(2);
             ins.add_vm(3);
             ins.add_v0();
+        end
+        "vfwmmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
         end
         "vfwmsac.vf"     : begin
             ins.add_vd(0);
@@ -4249,6 +4269,11 @@
             ins.add_vm(3);
             ins.add_v0();
         end
+        "vmmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
+        end
         "vmnand.mm"     : begin
             ins.add_vd(0);
             ins.add_vs2(1);
@@ -4449,6 +4474,30 @@
             ins.add_vd(0);
             ins.add_vs2(1);
             ins.add_vm(2);
+            ins.add_v0();
+        end
+        "vmtl.v"     : begin
+            ins.add_vd(0);
+            ins.add_rs1(1);
+            ins.add_rs2(2);
+            ins.add_v0();
+        end
+        "vmts.v"     : begin
+            ins.add_vs3(0);
+            ins.add_rs1(1);
+            ins.add_rs2(2);
+            ins.add_v0();
+        end
+        "vmttl.v"     : begin
+            ins.add_vd(0);
+            ins.add_rs1(1);
+            ins.add_rs2(2);
+            ins.add_v0();
+        end
+        "vmtts.v"     : begin
+            ins.add_vs3(0);
+            ins.add_rs1(1);
+            ins.add_rs2(2);
             ins.add_v0();
         end
         "vmul.vv"     : begin
@@ -4685,6 +4734,11 @@
             ins.add_rs1(2);
             ins.add_vm(3);
             ins.add_v0();
+        end
+        "vqmmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
         end
         "vredand.vs"     : begin
             ins.add_vd(0);
@@ -6289,6 +6343,11 @@
             ins.add_vs2(2);
             ins.add_vm(3);
             ins.add_v0();
+        end
+        "vwmmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
         end
         "vwmul.vv"     : begin
             ins.add_vd(0);

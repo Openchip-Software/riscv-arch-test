@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Discover RISC-V compiler capabilities and build compiler flags."""
 
+import importlib.resources
 import re
 import shutil
 import subprocess
@@ -25,7 +26,9 @@ _SINGLE_LETTER_EXTENSION = re.compile(r"[a-z](?:\d+p\d+)?", re.IGNORECASE)
 _MARCH_VERSION = re.compile(r"\d+p\d+$", re.IGNORECASE)
 
 # Extensions that are available only with --enable-experimental-extensions.
-EXPERIMENTAL_EXTENSIONS = frozenset({"Zibi"})
+# The Integrated Matrix Extension (IME) extensions are the extensions that the ACT UDB overlay "ime" defines.
+_IME_OVERLAY_EXT_DIR = Path(str(importlib.resources.files("act"))) / "data" / "udb_overlays" / "ime" / "ext"
+EXPERIMENTAL_EXTENSIONS = frozenset({"Zibi", *(path.stem for path in _IME_OVERLAY_EXT_DIR.glob("*.yaml"))})
 _EXPERIMENTAL_EXTENSIONS_LOWER = frozenset(extension.lower() for extension in EXPERIMENTAL_EXTENSIONS)
 
 

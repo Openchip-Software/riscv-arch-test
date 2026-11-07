@@ -1,0 +1,9 @@
+Instruction,Type,RV32,RV64,ExtraExtensions,EFFEW8,EFFEW16,EFFEW32,EFFEW64,cp_asm_count,cp_vd,cp_vs1,cp_vs2,cr_lambda_lmul,cp_tile_vl,cp_vd_edges,cp_vs1_edges,cp_vs2_edges,cp_csr_frm,cp_csr_fflags,cp_fp_subdot
+vfmmacc.vv,FMMACC,x,x,Zvvfp16mm,,x,,,x,emul16,x,x,x,x,f,f,f,v,voun,
+vfmmacc.vv,FMMACC,x,x,Zvvfp32mm,,,x,,x,emul16,x,x,x,x,f,f,f,v,voun,
+vfmmacc.vv,FMMACC,x,x,Zvvfp64mm,,,,x,x,emul16,x,x,x,x,f,f,f,v,voun,
+vfwmmacc.vv,FMMACC,x,x,Zvvfp16fp32mm,,,x,,x,emul16,x,x,x,x,f,f_emulf2,f_emulf2,v,voun,x
+vfwmmacc.vv,FMMACC,x,x,Zvvbf16fp32mm,,,x,,x,emul16,x,x,x,x,f,f_bf16,f_bf16,v,voun,x
+vfwmmacc.vv,FMMACC,x,x,Zvvfp32fp64mm,,,,x,x,emul16,x,x,x,x,f,f_emulf2,f_emulf2,v,voun,x
+vfqmmacc.vv,FMMACC,x,x,Zvvfp16fp64mm,,,,x,x,emul16,x,x,x,x,f,f_emulf4,f_emulf4,v,voun,x
+vfqmmacc.vv,FMMACC,x,x,Zvvbf16fp64mm,,,,x,x,emul16,x,x,x,x,f,f_bf16,f_bf16,v,voun,x

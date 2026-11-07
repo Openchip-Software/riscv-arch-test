@@ -13,6 +13,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
+# "half" (VLMAX/2) is used only by IME instructions
+VectorLength = int | Literal["vlmax", "random", "half"]
+
 
 class PresetMask(Enum):
     ZEROS = 0
@@ -78,7 +81,7 @@ class InstructionParams:
     # Other Vector Information
     lmul: int | float | None = None
     sew: int | None = None
-    vl: int | Literal["vlmax", "random"] | None = None
+    vl: VectorLength | None = None
     vstart: int | None = None
     vector_suite: Literal["length", "base"] | None = None
     vxrm: str | None = None  # Vector Fixed Point Rounding Mode
@@ -87,6 +90,11 @@ class InstructionParams:
     egs: int | None = None  # Element Group Size
     ignore_vector_safety: bool = False  # Set this to disable vector safety (e.g. allow arbitrary index values)
     vd_different_eew_overlap: bool = False  # A source-dest overlap at different eews are tail and mask agnostic
+    lambda_: int | None = None  # IME vtype.lambda value (1, 2, 4, ..., 64); None selects the smallest supported
+    altfmt_a: bool = False  # IME vtype.altfmt_A; for integer MACC, 1 makes A unsigned
+    altfmt_b: bool = False  # IME vtype.altfmt_B; for integer MACC, 1 makes B unsigned
+    imm_lambda: int | None = None  # IME tile load/store immediate lambda (L1 ... L64); None uses vtype.lambda
+    ld: Literal["x0", "zero", "tight", "padded", "double"] | None = None  # IME tile leading dimension, see tile_type
 
     maskval: str | PresetMask | None = None
 

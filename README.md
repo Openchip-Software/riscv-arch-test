@@ -227,6 +227,10 @@ A [UDB](https://github.com/riscv/riscv-unified-db) configuration file is used to
 
 See [cvw-rv64gc.yaml](./config/cores/cvw/cvw-rv64gc/cvw-rv64gc.yaml) for an example and [the riscv-unified-db repo](https://github.com/riscv/riscv-unified-db) for more details.
 
+ACT ships UDB overlays for extensions that the pinned UDB release does not define yet. They are under [framework/src/act/data/udb_overlays](./framework/src/act/data/udb_overlays). To use one, set `arch_overlay` in the UDB config to the overlay name. For example, `arch_overlay: ime` adds the Zvvm (Integrated Matrix) extensions and the `SUPPORTED_LAMBDA_SEW<n>` parameters.
+
+The overlay files are dual-licensed `BSD-3-Clause-Clear OR Apache-2.0`. BSD-3-Clause-Clear is the license of UDB, so the files can move into riscv-unified-db unchanged. Its text is in [LICENSE.BSD-3-Clause-Clear](./framework/src/act/data/udb_overlays/LICENSE.BSD-3-Clause-Clear).
+
 #### `rvmodel_macros.h` DUT-Specific Macro Implementation
 
 The ACT Framework uses a selection of assembly macros to run DUT-specific code to boot the DUT, print to a console, terminate the test, and trigger interrupts. These macros are defined and explained in detail in the [CTP](https://riscv.github.io/riscv-arch-test/ctp.html#rvmodel-macros).

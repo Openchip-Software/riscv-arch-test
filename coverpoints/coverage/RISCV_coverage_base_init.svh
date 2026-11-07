@@ -70,6 +70,10 @@
         `cover_info("//      ExceptionsVx - Enabled");
         `include "ExceptionsVx_coverage_init.svh"
     `endif
+    `ifdef COVER_EXCEPTIONSZVVM
+        `cover_info("//      ExceptionsZvvm - Enabled");
+        `include "ExceptionsZvvm_coverage_init.svh"
+    `endif
     `ifdef COVER_F
         `cover_info("//      F - Enabled");
         `include "F_coverage_init.svh"
@@ -565,4 +569,68 @@
     `ifdef COVER_ZVKSH
         `cover_info("//      Zvksh - Enabled");
         `include "Zvksh_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVFMM16
+        `cover_info("//      Zvvfmm16 - Enabled");
+        `include "Zvvfmm16_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVFMM32
+        `cover_info("//      Zvvfmm32 - Enabled");
+        `include "Zvvfmm32_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVFMM64
+        `cover_info("//      Zvvfmm64 - Enabled");
+        `include "Zvvfmm64_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVFMM8
+        `cover_info("//      Zvvfmm8 - Enabled");
+        `include "Zvvfmm8_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMM16
+        `cover_info("//      Zvvmm16 - Enabled");
+        `include "Zvvmm16_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMM32
+        `cover_info("//      Zvvmm32 - Enabled");
+        `include "Zvvmm32_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMM64
+        `cover_info("//      Zvvmm64 - Enabled");
+        `include "Zvvmm64_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMM8
+        `cover_info("//      Zvvmm8 - Enabled");
+        `include "Zvvmm8_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMTLS16
+        `cover_info("//      Zvvmtls16 - Enabled");
+        `include "Zvvmtls16_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMTLS32
+        `cover_info("//      Zvvmtls32 - Enabled");
+        `include "Zvvmtls32_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMTLS64
+        `cover_info("//      Zvvmtls64 - Enabled");
+        `include "Zvvmtls64_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMTLS8
+        `cover_info("//      Zvvmtls8 - Enabled");
+        `include "Zvvmtls8_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMTTLS16
+        `cover_info("//      Zvvmttls16 - Enabled");
+        `include "Zvvmttls16_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMTTLS32
+        `cover_info("//      Zvvmttls32 - Enabled");
+        `include "Zvvmttls32_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMTTLS64
+        `cover_info("//      Zvvmttls64 - Enabled");
+        `include "Zvvmttls64_coverage_init.svh"
+    `endif
+    `ifdef COVER_ZVVMTTLS8
+        `cover_info("//      Zvvmttls8 - Enabled");
+        `include "Zvvmttls8_coverage_init.svh"
     `endif

@@ -55,6 +55,7 @@ class VectorTypeConfig:
         egs: Element group size (used in vector crypto instructions)
         index_register: Register used to store index variables (e.g. vs1 for vrgatherei16)
         require_zero_vstart: Nonzero vstart will trap with an illegal instruction exception
+        fixed_emul: Registers whose EMUL does not depend on LMUL (e.g. {"vd": 16} for the IME C register window)
     """
 
     overlap_constraints: set[tuple[str, str]] = field(default_factory=set)
@@ -67,6 +68,7 @@ class VectorTypeConfig:
     egs: int = 1
     index_register: str | None = None
     require_zero_vstart: bool = False
+    fixed_emul: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass

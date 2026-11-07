@@ -82,6 +82,8 @@ function string disassemble (logic [31:0] instrRaw);
 
   // Vector fields
   automatic string  vm    = instr[25] ? "" : ", v0.t";
+  // IME tile load/store immediate lambda: instr[31:29] = log2(lambda) + 1, or 0 for vtype.lambda
+  automatic string  imeL  = (instr[31:29] == 0) ? "" : $sformatf(", L%0d", 1 << (instr[31:29] - 1));
   automatic string  eSEW  = get_vtype_eSEW_name(instr[25:23]);
   automatic string  mLMUL = get_vtype_mLMUL_name(instr[22:20]);
   automatic string  ta    = get_vtype_ta_name(instr[27]);
@@ -1485,6 +1487,21 @@ function string disassemble (logic [31:0] instrRaw);
     VFWMACCBF16_VV:  $sformat(decoded, "vfwmaccbf16.vv %s, %s, %s%s",     vd, vs1, vs2, vm);
     VFWMACCBF16_VF:  $sformat(decoded, "vfwmaccbf16.vf %s, %s, %s%s",     vd, fs1, vs2, vm);
 
+
+    // Integrated Matrix Extension: tile loads and stores
+    VMTL_V:       $sformat(decoded, "vmtl.v %s, (%s), %s%s%s",    vd, rs1, rs2, imeL, vm);
+    VMTTL_V:      $sformat(decoded, "vmttl.v %s, (%s), %s%s%s",   vd, rs1, rs2, imeL, vm);
+    VMTS_V:       $sformat(decoded, "vmts.v %s, (%s), %s%s%s",    vs3, rs1, rs2, imeL, vm);
+    VMTTS_V:      $sformat(decoded, "vmtts.v %s, (%s), %s%s%s",   vs3, rs1, rs2, imeL, vm);
+    // Integrated Matrix Extension: multiply-accumulate (operand order vd, vs1, vs2)
+    VMMACC_VV:    $sformat(decoded, "vmmacc.vv %s, %s, %s",       vd, vs1, vs2);
+    VWMMACC_VV:   $sformat(decoded, "vwmmacc.vv %s, %s, %s",      vd, vs1, vs2);
+    VQMMACC_VV:   $sformat(decoded, "vqmmacc.vv %s, %s, %s",      vd, vs1, vs2);
+    V8WMMACC_VV:  $sformat(decoded, "v8wmmacc.vv %s, %s, %s",     vd, vs1, vs2);
+    VFMMACC_VV:   $sformat(decoded, "vfmmacc.vv %s, %s, %s",      vd, vs1, vs2);
+    VFWMMACC_VV:  $sformat(decoded, "vfwmmacc.vv %s, %s, %s",     vd, vs1, vs2);
+    VFQMMACC_VV:  $sformat(decoded, "vfqmmacc.vv %s, %s, %s",     vd, vs1, vs2);
+    VF8WMMACC_VV: $sformat(decoded, "vf8wmmacc.vv %s, %s, %s",    vd, vs1, vs2);
 
     default: decoded = "illegal";
   endcase
