@@ -8,8 +8,8 @@ Section 16b.
 
 Pins and conventions:
 
-- ACT: `riscv-arch-test` branch `cgomez/import-ime-tests-to-act4` at `a4e9bc82b`, 19 commits on `act4` `8b9ddedcd`.
-  `act4` has moved to `7569d06d6`; the rebase is pending.
+- ACT: `riscv-arch-test` branch `port-ime-tests-to-act4` at `8ada25d12`, 3 commits on `act4` `7569d06d6`.
+  The IME work is one commit, `98595c2a5`.
 - Paths are relative to that repository unless they start with one of these prefixes:
   - `ime-test-gen/`: riscv-ime-arch-tests `46f3781`.
   - `sail/`: the Sail fork `Openchip-Software/sail-riscv`, branch `cgomez/0.16-plus-ime`. The reference model is at
@@ -125,7 +125,7 @@ Why four suites:
 - `vector_map` in `io/templates.py` maps `Zvvfmm8`, `Zvvfmm16` and `Zvvfmm32` to `["Zve32f","F"]`, and `Zvvfmm64` to
   `["Zve64d","F","D"]`.
 - IME suites skip the V widening adjustments of `get_vector_base_extension` (`IME_SUITE_PREFIXES`). In IME, no operand
-  is wider than SEW, so the V rule that raises the base to `Zve64*` does not apply (commit `52a08ff97`).
+  is wider than SEW, so the V rule that raises the base to `Zve64*` does not apply (commit `98595c2a5`).
 
 ### 1.3 Type extensions through `ExtraExtensions`
 
@@ -135,7 +135,7 @@ Why four suites:
 - [ACT] Each `ExtraExtensions` value gets its own `TestConfig`, file prefix and covergroup prefix. Testgen needed no
   change.
 - [Impl] Covergroupgen lost `ExtraExtensions` groups of per-SEW suites. `read_testplans` now copies each group into the
-  SEW variants whose `EFFEW` column selects it (commit `34afab1e9`).
+  SEW variants whose `EFFEW` column selects it (commit `0bb9717a4`).
 - Resulting names: test `tests/rv64i/Zvvmm32/Zvvmm32Zvvi8i32mm-vqmmacc.vv-00.S`, and covergroup
   `Zvvmm32Zvvi8i32mm_vqmmacc_vv_cg` inside `` `ifdef ZVVI8I32MM_SUPPORTED ``.
 - [ACT] `.gitignore` excludes `tests/rv*/Zv*` and `tests/priv/**/*.S`. IME tests are regenerated, not checked in.
@@ -350,7 +350,7 @@ vst_config = InstructionTypeConfig(
 
 ### 3.5 Coverage
 
-[Impl] Step 6 (commit `0c44e37ae`) and earlier steps added:
+[Impl] Step 6 (commit `98595c2a5`) and earlier steps added:
 
 - Sample templates `sample_MMACC.sv`, `sample_FMMACC.sv`, `sample_VLT.sv` and `sample_VST.sv`, and coverpoint templates
   under `generators/coverage/src/covergroupgen/templates/vector/` (privileged ones under `vector/priv/`).
@@ -432,7 +432,7 @@ ime-test-gen crosses λ×LMUL×sign; ACT has one cross (λ×LMUL) and a single `
 `coverpoints/vector/cp_custom_vls.py`. A row that needs a second family extension uses an `ExtraExtensions` colon list
 or a single extra extension.
 
-`cp_custom_tile_crossmode` (commit `4fd96e97a`):
+`cp_custom_tile_crossmode` (commit `98595c2a5`):
 
 - Rows: `vmttl.v` and `vmtts.v` with `ExtraExtensions=Zvvmtls` in `Zvvmttls.csv`. The labelled instruction is the
   transposing one.
@@ -443,7 +443,7 @@ or a single extra extension.
 - Check: read back 2·LMUL registers of the destination with `vle<SEW>.v`. The gaps keep their values.
 - Bins: `lmul<L>_lambda<λ>_ld<nat|pad>`.
 
-`cp_custom_tile_macc` (commit `797fc5784`):
+`cp_custom_tile_macc` (commit `98595c2a5`):
 
 - Rows: the four `vmmacc.vv` rows with `ExtraExtensions=Zvvi<n>mm:Zvvmtls` in `Zvvmm.csv`.
 - Sequence: zero the C window `v16-v31`; `vmtl.v` A into `v0` and B into `v8` with the natural LD; `vmmacc.vv`; store C
@@ -568,7 +568,7 @@ FP rows:
 | `altfmt` for FP output                    | [Spec silent] IME uses the Zvfbfa `altfmt` bit (spec:692-697, 1202). [Sail] Sail has no Zvfbfa, and bit 8 of `vtype` is reserved there.                 | Spec silent; Sail behaviour: `altfmt=1` needs Zvfbfa. Rows with BF16 or E5M2 output list `Zvfbfa` in `ExtraExtensions`.                                                                                                                             |
 | RV32                                      | ime-test-gen and the SDK QEMU support only RV64.                                                                                                        | CSVs set `RV32=x`, and `ime_vtype_value` computes the fields per XLEN. No RV32 configuration exists, so RV32 has not run.                                                                                                                           |
 
-`ExceptionsZvvm` (step 7, commit `a4e9bc82b`, `priv/extensions/ExceptionsZvvm.py`):
+`ExceptionsZvvm` (step 7, commit `98595c2a5`, `priv/extensions/ExceptionsZvvm.py`):
 
 | Coverpoint                      | Rows                        | Case                                                                   |
 | ------------------------------- | --------------------------- | ---------------------------------------------------------------------- |
@@ -587,7 +587,7 @@ Each trap case is guarded by its row's type extension, by ELEN and by the suppor
 
 ## 8. Testplans as implemented
 
-The CSVs are the source. Headers and representative rows at `a4e9bc82b`:
+The CSVs are the source. Headers and representative rows at `98595c2a5`:
 
 `testplans/Zvvmm.csv` (13 integer rows, then 4 `cp_custom_tile_macc` rows):
 
@@ -685,23 +685,22 @@ Zvvmm32Zvvi32mm_vmmacc_vv_cg_cr_lambda_lmul_lambda_2_lmul_2_vl_vlmax:
 
 ## 9. Status
 
-| #   | Step                                                                                                                 | Status                                                                      |
-| --- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 0   | UDB overlay (65 `Zvv*` extensions, `SUPPORTED_LAMBDA_SEW*`); `.insn` macros; `config/ime/qemu-ime-rv64`              | done: `fa3641965`, `85586531e`, `394462f26`                                 |
-| 1   | Slice 1: `Zvvmm.csv` first row, `MMACC`, `cr_lambda_lmul`, `fixed_emul`, `load_ime_vtype`, λ gate; covergroupgen fix | done: `34afab1e9`, `9ef93d17a`                                              |
-| 2   | All 13 integer rows; `cp_vd_emul16`, `cp_vs1/2`, `cp_altfmt`, edges, `cp_tile_vl`                                    | done: `978527c1e`, `ea4f9edd7`, `38c196f92`, `6e9f5b04b`. Open: `ramp` bin. |
-| 3   | `Zvvmtls.csv`: `VLT`, `VST`, `cp_ld`, `cp_imm_lambda`, `cr_tile_vtype_agnostic`                                      | done: `feb5d61a4`                                                           |
-| 3a  | `cp_custom_tile_layout`, `cp_custom_tile_roundtrip` (§4.4)                                                           | open, optional; unblocked by Sail `a545cc41`                                |
-| 3b  | `cp_custom_tile_macc` and the four `Zvvi<n>mm:Zvvmtls` rows                                                          | done: `797fc5784`                                                           |
-| 4   | `Zvvfmm.csv` (8 rows), `FMMACC`, exact FP data, FP edges, `cp_csr_frm_v`, `cp_csr_fflags`, `cp_fp_subdot`            | done: `a25873963`, `e052081f7`, `dd060485c`                                 |
-| 4b  | Mixed FP16/BF16 rows, W=1 BF16, FP `cp_altfmt` bins; `vf8wmmacc.vv` rows; rounding-sensitive data for `cp_csr_frm_v` | open; `vf8wmmacc` available in Sail since `128a5b74`                        |
-| 5   | `Zvvmttls.csv`, run-time natural LD, `cp_custom_tile_crossmode`                                                      | done: `4fd96e97a`                                                           |
-| 6   | Coverage: IME decode, `vtype` fields, templates                                                                      | done: `0c44e37ae`, `07a604f4d`. Open: coverage simulation run.              |
-| 7   | `ExceptionsZvvm` privileged suite                                                                                    | done: `a4e9bc82b`. Open: review VL bins when the ARC draft merges.          |
-| 8   | FP profile parameters (`psm`, `rnd`) and tests that depend on them                                                   | open; needs the disclosure and a Sail change                                |
-| 9   | OFP8, OFP4, BF16 output, microscaling rows; `cp_scale`; `FMMACC_MX`, `MMACC_MX`                                      | open; needs the Sail implementation                                         |
-| —   | Rebase onto `act4` `7569d06d6`                                                                                       | open                                                                        |
-| —   | PR to `act4`                                                                                                         | open; needs user approval to push                                           |
+| #   | Step                                                                                                                 | Status                                                             |
+| --- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| 0   | UDB overlay (65 `Zvv*` extensions, `SUPPORTED_LAMBDA_SEW*`); `.insn` macros; `config/ime/qemu-ime-rv64`              | done: `98595c2a5`, `8ada25d12`                                     |
+| 1   | Slice 1: `Zvvmm.csv` first row, `MMACC`, `cr_lambda_lmul`, `fixed_emul`, `load_ime_vtype`, λ gate; covergroupgen fix | done: `0bb9717a4`, `98595c2a5`                                     |
+| 2   | All 13 integer rows; `cp_vd_emul16`, `cp_vs1/2`, `cp_altfmt`, edges, `cp_tile_vl`                                    | done: `98595c2a5`. Open: `ramp` bin.                               |
+| 3   | `Zvvmtls.csv`: `VLT`, `VST`, `cp_ld`, `cp_imm_lambda`, `cr_tile_vtype_agnostic`                                      | done: `98595c2a5`                                                  |
+| 3a  | `cp_custom_tile_layout`, `cp_custom_tile_roundtrip` (§4.4)                                                           | open, optional; unblocked by Sail `a545cc41`                       |
+| 3b  | `cp_custom_tile_macc` and the four `Zvvi<n>mm:Zvvmtls` rows                                                          | done: `98595c2a5`                                                  |
+| 4   | `Zvvfmm.csv` (8 rows), `FMMACC`, exact FP data, FP edges, `cp_csr_frm_v`, `cp_csr_fflags`, `cp_fp_subdot`            | done: `98595c2a5`                                                  |
+| 4b  | Mixed FP16/BF16 rows, W=1 BF16, FP `cp_altfmt` bins; `vf8wmmacc.vv` rows; rounding-sensitive data for `cp_csr_frm_v` | open; `vf8wmmacc` available in Sail since `128a5b74`               |
+| 5   | `Zvvmttls.csv`, run-time natural LD, `cp_custom_tile_crossmode`                                                      | done: `98595c2a5`                                                  |
+| 6   | Coverage: IME decode, `vtype` fields, templates                                                                      | done: `98595c2a5`. Open: coverage simulation run.                  |
+| 7   | `ExceptionsZvvm` privileged suite                                                                                    | done: `98595c2a5`. Open: review VL bins when the ARC draft merges. |
+| 8   | FP profile parameters (`psm`, `rnd`) and tests that depend on them                                                   | open; needs the disclosure and a Sail change                       |
+| 9   | OFP8, OFP4, BF16 output, microscaling rows; `cp_scale`; `FMMACC_MX`, `MMACC_MX`                                      | open; needs the Sail implementation                                |
+| —   | PR to `act4`                                                                                                         | open; needs user approval to push                                  |
 
 Verification on 2026-11-06, Sail `a545cc41` as reference:
 

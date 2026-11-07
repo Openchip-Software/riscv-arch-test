@@ -20,7 +20,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/` belo
 
 | What                       | Where                                                           | Version                                                                         |
 | -------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| ACT4, code                 | `~/repo/ime/riscv-arch-test`                                    | branch `cgomez/import-ime-tests-to-act4`, 19 commits on `act4` `8b9ddedcd`      |
+| ACT4, code                 | `~/repo/ime/riscv-arch-test`                                    | branch `port-ime-tests-to-act4`, 3 commits on `act4` `7569d06d6`                |
 | ACT4, reports              | `~/repo/ime/riscv-arch-test-docs` (worktree)                    | branch `docs/act-ime-reports`                                                   |
 | Rust generator             | `~/repo/ime/riscv-ime-arch-tests`                               | `46f3781`; generator in `ime-test-gen/`, plans in `src/dsl_plans.rs`            |
 | Sail fork (reference)      | `~/repo/ime/sail-riscv`, Openchip-Software/sail-riscv           | branch `cgomez/0.16-plus-ime` @ `a545cc41` (Sail 0.16 + IME)                    |
@@ -68,7 +68,7 @@ export SAIL_IME_SIM=~/repo/ime/sail-riscv/build-016/c_emulator/sail_riscv_sim
      fixed. No `ignore_bins` or CI exclusions for them.
    - The specification permits several behaviours: tests must not depend on the choice.
    - The specification is silent: follow the Sail code and record "spec silent; Sail behaviour" with a citation.
-3. **Where work goes.** Code on `cgomez/import-ime-tests-to-act4`. Reports on `docs/act-ime-reports` in the docs
+3. **Where work goes.** Code on `port-ime-tests-to-act4`. Reports on `docs/act-ime-reports` in the docs
    worktree. After each meaningful code step, update the reports, rebuild them and commit there. Keep both
    branches rebased on `origin/act4`.
 4. **Commits.** Run `mise run prek` (or `prek run --files <files>`) first. Sign off with `git commit -s`. No AI or
@@ -77,29 +77,16 @@ export SAIL_IME_SIM=~/repo/ime/sail-riscv/build-016/c_emulator/sail_riscv_sim
 
 ## 5. Current implementation
 
-Commits on `cgomez/import-ime-tests-to-act4`:
+Commits on `port-ime-tests-to-act4`, on `act4` `7569d06d6`:
 
-| Commit      | What                                                                                                           |
-| ----------- | -------------------------------------------------------------------------------------------------------------- |
-| `fa3641965` | UDB overlay `framework/src/act/data/udb_overlays/ime`: 65 Zvv\* extensions, `SUPPORTED_LAMBDA_SEW{8,16,32,64}` |
-| `85586531e` | Zvv\* experimental; `.insn` macros for every IME instruction in `tests/env/rvtest_experimental.h`              |
-| `394462f26` | DUT configuration `config/ime/qemu-ime-rv64`: SDK QEMU as DUT, Sail IME as reference; CI disabled              |
-| `34afab1e9` | covergroupgen: `ExtraExtensions` rows in per-SEW testplans get covergroups, filtered by `EFFEW`                |
-| `9ef93d17a` | `Zvvmm.csv` first row, `MMACC` formatter, `cr_lambda_lmul`, `fixed_emul`, `load_ime_vtype`, λ gate             |
-| `978527c1e` | The 13 integer rows of `Zvvmm.csv`                                                                             |
-| `ea4f9edd7` | `cp_vd_emul16`, `cp_vs1`, `cp_vs2`, `cp_altfmt`; λ chain for coverpoints that do not choose λ                  |
-| `38c196f92` | `cp_vd_edges`, `cp_vs1_edges`, `cp_vs2_edges` (`emulf2/4/8` for W>1, 4-bit edges for Int4)                     |
-| `6e9f5b04b` | `cp_tile_vl`                                                                                                   |
-| `feb5d61a4` | `Zvvmtls.csv`, `VLT`/`VST` formatters, `cp_ld`, `cp_imm_lambda`, `cr_tile_vtype_agnostic`                      |
-| `797fc5784` | `cp_custom_tile_macc` on four `vmmacc.vv` rows with `ExtraExtensions=Zvvi<n>mm:Zvvmtls`                        |
-| `52a08ff97` | IME suites keep their base extension: no Zve64\* for `vw*`/`vfw*` at SEW=32                                    |
-| `a25873963` | `Zvvfmm.csv` (8 rows), `FMMACC` formatter, exact FP data                                                       |
-| `e052081f7` | FP edges (`f`, `f_emulf2`, `f_emulf4`, `f_bf16`), `cp_csr_frm_v`, `cp_csr_fflags_voun`                         |
-| `dd060485c` | `cp_fp_subdot` on the W>1 rows                                                                                 |
-| `4fd96e97a` | `Zvvmttls.csv`, run-time natural LD for transposing tiles, `cp_custom_tile_crossmode`                          |
-| `0c44e37ae` | IME encodings in `RISCV_decode_pkg.svh` and `disassemble()`                                                    |
-| `07a604f4d` | Regenerated IME covergroups after a rebase                                                                     |
-| `a4e9bc82b` | Privileged suite `ExceptionsZvvm` (`testplans/priv/ExceptionsZvvm.csv`, `priv/extensions/ExceptionsZvvm.py`)   |
+| Commit      | What                                                                                                                        |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `0bb9717a4` | covergroupgen: `ExtraExtensions` rows in per-SEW testplans get covergroups, filtered by `EFFEW`                             |
+| `98595c2a5` | All IME support and suites: UDB overlay, `.insn` macros, decode, `Zvvmm`, `Zvvfmm`, `Zvvmtls`, `Zvvmttls`, `ExceptionsZvvm` |
+| `8ada25d12` | DUT configuration `config/ime/qemu-ime-rv64`: SDK QEMU as DUT, Sail IME as reference; Openchip fork only                    |
+
+The 19 development commits were squashed on 2026-11-07 for the upstream pull request. The old tip,
+`d04c420d2`, is kept only in the local reflog.
 
 Suites. Each unprivileged suite expands per SEW (`Zvvmm8` … `Zvvmm64`), like `Vx`:
 
@@ -203,7 +190,6 @@ Other facts:
 
 | Step                                                                                                 | Depends on            |
 | ---------------------------------------------------------------------------------------------------- | --------------------- |
-| Rebase both branches onto `act4` (now at `7569d06d6`, 14 commits ahead)                              | —                     |
 | File the W>1 partial-sum Sail issue (draft ready)                                                    | —                     |
 | Step 3a: `cp_custom_tile_layout` and `cp_custom_tile_roundtrip` (tile layout at LMUL>1, design §4.4) | —                     |
 | `ramp` bin of the integer MACC rows                                                                  | —                     |
