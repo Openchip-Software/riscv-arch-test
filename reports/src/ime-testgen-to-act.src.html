@@ -125,11 +125,12 @@
     <div class="meta">
       riscv-ime-arch-tests @ <code>46f3781</code><br />
       riscv-arch-test <code>act4</code> @ <code>aadb742</code><br />
-      Sail IME fork @ <code>efd0d7dc</code>, <code>c69e3e22</code><br />
+      Sail IME fork @ <code>efd0d7dc</code>, <code>c69e3e22</code>,
+      <code>a545cc41</code><br />
       IME spec @ <code>6effbcae</code><br />
-      ACT import branch @ <code>394462f26</code><br />
+      ACT import branch @ <code>a4e9bc82b</code><br />
       SDK 2026.10.14 · QEMU 10.2.50<br />
-      Written 2026-10-23, updated 2026-10-27
+      Written 2026-10-23, updated 2026-11-07
     </div>
   </aside>
 
@@ -197,27 +198,16 @@
             >
             For MACC (matrix multiply-accumulate) tests, the IR uses only
             target-neutral operations: tile load, tile zero, mmacc, tile store
-            and compare. My proof of concept, <code>ir2act.py</code>, converts
-            that IR into ACT test files. ACT built them with the IME Sail fork
-            as reference model, and they ran on two DUTs.
-            <span class="ev run">run</span>
+            and compare. A proof of concept converted that IR into ACT test
+            files. ACT built them with the IME Sail fork as reference model, and
+            they ran on two DUTs (Section 15). <span class="ev run">run</span>
           </li>
           <li>
             <strong>The proof of concept found a model disagreement.</strong>
-            <ul>
-              <li>With the Sail fork as DUT, all 6 test files pass.</li>
-              <li>With the SDK QEMU as DUT, all 6 fail.</li>
-              <li>
-                QEMU and the Rust golden model agree with each other; the Sail
-                fork stores the C tile transposed.
-              </li>
-              <li>
-                QEMU and the Rust golden model match the specification. The Sail
-                fork's <code>vmtl.v</code> and <code>vmts.v</code> index
-                register elements without <code>tile_reg_idx</code>.
-              </li>
-            </ul>
-            <span class="ev run">run</span> <span class="ev code">code</span>
+            The Sail fork's <code>vmtl.v</code> and <code>vmts.v</code> indexed
+            register elements without <code>tile_reg_idx</code>, so Sail stored
+            the C tile transposed. Fork commit <code>a545cc41</code> fixed it
+            (Section 16). <span class="ev run">run</span>
           </li>
           <li>
             <strong>Recommendation.</strong>
@@ -228,21 +218,25 @@
               </li>
               <li>
                 <em>Target:</em> port the tests to native ACT testplans and
-                coverpoints (option C). Section 16b designs them, including
-                tests that detect the Sail tile-index bug, which a round trip
-                hides.
+                coverpoints (option C). Section 16b designs them. The branch
+                implemented this option directly (Section 16a).
               </li>
               <li>
                 <em>Throughout:</em> keep the Rust golden model as a
                 differential check against Sail.
               </li>
             </ul>
-            One blocker remains: the C-tile disagreement. A reproducer, a draft
-            issue and a tested Sail patch are ready. The fix is not yet merged
-            in the fork. A second draft issue covers the Sail fork's W&gt;1 FP
-            accumulation, which also contradicts the specification (Section
-            16b). The other blockers are resolved (Section 16a):
+            No blocker remains. Two Sail deviations from the specification make
+            bins fail: <code>EMUL_C</code>=16 in the MACC (filed as
+            <a href="https://github.com/Openchip-Software/sail-riscv/issues/10"
+              >sail-riscv#10</a
+            >) and the W&gt;1 FP accumulation (draft issue). The blockers are
+            resolved (Section 16a):
             <ul>
+              <li>
+                C-tile disagreement: fixed in the Sail fork by
+                <code>a545cc41</code> (Section 16).
+              </li>
               <li>
                 Sail version gate and schema: branch
                 <code>cgomez/0.16-plus-ime</code> puts the IME commits on the
@@ -263,6 +257,16 @@
                 (<code>394462f26</code>).
               </li>
             </ul>
+          </li>
+          <li>
+            <strong>Current implementation.</strong> Nineteen commits on the
+            import branch add native testplans for the four IME families, the
+            <code>ExceptionsZvvm</code> privileged suite and IME decoding in
+            coverage. With Sail <code>a545cc41</code> as reference, every
+            <code>Zvvmm</code>, <code>Zvvfmm</code> and <code>Zvvmtls</code>
+            file passes on the SDK QEMU except the 5 SEW=16 files, which hit
+            <code>EMUL_C</code>=16. The work plan is in Section 17.
+            <span class="ev run">run</span>
           </li>
           <li>
             <strong>Source of truth.</strong> Since 2026-10-27, the IME
@@ -1083,8 +1087,8 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
                 <code>sail.json</code> fails only on the missing
                 <code>Zvvmm</code>, <code>Zvvfmm</code>,
                 <code>Zvvmtls</code> and <code>Zvvmttls</code> blocks. The fork
-                from <code>efd0d7dc</code> had 7 schema errors.
-                <code>make_sail_json.py</code> adds the IME blocks (Section 15).
+                from <code>efd0d7dc</code> had 7 schema errors. Each IME DUT
+                configuration adds the IME blocks to its <code>sail.json</code>.
               </td>
               <td><span class="ev run">run</span></td>
             </tr>
@@ -1157,23 +1161,14 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <td class="num">6</td>
               <td>The reference model agrees with the other implementations</td>
               <td>
-                <strong>No: blocking.</strong> The Sail fork stores the C tile
-                transposed relative to QEMU and the Rust golden model. Its
-                <code>vmtl.v</code> and <code>vmts.v</code> skip
-                <code>tile_reg_idx</code>, so they violate the specification
-                whenever LMUL&gt;1 (Section 16). The bug is still present at
-                <code>c69e3e22</code>. A reproducer, a draft issue and a patch
-                are in
-                <a
-                  href="issues/sail-ime-tile-ls-index/sail-ime-tile-ls-index.html"
-                  ><code>issues/sail-ime-tile-ls-index/</code></a
-                >. The patched Sail matches QEMU on every step of the
-                reproducer. The fix is not merged in the fork (Section 16a). The
-                specification decides this conflict (Section 16b); QEMU's
-                agreement with it is corroboration, not the basis. The Sail fork
-                also contradicts the specification for W&gt;1 FP accumulation
-                and for λ legality. Those deviations make bins fail but do not
-                block the integration (work items 10 and 11).
+                <strong>Yes, with two open deviations.</strong> The Sail fork
+                stored the C tile transposed, because its
+                <code>vmtl.v</code> and <code>vmts.v</code> skipped
+                <code>tile_reg_idx</code>. <code>a545cc41</code> fixed it
+                (Section 16). The Sail fork still contradicts the specification
+                for W&gt;1 FP accumulation and for <code>EMUL_C</code>=16. Those
+                deviations make bins fail but do not block the integration (work
+                items 10 and 11).
               </td>
               <td><span class="ev run">run</span></td>
             </tr>
@@ -1230,10 +1225,12 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <td class="num">9</td>
               <td>Coverage decoder</td>
               <td>
-                <strong>No.</strong> <code>disassemble.svh</code> and
-                <code>RISCV_imported_decode_pkg.svh</code> (from riscv-opcodes)
-                lack the IME encodings. RVVI has no field for the IME
-                <code>vtype</code> state.
+                <strong>Yes.</strong> <code>RISCV_imported_decode_pkg.svh</code>
+                (from riscv-opcodes) lacks the IME encodings. The handwritten
+                <code>RISCV_decode_pkg.svh</code> adds them, and
+                <code>get_csr_val</code> decodes the IME <code>vtype</code>
+                fields (<code>0c44e37ae</code>). The coverage simulation has not
+                run.
               </td>
               <td><span class="ev code">code</span></td>
             </tr>
@@ -1472,18 +1469,16 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
           </li>
           <li>
             <strong>Behaviour outside IME: matches 0.16.</strong> I filled the
-            missing keys from the fork's defaults with
-            <code>make_sail_json.py</code>. ACT at <code>aadb742</code> then
-            built and ran the I suite with the real binary: 51 of 51 passed, and
-            all 51 <code>.results</code> files are byte-identical to official
-            Sail 0.16. <span class="ev run">run</span>
+            missing keys from the fork's defaults. ACT at
+            <code>aadb742</code> then built and ran the I suite with the real
+            binary: 51 of 51 passed, and all 51 <code>.results</code> files are
+            byte-identical to official Sail 0.16.
+            <span class="ev run">run</span>
           </li>
           <li>
             <strong>IME: the tile load/store bug remains.</strong>
             <code>ime_mem_insts.sail</code> lines 73–90 and 160 still use the
-            flat index. The proof of concept gives the same result as before:
-            the Sail fork as DUT passes 6 of 6, QEMU as DUT fails 6 of 6, and
-            4312 of 4480 checks differ from the Rust golden model.
+            flat index. <code>a545cc41</code> fixed it later (Section 16).
             <span class="ev run">run</span>
           </li>
           <li>
@@ -1497,7 +1492,8 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
           Fix: rebase the 7 IME commits onto the <code>0.16</code> tag
           (<code>e5acebb0</code>) instead of <code>master</code>.
           <strong>Done</strong> on branch <code>cgomez/0.16-plus-ime</code>; see
-          the next update. Separately, fix the tile load/store indexing.
+          the next update. The tile load/store indexing is fixed in
+          <code>a545cc41</code>.
         </p>
       </div>
       <div class="note">
@@ -1557,10 +1553,9 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
           <li>
             <strong>Schema: compatible.</strong> The unmodified
             <code>sail-rv64-max</code> <code>sail.json</code> at
-            <code>8b9ddedcd</code> fails only on the 4 missing IME blocks.
-            <code>make_sail_json.py --no-ime</code> adds exactly those 4 blocks,
-            and the file then validates. 63 of the 64 non-symlink ACT
-            <code>sail.json</code> files pass the same check, at
+            <code>8b9ddedcd</code> fails only on the 4 missing IME blocks. With
+            exactly those 4 blocks added, the file validates. 63 of the 64
+            non-symlink ACT <code>sail.json</code> files pass the same check, at
             <code>8b9ddedcd</code> and at <code>origin/act4</code>
             <code>c509bcd60</code>. The exception,
             <code>cores/cva6/cv32a65x</code>, fails with the same 28 errors on
@@ -1582,6 +1577,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               >ime_mem_insts.sail</code
             >
             lines 73–90 and 160), not with <code>ime_tile_reg_idx</code>.
+            <code>a545cc41</code> fixed it later.
             <span class="ev code">code</span>
           </li>
           <li>
@@ -1614,9 +1610,8 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <code>cgomez/0.16-plus-ime</code> (<code>c69e3e22</code>).
             </li>
             <li>
-              Fix the tile load/store indexing (Section 16). A reproducer, a
-              draft issue and a tested patch are ready (Section 16a). The fix is
-              not yet merged in the fork.
+              Fix the tile load/store indexing. Done: <code>a545cc41</code>
+              (Section 16).
             </li>
             <li>
               Keep the IME extensions experimental. Done in ACT:
@@ -1624,23 +1619,20 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
               <code>--enable-experimental-extensions</code>.
             </li>
           </ul>
-          Until the fix is merged, ACT's expected values are wrong for every IME
-          test that stores a tile at LMUL&gt;1.
         </li>
         <li>
           <strong>Bring up with option B.</strong> Check in the MACC IR for a
           chosen VLEN set, and import it with a <code>testgen</code> module.
-          That module would be a production version of <code>ir2act.py</code>.
-          This gives ACT runnable IME tests quickly. It also exercises the DUT
-          configurations, wrappers and Sail. The first DUT configuration,
-          <code>config/ime/qemu-ime-rv64</code>, exists
-          (<code>394462f26</code>).
+          That module would be a production version of the proof-of-concept
+          converter (Section 15). This gives ACT runnable IME tests quickly. It
+          also exercises the DUT configurations, wrappers and Sail. The import
+          branch skipped this step and went directly to option C (Section 16a).
         </li>
         <li>
           <strong>Keep the Rust golden model as a differential check.</strong>
           In the bring-up phase, compare each Sail signature with the Rust
-          references, as <code>crosscheck.py</code> does. That comparison found
-          the C-tile disagreement on its first run.
+          references, as the proof of concept did. That comparison found the
+          C-tile disagreement on its first run.
         </li>
         <li>
           <strong>Converge on option C.</strong> Express each sweep dimension as
@@ -1650,6 +1642,7 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
           Write a formatter that emits the tile-load, mmacc and tile-store
           sequence, and add covergroup templates for it. Coverage then shows
           which configurations a DUT run exercised. That is the ACT convention.
+          <strong>Done</strong> for the rows Sail implements (Section 16a).
         </li>
         <li>
           <strong>Add UDB definitions.</strong> <strong>Done</strong> in ACT as
@@ -1798,417 +1791,44 @@ for (int i = 0; i &lt; 64; ++i) if (C_result[i] != C_ref[i]) { record_fail(…);
       </div>
 
       <h2 id="poc"><span class="n">15</span>Proof of concept</h2>
-      <figure class="wide">
-        <div class="frame"><!--@FIG:g4-poc--></div>
-        <figcaption>
-          <b>Figure 4.</b> One IR, one ACT build, two DUTs, plus a cross-check
-          of Sail against the Rust golden model.
-        </figcaption>
-      </figure>
-      <h3>Files</h3>
       <p>
-        All files are under <code>~/tools/act4/ime-poc/</code>, outside both
-        repositories.
+        A proof of concept converted the ime-test-gen IR of the integer MACC
+        family into ACT test files: 112 IR tests at VLEN 256, in 6 files. ACT
+        built them with the IME Sail fork as reference model and ran them on two
+        DUTs. It showed three things. ACT builds and checks IME tests without
+        changes to <code>act</code>. The IR carries enough information to
+        produce ACT tests. ACT reports a reference-model disagreement as a DUT
+        failure: QEMU failed all 6 files, and that failure exposed the Sail
+        tile-index bug (Section 16). <span class="ev run">run</span>
       </p>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>File</th>
-              <th>Purpose</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>ir2act.py</code></td>
-              <td>
-                IR → ACT test files: 220 lines of Python. It supports the
-                integer MACC actions and refuses other actions with a reason.
-              </td>
-            </tr>
-            <tr>
-              <td><code>make_sail_json.py</code></td>
-              <td>
-                Converts ACT's 0.16 <code>sail.json</code> to the fork's schema.
-                It enables <code>Zvvmm</code>, <code>Zvvmtls</code> and
-                <code>Zvvmttls</code> and sets <code>vlen_exp</code> to 8.
-              </td>
-            </tr>
-            <tr>
-              <td><code>bin/riscv64-ime-{gcc,as,objdump,nm}</code></td>
-              <td>
-                Run the SDK tools through <code>apptainer exec</code>. The
-                <code>gcc</code> wrapper answers
-                <code>-print-prog-name=as</code> with the path of the host-side
-                <code>as</code> wrapper.
-              </td>
-            </tr>
-            <tr>
-              <td><code>bin/sail_ime_sim</code></td>
-              <td>
-                Runs the IME Sail fork, which reports <code>0.14.1</code>, and
-                answers <code>--version</code> with <code>0.16</code>. This
-                bypasses ACT's version gate and is for the proof of concept
-                only.
-              </td>
-            </tr>
-            <tr>
-              <td><code>config/{sail,qemu}-ime-rv64/</code></td>
-              <td>
-                DUT configurations copied from <code>sail-rv64-max</code> and
-                <code>qemu-rv64-max</code>. UDB is set to
-                <code>VLEN: 256</code> with <code>Zvl512b</code> and
-                <code>Zvl1024b</code> removed; UDB validation rejects the
-                configuration otherwise.
-              </td>
-            </tr>
-            <tr>
-              <td><code>crosscheck.py</code></td>
-              <td>
-                Compares each Sail <code>.sig</code> with the Rust golden
-                values.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <h3>Commands</h3>
-      <pre
-        class="cmd"
-      ><span class="line">ime-test-gen --vlen 256 --fma --test-pattern TC-MACC --emit-ir &gt; macc-v256.ir.json</span>
-<span class="line">python3 ir2act.py macc-v256.ir.json -o tests          # tests/env -&gt; riscv-arch-test/tests/env</span>
-<span class="line">uv run act config/sail-ime-rv64/test_config.yaml --test-dir tests --workdir work --extensions Zvvmm --enable-experimental-extensions</span>
-<span class="line">./run_tests.py "$(cat config/sail-ime-rv64/run_cmd.txt)" work/sail-ime-rv64/elfs</span>
-<span class="line">uv run act config/qemu-ime-rv64/test_config.yaml --test-dir tests --workdir work --extensions Zvvmm --enable-experimental-extensions</span>
-<span class="line">./run_tests.py "$(cat config/qemu-ime-rv64/run_cmd.txt)" work/qemu-ime-rv64/elfs</span>
-<span class="line">python3 crosscheck.py tests work/sail-ime-rv64/build</span></pre>
-      <h3>Emitted ACT testcase</h3>
-      <pre
-        data-label="tests/rv64i/Zvvmm/Zvvmm-TC-MACC-01-V256-00.S (first testcase, abridged)"
-      ><span class="c">##### START_TEST_CONFIG #####
-# REQUIRED_EXTENSIONS: ['V']
-# params:
-#   MXLEN: 64
-#   VLEN: 256
-# MARCH: rv64iv_zicsr_zifencei_zvmma
-##### END_TEST_CONFIG #####</span>
-#define SIGUPD_COUNT 330
-#include "riscv_arch_test.h"
-RVTEST_BEGIN
-<span class="c"># Testcase TC-MACC-01.e32.L1.m1.SS.V256: TC-MACC-01 [e32 lambda=1 LMUL=1 SS]</span>
-  LI(x6, 8)
-  LI(x7, 0x1000000000000010)  <span class="c"># A_load: e32 m1 lambda=1</span>
-  vsetvl x9, x6, x7
-  LA(x8, TC_MACC_01_e32_L1_m1_SS_V256_A_mem)
-  LI(x9, 1)
-  vmtl.v v0, (x8), x9
-  <span class="c">…B_load, C_init…</span>
-<span class="hl">Zvvmm_vmmacc_vv_cg_TC_MACC_01_e32_L1_m1_SS_V256:</span>
-  vmmacc.vv v16, v0, v8
-  <span class="c">…C_store: vmts.v v16, (x8), x9 with ld=8…</span>
-  lw x10, 0(x8)
-  RVTEST_SIGUPD(x2, x5, x4, x10, Zvvmm_vmmacc_vv_cg_TC_MACC_01_e32_L1_m1_SS_V256, …_str)
-  addi x8, x8, 4
-  <span class="c">… 63 more element checks …</span></pre>
-      <h3>Results</h3>
-      <div class="kv">
-        <div>
-          <div class="k">IR tests</div>
-          <div class="v">112</div>
-        </div>
-        <div>
-          <div class="k">Test files</div>
-          <div class="v">6</div>
-        </div>
-        <div>
-          <div class="k">Checks</div>
-          <div class="v">4480</div>
-        </div>
-        <div>
-          <div class="k">Build tasks</div>
-          <div class="v">30</div>
-        </div>
-        <div>
-          <div class="k">Build time</div>
-          <div class="v">6.7 s</div>
-        </div>
-      </div>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Step</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Convert</td>
-              <td>
-                112 of 112 IR tests converted, none skipped
-                <span class="ev run">run</span>
-              </td>
-            </tr>
-            <tr>
-              <td>Build with the Sail fork as reference</td>
-              <td>
-                <code>✓ Build complete: 30 succeeded</code>. It needed
-                <code>--enable-experimental-extensions</code>; without it, the
-                signature run trapped on <code>vmtl.v</code>
-                <span class="ev run">run</span>
-              </td>
-            </tr>
-            <tr>
-              <td>DUT = Sail fork</td>
-              <td>
-                <span class="ev run">run</span>
-                <code>RESULT: All 6 tests passed.</code> This only shows that
-                Sail agrees with itself.
-              </td>
-            </tr>
-            <tr>
-              <td>DUT = SDK QEMU</td>
-              <td>
-                <span class="ev run">run</span>
-                <code>RESULT: 6 failed, 0 passed out of 6 tests.</code> First
-                failure: <code>Bad Value: 0x0a</code>,
-                <code>Expected Value: 0x12</code>
-              </td>
-            </tr>
-            <tr>
-              <td>Sail versus the Rust golden model</td>
-              <td>
-                <span class="ev run">run</span> 4312 of 4480 checks differ. For
-                the 8×8 case, Sail's C equals the exact transpose of the Rust C.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <pre
-        data-label="work/qemu-ime-rv64/logs/rv64i/Zvvmm/Zvvmm-TC-MACC-01-V256-00.log"
-      ><span class="bad">RVCP-SUMMARY: TEST FAILED - Test File "Zvvmm-TC-MACC-01-V256-00.S"</span>
-RVCP: Test Info: "test: TC-MACC-01.e32.L1.m1.SS.V256; cg: Zvvmm_vmmacc_vv_cg; cp: TC_MACC_01; bin: e32_L1_m1_SS_V256"
-RVCP: Instruction: 0xe2800857
-RVCP: Register: x10
-RVCP: Bad Value:      0x000000000000000a      <span class="c"># QEMU: A[0]·B[1] = 1·10</span>
-RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0] = 2·9</span></pre>
-      <p>The proof of concept shows three things:</p>
-      <ul>
-        <li>
-          ACT's existing machinery builds and checks IME tests without changes
-          to <code>act</code>. The changes are all outside: wrappers,
-          configurations and a Sail flag.
-        </li>
-        <li>The IR carries enough information to produce ACT tests.</li>
-        <li>
-          ACT's check correctly reports a reference-model disagreement as a DUT
-          failure. That disagreement must be resolved before any IME result from
-          ACT can be trusted.
-        </li>
-      </ul>
+      <p>
+        The proof of concept is superseded. The DUT configuration
+        <code>config/ime/qemu-ime-rv64</code> and the native testplans of
+        Section 16a replace its configurations, wrappers and converted tests.
+      </p>
 
       <h2 id="ctile"><span class="n">16</span>C-tile disagreement</h2>
-      <div class="note bad">
-        <span class="tag">Verdict</span>
-        <p>
-          <strong
-            >The Sail fork does not conform to the specification. QEMU and the
-            Rust golden model do.</strong
-          >
-          The cause is in the fork's tile load and store, not in
-          <code>vmmacc.vv</code>. The fork's <code>vmtl.v</code> and
-          <code>vmts.v</code> address register elements with the flat index
-          <code>i</code>. The specification requires
-          <code>tile_reg_idx(i, LMUL, λ, epr)</code>.
-          <span class="ev code">code</span>
-        </p>
-        <p>
-          The specification is the source of truth (Section 16b), so the Sail
-          fork is wrong. That QEMU and the golden model agree with the
-          specification corroborates the verdict but does not decide it.
-        </p>
-      </div>
-      <h3>What the specification says</h3>
       <p>
-        The source is <code>riscv/integrated-matrix-extension</code> @
-        <code>6effbcae</code> (2026-08-04), file
-        <code>src/integrated-matrix.adoc</code>.
-      </p>
-      <ul>
-        <li>
-          <code
-            >tile_reg_idx(i, LMUL, λ, epr) = (eil/λ)·epr + line·λ + eil%λ</code
-          >, where <code>line = i/(λ·LMUL)</code> and
-          <code>eil = i%(λ·LMUL)</code> (lines 4249–4256).
-        </li>
-        <li>
-          <code
-            >mat_C_idx(i, j) = tile_reg_idx(i·N_max + j, EMUL_C, λ, epr_C)</code
-          >
-          (lines 4259–4276).
-        </li>
-        <li>
-          <code>vmtl.v</code> and <code>vmts.v</code> both compute
-          <code>flat_idx = tile_reg_idx(i, LMUL, λ, epr)</code> and
-          <code>mem_off = (i/linesize)·LD + i%linesize</code> (lines 5925–5929
-          and 6055–6059). The store is therefore the exact inverse of the load.
-        </li>
-      </ul>
-      <h3>Hand computation for TC-MACC-01 (VLEN 256, e32, λ=1, epr=8)</h3>
-      <ol>
-        <li>
-          Both loads run at LMUL=1, where
-          <code>tile_reg_idx(i,1,1,8) = i</code>. So
-          <code>v0[i] = A[i]</code> and <code>v8[j] = B[j]</code>.
-        </li>
-        <li>
-          The geometry is <code>K_eff = 1</code>, <code>M = N_max = 8</code>,
-          <code>EMUL_C = 8</code>. C occupies <code>v16</code>–<code>v23</code>.
-        </li>
-        <li>
-          <code>mat_C_idx(i, j) = tile_reg_idx(8i+j, 8, 1, 8) = 8j + i</code>,
-          so element <code>i</code> of register <code>v(16+j)</code> holds
-          A[i]·B[j].
-        </li>
-        <li>
-          <code>vmts.v</code> at LMUL=8 with <code>ld = 8</code> reads
-          <code>flat = (n%8)·8 + n/8</code> and writes <code>mem_off = n</code>.
-          So <code>C_mem[n] = A[n/8]·B[n%8]</code>.
-        </li>
-      </ol>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Implementation</th>
-              <th><code>C_mem[0..9]</code></th>
-              <th>Conforms</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                Specification @ <code>6effbcae</code> (and the SAIL code at
-                <code>c52ee38a</code>)
-              </td>
-              <td><code>9, 10, 11, 12, 13, 14, 15, 16, 18, 20</code></td>
-              <td>—</td>
-            </tr>
-            <tr>
-              <td>SDK QEMU (<code>x-zvvm=true</code>)</td>
-              <td>
-                <code>9, 10, 11, 12, 13, 14, 15, 16, 18, 20</code>
-                <span class="ev run">run</span>
-              </td>
-              <td>Yes</td>
-            </tr>
-            <tr>
-              <td>Rust golden model (<code>C_ref</code>)</td>
-              <td>
-                <code>9, 10, 11, 12, 13, 14, 15, 16, 18, 20</code>
-                <span class="ev run">run</span>
-              </td>
-              <td>Yes</td>
-            </tr>
-            <tr>
-              <td>Sail fork @ <code>efd0d7dc</code></td>
-              <td>
-                <code>9, 18, 27, 36, 45, 54, 63, 72, 10, 20</code>
-                <span class="ev run">run</span>
-              </td>
-              <td>No</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <h3>Cause in the Sail fork</h3>
-      <ul>
-        <li>
-          <code>model/extensions/IME/ime_mem_insts.sail</code>, lines 66–83:
-          <code>vmtl.v</code> calls
-          <code>write_single_element(SEW, i, vd, …)</code>.
-        </li>
-        <li>
-          Line 145 of the same file: <code>vmts.v</code> calls
-          <code>read_single_element(SEW, i, vs3)</code>.
-        </li>
-        <li>
-          Both should index with
-          <code>ime_tile_reg_idx(i, LMUL, λ, VLEN/SEW)</code>. That helper
-          exists at <code>ime_utils.sail:98-106</code> and matches the
-          specification.
-        </li>
-        <li>
-          The fork's <code>vmmacc.vv</code> (<code>ime_mat_C_idx</code>) also
-          matches the specification.
-        </li>
-        <li>
-          The flat index came in with <code>3eac5af4</code>. The later commit
-          <code>73911c38</code> changed only the FP A/B indexing for W&gt;1 and
-          is not involved.
-        </li>
-      </ul>
-      <p>
-        The bug is invisible when λ·LMUL = λ, which means LMUL=1. It is also
-        invisible when a test loads and stores with the same geometry, because
-        both sides then apply the same wrong mapping. The fork's first-party
-        tests load tiles at LMUL=1. <code>test_ime_vmmacc.S</code> reads C back
-        with <code>vse32.v</code> in flat register order (line 71), not with
-        <code>vmts.v</code>. So no fork test runs <code>vmts.v</code> at
-        LMUL&gt;1. <span class="ev code">code</span> Only a MACC result stored
-        at LMUL&gt;1 exposes the bug, and that is exactly what every C store in
-        the MACC families does.
-      </p>
-      <div class="note">
-        <span class="tag">History</span>
-        <ul>
-          <li>
-            <code>ca78f499</code> (2026-05-01) changed
-            <code>mat_C_idx</code> from <code>j·M+i</code> to
-            <code>i·M+j</code>, titled "C matrix is store in row-major order in
-            VRs".
-          </li>
-          <li>
-            <code>c52ee38a</code>, the commit <code>vtype.h</code> cites, has
-            the new SAIL code, but its prose still said "column-major register
-            layout".
-          </li>
-          <li><code>e9ce69a0</code>, 7 minutes later, aligned the prose.</li>
-        </ul>
-        <p>
-          Since then the specification has been unambiguous. The Sail fork's
-          output happens to equal the pre-<code>ca78f499</code> layout, but it
-          gets there through the load/store bug, not through
-          <code>mat_C_idx</code>.
-        </p>
-      </div>
-      <p>
-        Consequence for ACT: an ACT build with the fork as reference model
-        embeds wrong expected values for every MACC test with an accumulator
-        LMUL above 1. A conforming DUT then fails those tests. Fixing lines
-        66–83 and 145 of <code>ime_mem_insts.sail</code> is the first item of
-        the work plan.
+        The Sail fork's <code>vmtl.v</code> and <code>vmts.v</code> addressed
+        register elements with the flat index <code>i</code>. The specification
+        requires <code>tile_reg_idx(i, LMUL, λ, epr)</code> (spec:4249–4256,
+        spec:5925–5929). At LMUL&gt;1, Sail therefore stored the C tile
+        transposed relative to the specification, QEMU and the Rust golden
+        model. Fork commit <code>a545cc41</code> fixed it (fork issue #3). The
+        <code>cp_custom_tile_macc</code> tests now pass on QEMU with Sail as
+        reference. <span class="ev run">run</span>
       </p>
 
       <h2 id="bringup">
-        <span class="n">16a</span>Bring-up in the ACT repository, 2026-10-26
+        <span class="n">16a</span>Bring-up in the ACT repository
       </h2>
       <p>
         Branch <code>cgomez/import-ime-tests-to-act4</code> adds nineteen
-        commits on <code>act4</code> <code>8b9ddedcd</code> (rebased on
-        2026-11-06). The first three complete work items 3 and 4 and mark the
-        IME extensions experimental. The next two add slice 1 of the testplan
-        design (§16b): the first generated IME test. The next four complete step
-        2: all integer multiply-accumulate rows. The next one adds step 3, the
-        tile loads and stores of <code>Zvvmtls</code>, and the one after it step
-        3b, multiply-accumulate through tile loads and stores. The next four add
-        step 4, the floating-point multiply-accumulate rows of
-        <code>Zvvfmm</code>. The next one adds step 5, the transposing tile
-        loads and stores of <code>Zvvmttls</code>, and the one after it the IME
-        decoding of step 6. The next one regenerates the IME covergroups after
-        the rebase, and the last one adds the privileged suite of step 7.
-        <span class="ev run">run</span>
+        commits on <code>act4</code> <code>8b9ddedcd</code>.
+        <code>act4</code> has since moved to <code>7569d06d6</code>, and the
+        rebase is pending. Generated IME tests are not checked in:
+        <code>tests/rv64i/Zv*</code> and <code>tests/priv/**/*.S</code> are in
+        <code>.gitignore</code>.
       </p>
       <div class="tablewrap">
         <table>
@@ -2344,14 +1964,11 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           extensions and 30 microscaling extensions. Each computational
           extension requires its family extension, as in GCC 16.1. The
           specification does not state this direction. The Sail fork decodes IME
-          instructions only when the family extension is enabled
-          (<code>ime_mem_insts.sail:310</code>).
+          instructions only when the family extension is enabled.
           <span class="ev code">code</span>
         </li>
         <li>
-          The parameters <code>SUPPORTED_LAMBDA_SEW8</code>,
-          <code>SUPPORTED_LAMBDA_SEW16</code>,
-          <code>SUPPORTED_LAMBDA_SEW32</code> and
+          The parameters <code>SUPPORTED_LAMBDA_SEW8</code> to
           <code>SUPPORTED_LAMBDA_SEW64</code> list the λ values the
           implementation supports for each accumulator SEW. A constraint rejects
           a λ for which VLEN/(SEW·λ²) is not in {1, 2, 4, 8, 16}.
@@ -2359,28 +1976,20 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         <li>
           A UDB configuration selects the overlay with
           <code>arch_overlay: ime</code>. UDB resolves a relative overlay path
-          against its own data directory.
-          <code>parse_udb_config.py</code> therefore writes a copy of the
-          configuration with the absolute overlay path to
+          against its own data directory, so
+          <code>parse_udb_config.py</code> writes a copy of the configuration
+          with the absolute overlay path to
           <code>work/&lt;config&gt;/udb/</code>.
         </li>
         <li>
-          <code>UDB_LOCAL_PATH</code> was not used. It needs a full
-          riscv-unified-db checkout, and bundler then rewrites
-          <code>Gemfile.lock</code>.
+          License: <code>BSD-3-Clause-Clear OR Apache-2.0</code>, so the files
+          can move into riscv-unified-db later.
         </li>
         <li>
-          License: <code>BSD-3-Clause-Clear OR Apache-2.0</code>. UDB uses
-          BSD-3-Clause-Clear, and ACT accepts Apache-2.0. The license text is in
-          <code>udb_overlays/LICENSE.BSD-3-Clause-Clear</code>.
-        </li>
-        <li>
-          Validation: UDB rejects an invalid λ, a missing λ list, an empty λ
-          list, a type extension without its family extension, and a missing
-          overlay. For <code>sail-rv64-max</code>, which has no overlay,
-          <code>extensions.txt</code>, <code>rvtest_config.h</code> and
-          <code>rvtest_config.svh</code> are byte-identical to the outputs
-          before the change. <span class="ev run">run</span>
+          UDB rejects an invalid λ, a missing or empty λ list, a type extension
+          without its family extension, and a missing overlay. Configurations
+          without the overlay produce byte-identical outputs.
+          <span class="ev run">run</span>
         </li>
       </ul>
       <div class="note warn">
@@ -2423,9 +2032,8 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </li>
         <li>
           For the W=4 instructions, the macros define both the specification
-          names and the GCC names (Section 18). The specification names are
-          canonical: the testplans use them, and the GCC names exist only as
-          macro aliases.
+          names and the GCC names (Section 18). The testplans use the
+          specification names. The GCC names exist only as macro aliases.
         </li>
         <li>
           λ cannot be written in <code>vsetvli</code>: it sits in
@@ -2443,8 +2051,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           The environment variables <code>SDK_SIF</code> and
           <code>SAIL_IME_SIM</code> name the image and the Sail binary.
           <code>config/ime/ci.yaml</code> sets <code>ci_enabled: false</code>.
-          <code>config/ime/README.md</code>
-          documents the setup.
+          <code>config/ime/README.md</code> documents the setup.
         </li>
         <li>
           The UDB configuration is <code>qemu-rv64-max</code> without
@@ -2454,28 +2061,12 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </li>
         <li>
           It declares only the IME extensions that both QEMU and the Sail fork
-          implement:
-          <ul>
-            <li>
-              <code>Zvvmm</code>, <code>Zvvfmm</code> and <code>Zvvmtls</code>.
-              Not <code>Zvvmttls</code>: this QEMU decodes only
-              <code>mop=00</code>, so it has no <code>vmttl.v</code> or
-              <code>vmtts.v</code>.
-            </li>
-            <li>
-              All 13 integer extensions, <code>Zvvi4i8mm</code> to
-              <code>Zvvi64mm</code>.
-            </li>
-            <li>
-              8 FP extensions, the rows the Sail fork implements:
-              <code>Zvvfp16mm</code>, <code>Zvvfp32mm</code>,
-              <code>Zvvfp64mm</code>, <code>Zvvfp16fp32mm</code>,
-              <code>Zvvbf16fp32mm</code>, <code>Zvvfp32fp64mm</code>,
-              <code>Zvvfp16fp64mm</code> and <code>Zvvbf16fp64mm</code>. The
-              Sail fork has no OFP4, no OFP8, no <code>Zvvbf16mm</code> and no
-              microscaling extensions.
-            </li>
-          </ul>
+          implement: <code>Zvvmm</code>, <code>Zvvfmm</code>,
+          <code>Zvvmtls</code>, the 13 integer type extensions and the 8 FP type
+          extensions of Sail. <code>Zvvmttls</code> is left out, because this
+          QEMU does not decode <code>vmttl.v</code> or <code>vmtts.v</code>.
+          Sail has no OFP4, OFP8, <code>Zvvbf16mm</code> or microscaling
+          extensions.
         </li>
         <li>
           λ lists: <code>SUPPORTED_LAMBDA_SEW8: [2, 4]</code>,
@@ -2484,463 +2075,117 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           <code>SUPPORTED_LAMBDA_SEW64: [1, 2]</code>. These are the values the
           specification permits at VLEN 256.
         </li>
+        <li>
+          Neither model rejects a λ that a DUT configuration leaves out. QEMU
+          accepts every λ. Sail accepts any λ ≤ VLEN/SEW (finding 14). Test
+          selection through <code>SUPPORTED_LAMBDA_SEW&lt;n&gt;</code> is the
+          only protection. <span class="ev code">code</span>
+        </li>
       </ul>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Run on <code>qemu-ime-rv64</code></th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>I suite</td>
-              <td>51 of 51 pass <span class="ev run">run</span></td>
-            </tr>
-            <tr>
-              <td>Zvbc64</td>
-              <td>4 of 4 pass <span class="ev run">run</span></td>
-            </tr>
-            <tr>
-              <td>Svade and Svadu</td>
-              <td>
-                63 of 66 pass. The 3 failures are the known QEMU bug qemu#4636,
-                which <code>config/qemu/ci.yaml</code> already excludes.
-                <span class="ev run">run</span>
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <code>Zvvmm-min-lmul1-00.S</code>: tile load and store at
-                LMUL=1, <code>vmmacc.vv</code>, C read with
-                <code>vse32.v</code>, 80 checks
-              </td>
-              <td><strong>Pass</strong> <span class="ev run">run</span></td>
-            </tr>
-            <tr>
-              <td>
-                <code>Zvvmm-TC-MACC-01-V256-00.S</code> (proof of concept): C
-                stored with <code>vmts.v</code> at LMUL=8
-              </td>
-              <td>
-                <strong>Fail</strong>, as expected from the Sail tile-index bug
-                (Section 16) <span class="ev run">run</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p>
-        Both IME tests are out of tree, in
-        <code>~/tools/act4/ime-poc/act-min</code>.
-        <code>tests/rv64i/Zv*</code> is ignored by git in ACT. Their headers
-        require <code>['V', 'Zvvmm', 'Zvvmtls', 'Zvvi32mm']</code> and
-        <code>SUPPORTED_LAMBDA_SEW32: 1</code>.
-      </p>
       <pre
         class="cmd"
         data-label="riscv-arch-test, branch cgomez/import-ime-tests-to-act4"
       ><span class="line">export PATH=$PWD/config/ime/bin:$PATH</span>
-<span class="line">export SDK_SIF=/path/to/sdk-2026.10.14.sif SAIL_IME_SIM=/path/to/build-016/c_emulator/sail_riscv_sim</span>
+<span class="line">export SDK_SIF=/path/to/sdk-2026.10.14.sif SAIL_IME_SIM=/path/to/sail_riscv_sim</span>
 <span class="line">export XDG_DATA_HOME=/tmp/$USER-xdg-data</span>
-<span class="line">EXTENSIONS=I make qemu-ime-rv64</span>
-<span class="line">uv run act config/ime/qemu-ime-rv64/test_config.yaml --test-dir ~/tools/act4/ime-poc/act-min --workdir work-ime --extensions Zvvmm --enable-experimental-extensions</span>
-<span class="line">./run_tests.py "$(cat config/ime/qemu-ime-rv64/run_cmd.txt)" work-ime/qemu-ime-rv64/elfs</span></pre>
-      <div class="note">
-        <span class="tag">λ acceptance in the models</span>
-        <ul>
-          <li>
-            QEMU accepts every λ. Its property <code>zvvm-lambda</code> defaults
-            to <code>0x7f</code>.
-          </li>
-          <li>
-            The Sail fork accepts any λ ≤ VLEN/SEW. That includes values the
-            specification does not permit, for example λ=4 and λ=8 at VLEN 256
-            and SEW 32. Its λ set is not configurable.
-          </li>
-        </ul>
-        <p>
-          Neither model rejects a λ that a DUT configuration leaves out. Test
-          selection through <code>SUPPORTED_LAMBDA_SEW&lt;n&gt;</code> is the
-          only protection. <span class="ev code">code</span> The specification
-          decides which λ are permissible. The UDB λ lists already follow it.
-          Sail's acceptance of other λ values is a Sail deviation (finding 14,
-          work item 11).
-        </p>
-      </div>
-
-      <h3>
-        Slice 1: <code>vmmacc.vv</code> for
-        <code>Zvvi32mm</code> (<code>34afab1e9</code>, <code>9ef93d17a</code>)
-      </h3>
-      <ul>
-        <li>
-          <code>testplans/Zvvmm.csv</code> has one row: <code>vmmacc.vv</code>,
-          type <code>MMACC</code>, <code>ExtraExtensions=Zvvi32mm</code>,
-          <code>EFFEW32</code>, with <code>cp_asm_count</code> and
-          <code>cr_lambda_lmul</code>. <code>Zvvmm</code> expands into
-          <code>Zvvmm8</code>…<code>Zvvmm64</code> in testgen and covergroupgen.
-          The test is
-          <code>tests/rv64i/Zvvmm32/Zvvmm32Zvvi32mm-vmmacc.vv-00.S</code>. It is
-          gitignored, like every <code>Zv*</code> suite.
-        </li>
-        <li>
-          The <code>MMACC</code> formatter follows §16b: C in a 16-register
-          window at <code>v0</code> or <code>v16</code> loaded with two m8
-          <code>vle32.v</code>; A and B loaded with <code>vle32.v</code> at
-          VL=VLMAX; vtype written with <code>LI</code> and <code>vsetvl</code>;
-          both m8 halves checked with <code>RVTEST_SIGUPD_V_LEN</code>.
-          <code>vd</code> does not overlap <code>vs1</code> or
-          <code>vs2</code> (open question 1). No tile load or store is used.
-        </li>
-        <li>
-          <code>cr_lambda_lmul</code> generates λ ∈ {1, 2, 4} × LMUL ∈ {1, 2, 4,
-          8} at SEW 32: 12 testcases. λ=8 and above need VLEN &gt; 1024, which
-          ACT does not support. Each testcase is guarded by
-          <code>UDB_SUPPORTED_LAMBDA_SEW32_&lt;λ&gt;</code>.
-        </li>
-        <li>
-          covergroupgen bug fix (<code>34afab1e9</code>): rows with
-          <code>ExtraExtensions</code> in a per-SEW testplan got no covergroup.
-          The rows were also not filtered by <code>EFFEW</code>. Both are fixed.
-          The existing covergroups do not change.
-        </li>
-        <li>
-          Result on <code>qemu-ime-rv64</code>: 8 of 8 compiled testcases pass
-          (λ ∈ {1, 2}, every LMUL). The λ=4 testcases compile out. The signature
-          comes from the Sail fork. Full <code>make tests</code> changes no
-          other suite. <span class="ev run">run</span>
-        </li>
-        <li>
-          <code>make tests EXTENSIONS=Zvvmm</code> selects nothing.
-          <code>EXTENSIONS</code> takes the per-SEW names, for example
-          <code>EXTENSIONS=Zvvmm32</code>.
-        </li>
-      </ul>
-      <pre
-        class="cmd"
-        data-label="riscv-arch-test, branch cgomez/import-ime-tests-to-act4"
-      ><span class="line">uv run covergroupgen testplans --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64</span>
-<span class="line">uv run testgen testplans -o tests --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64</span>
-<span class="line">EXTENSIONS=Zvvmm32 ENABLE_EXPERIMENTAL_EXTENSIONS=True make qemu-ime-rv64</span></pre>
-
-      <h3>
-        Step 2: all integer rows of <code>Zvvmm.csv</code>
-        (<code>978527c1e</code>…<code>6e9f5b04b</code>)
-      </h3>
-      <ul>
-        <li>
-          <code>testplans/Zvvmm.csv</code> has 13 rows, one per integer type
-          extension: <code>vmmacc.vv</code>, <code>vwmmacc.vv</code>,
-          <code>vqmmacc.vv</code> and <code>v8wmmacc.vv</code>, including the
-          Int4 rows. Coverpoints: <code>cp_vd_emul16</code>,
-          <code>cp_vs1</code>, <code>cp_vs2</code>, <code>cp_vd_edges</code>,
-          <code>cp_vs1_edges</code>/<code>cp_vs2_edges</code> (with
-          <code>emulf2</code>/<code>emulf4</code>/<code>emulf8</code> for
-          W&gt;1), <code>cp_altfmt</code>, <code>cr_lambda_lmul</code> and
-          <code>cp_tile_vl</code>. 118 to 122 testcases per file.
-        </li>
-        <li>
-          The generic register and edge generators call <code>MMACC</code> in
-          the base suite. The formatter runs them at VL=VLMAX. It extends their
-          data labels to fill A, B and the C window, with the edge value packed
-          into input element 0. λ comes from a preprocessor chain that selects
-          the smallest λ the DUT supports (§16b, λ gating).
-        </li>
-        <li>
-          <code>cp_tile_vl</code> sets VL to one C column (λ·LMUL), VLMAX/2,
-          VLMAX and a random multiple of λ·LMUL. The C check at VLMAX with
-          <code>vta=0</code> also checks that elements beyond VL are unchanged.
-        </li>
-        <li>
-          Coverage additions: <code>get_csr_val</code> decodes
-          <code>vtype.altfmt_A</code> and <code>altfmt_B</code>;
-          <code>vs_edges_check</code> handles EEW 4; new templates
-          <code>cp_vd_emul16</code>, <code>cp_vd_edges</code>,
-          <code>cp_vs1_edges_emulf2/4/8</code>, <code>cp_altfmt</code> and
-          <code>cp_tile_vl</code>. Coverage has not been run yet (step 6).
-        </li>
-        <li>
-          Result on <code>qemu-ime-rv64</code>: the 10 files for SEW 8, 32 and
-          64 pass, Int4 rows included. QEMU and Sail both execute Int4. The 3
-          files for SEW 16 fail in the Sail signature run.
-          <span class="ev run">run</span>
-        </li>
-      </ul>
-      <div class="note">
-        <span class="tag">Sail rejects EMUL_C=16</span>
-        <p>
-          At VLEN 256, SEW 16 and λ=1, EMUL_C is 16. The specification permits
-          it. <code>ime_group_size_legal</code> in the Sail fork accepts only 1,
-          2, 4 and 8, so Sail raises an illegal-instruction exception
-          <span class="ev code">code</span>. λ=1 is the smallest λ at SEW 16, so
-          every base-suite testcase of the three SEW=16 files uses it, and the
-          whole signature build fails. The testcases follow the specification
-          and stay in place (work item 11). With λ=1 removed from a scratch copy
-          of the DUT configuration, the three files pass for λ=2 and λ=4
-          <span class="ev run">run</span>.
-        </p>
-      </div>
-      <pre
-        class="cmd"
-        data-label="riscv-arch-test, branch cgomez/import-ime-tests-to-act4"
-      ><span class="line">uv run act config/ime/qemu-ime-rv64/test_config.yaml --workdir work --test-dir tests --extensions Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64 --enable-experimental-extensions -k</span>
-<span class="line">for d in work/qemu-ime-rv64/elfs/rv64i/Zvvmm*; do ./run_tests.py "$(cat config/ime/qemu-ime-rv64/run_cmd.txt)" $d; done</span></pre>
-
-      <h3>
-        Step 3: <code>Zvvmtls.csv</code>, tile loads and stores
-        (<code>feb5d61a4</code>)
-      </h3>
-      <ul>
-        <li>
-          Rows <code>vmtl.v</code> (type <code>VLT</code>) and
-          <code>vmts.v</code> (type <code>VST</code>), expanded into
-          <code>Zvvmtls8</code>…<code>Zvvmtls64</code>. About 125 testcases per
-          file.
-        </li>
-        <li>
-          <code>VLT</code> preloads <code>vd</code> at VLMAX and checks it at
-          the tile LMUL after rewriting <code>vtype</code> with
-          <code>tu,mu</code> and the same VL. A tile load leaves inactive and
-          tail elements undisturbed for any <code>vta</code> and
-          <code>vma</code>, so the check stays strict.
-        </li>
-        <li>
-          <code>VST</code> reads back 2·LMUL registers of memory from
-          <code>rs1</code>. That covers the stored lines and the gaps between
-          them, for every LD up to 2·linesize.
-        </li>
-        <li>
-          New coverpoints: <code>cp_ld</code> (<code>x0</code>, 0 in a register,
-          linesize, linesize+1, 2·linesize), <code>cp_imm_lambda</code> (each
-          immediate λ, with a different λ in <code>vtype</code>, and a check
-          that <code>vtype</code> is unchanged) and
-          <code>cr_tile_vtype_agnostic</code>. Reused: <code>cp_vd</code>,
-          <code>cp_vs3</code>, <code>cp_rs1</code>, <code>cp_rs2</code>,
-          <code>cp_masking_edges</code>, <code>cr_lambda_lmul</code> and
-          <code>cp_tile_vl</code>.
-        </li>
-        <li>
-          Not done: <code>cp_custom_tile_layout</code> and
-          <code>cp_custom_tile_roundtrip</code> (step 3a).
-        </li>
-      </ul>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Reference model</th>
-              <th>Result on <code>qemu-ime-rv64</code></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>IME Sail fork <code>c69e3e22</code></td>
-              <td>
-                <code>Zvvmtls</code>: all 8 files fail. In each, the first
-                failing test is <code>cp_ld</code> with 0 in a register (finding
-                21). All earlier tests pass. <code>Zvvmm</code>: 10 of 13 pass;
-                the SEW=16 files fail (finding 20).
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <code>c69e3e22</code> with
-                <a href="issues/sail-ime-verification-patch/sail-specfix.diff"
-                  ><code>sail-specfix.diff</code></a
-                >
-              </td>
-              <td>
-                All 21 files of <code>Zvvmm</code> and
-                <code>Zvvmtls</code> pass, including the tile tests at
-                LMUL&gt;1, LD=0 in a register and <code>EMUL_C</code>=16.
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+<span class="line">uv run covergroupgen testplans --extensions Zvvmm32</span>
+<span class="line">uv run testgen testplans -o tests --extensions Zvvmm32</span>
+<span class="line">uv run act config/ime/qemu-ime-rv64/test_config.yaml --workdir work --test-dir tests --extensions Zvvmm32 --enable-experimental-extensions -k</span>
+<span class="line">./run_tests.py "$(cat config/ime/qemu-ime-rv64/run_cmd.txt)" work/qemu-ime-rv64/elfs/rv64i/Zvvmm32</span></pre>
       <p>
-        The patch fixes the three Sail deviations that these tests hit: the tile
-        register index (work item 1), the natural LD for a register that holds 0
-        (work item 12) and <code>EMUL_C</code>=16 (work item 11). QEMU agrees
-        with the specification in all three, and the tests follow the
-        specification. The patch is a scratch build for verification (<a
-          href="issues/sail-ime-verification-patch/README.md"
-          ><code>README.md</code></a
-        >).
-        <span class="ev run">run</span>
+        <code>EXTENSIONS</code> and <code>--extensions</code> take the per-SEW
+        suite names, for example <code>Zvvmm32</code>, not <code>Zvvmm</code>.
+        Direct <code>uv run</code> calls avoid the stamp, <code>-k</code> and
+        stale-ELF problems of findings 25 to 27.
       </p>
 
-      <h3>
-        Step 3b: <code>cp_custom_tile_macc</code> (<code>797fc5784</code>)
-      </h3>
+      <h3>Testplans, formatters and coverpoints</h3>
+      <p>
+        Each family is one CSV that expands into four per-SEW suites (Section
+        16b). The formatters are <code>MMACC</code>, <code>FMMACC</code>,
+        <code>VLT</code> and <code>VST</code>.
+      </p>
       <ul>
         <li>
-          Four <code>vmmacc.vv</code> rows of <code>Zvvmm.csv</code>, one per
-          SEW, with <code>ExtraExtensions=Zvvi&lt;n&gt;mm:Zvvmtls</code>. Each
-          bin (λ × LMUL) zeroes C, loads A and B with <code>vmtl.v</code> at the
-          natural LD, runs <code>vmmacc.vv</code>, stores C with
-          <code>vmts.v</code> at LMUL = <code>EMUL_C</code> and LD = M, and
-          reads 16 registers of memory back. This is test M1 of §16b.
+          <strong><code>Zvvmm.csv</code></strong> (<code>9ef93d17a</code>,
+          <code>978527c1e</code>…<code>6e9f5b04b</code>,
+          <code>797fc5784</code>): 13 integer rows, one per type extension, Int4
+          included. Coverpoints: <code>cp_asm_count</code>,
+          <code>cp_vd</code> (<code>emul16</code>), <code>cp_vs1</code>,
+          <code>cp_vs2</code>, the edge coverpoints (with
+          <code>emulf2/4/8</code> for W&gt;1), <code>cp_altfmt</code>,
+          <code>cr_lambda_lmul</code> and <code>cp_tile_vl</code>. Four
+          <code>vmmacc.vv</code> rows with
+          <code>ExtraExtensions=Zvvi&lt;n&gt;mm:Zvvmtls</code> carry
+          <code>cp_custom_tile_macc</code>: zero C, tile-load A and B, run
+          <code>vmmacc.vv</code>, and store C with <code>vmts.v</code> at LMUL =
+          <code>EMUL_C</code>. The C data names each element: C[i][j] = f·i + j.
         </li>
         <li>
-          The data names each C element: C[i][j] = f·i + j, with f = 256 (16 at
-          SEW 8); C[i][j] = j when λ·LMUL = 1. An
-          <code>#if UDB_VLEN</code> chain selects the C store.
-          <code>EMUL_C</code>=16 is stored as two LMUL=8 halves with LD = 16λ,
-          as ime-test-gen does.
+          <strong><code>Zvvmtls.csv</code></strong> (<code>feb5d61a4</code>):
+          <code>vmtl.v</code> (<code>VLT</code>) and
+          <code>vmts.v</code> (<code>VST</code>). <code>VLT</code> preloads
+          <code>vd</code> and checks it with <code>tu,mu</code>, because tile
+          loads leave inactive and tail elements undisturbed.
+          <code>VST</code> reads back 2·LMUL registers of memory, which covers
+          the gaps for every LD up to 2·linesize. New coverpoints:
+          <code>cp_ld</code>, <code>cp_imm_lambda</code> and
+          <code>cr_tile_vtype_agnostic</code>.
         </li>
         <li>
-          Result on <code>qemu-ime-rv64</code>: with Sail
-          <code>c69e3e22</code> the new files fail at their first bin (LMUL=1),
-          because the C store runs at <code>EMUL_C</code> &gt; 1 and hits the
-          tile-index bug. With <code>sail-specfix.diff</code>, all 17
-          <code>Zvvmm</code> files pass.
-          <span class="ev run">run</span>
-        </li>
-      </ul>
-
-      <h3>
-        Step 4: <code>Zvvfmm.csv</code>, floating-point multiply-accumulate
-        (<code>a25873963</code>…<code>dd060485c</code>)
-      </h3>
-      <ul>
-        <li>
-          The 8 rows that Sail implements, which are also the 8 FP type
-          extensions <code>qemu-ime-rv64</code> declares:
-          <code>vfmmacc.vv</code> for <code>Zvvfp16mm</code>,
-          <code>Zvvfp32mm</code> and <code>Zvvfp64mm</code>;
-          <code>vfwmmacc.vv</code> for <code>Zvvfp16fp32mm</code>,
-          <code>Zvvbf16fp32mm</code> and <code>Zvvfp32fp64mm</code>;
-          <code>vfqmmacc.vv</code> for <code>Zvvfp16fp64mm</code> and
-          <code>Zvvbf16fp64mm</code>. A BF16 row sets <code>altfmt_A</code> =
-          <code>altfmt_B</code> = 1.
+          <strong><code>Zvvfmm.csv</code></strong> (<code>52a08ff97</code>,
+          <code>a25873963</code>…<code>dd060485c</code>): the 8 rows that Sail
+          implements, <code>vfmmacc.vv</code>, <code>vfwmmacc.vv</code> and
+          <code>vfqmmacc.vv</code>. Random data is exact in every format and
+          order. Edge tests make the edge the only nonzero product of its C
+          element. <code>cp_csr_frm_v</code> and
+          <code>cp_csr_fflags_voun</code> check rounding modes and flags.
+          <code>cp_fp_subdot</code> tests the W&gt;1 partial sum (finding 30).
+          <code>52a08ff97</code> keeps the V widening base-extension rule off
+          IME suites (finding 29).
         </li>
         <li>
-          Random data is exact (§16b, value patterns): inputs are sparse
-          integers in [−2, 2], C holds half-integers k + 0.5 with |k| ≤ 128.
-          Every product, partial sum and C value is exact in every format and
-          order, so the result does not depend on G, <code>psm</code>,
-          <code>rnd</code> or <code>frm</code>.
-        </li>
-        <li>
-          Edge tests make the edge the only nonzero product of its C elements:
-          an A edge meets B = +1.0 and A = 0 elsewhere, a B edge the reverse,
-          and a C edge meets A = B = 0. Every implementation then computes
-          round_frm(C + edge). A and B use separate registers, because an edge
-          that meets itself (A = B) gives an inexact product whose rounding the
-          specification leaves to the implementation. Sail raised UF and NX
-          there, QEMU only NX.
-        </li>
-        <li>
-          <code>cp_fp_subdot</code> (W &gt; 1): the W products of one
-          sub-dot-product of C[0][0] add up to one ULP of C₀. The specification
-          gives C₀ + 1 ULP with no flags in every rounding mode. Sail and QEMU
-          add each product on its own; at FP16→FP64 with <code>rne</code>, Sail
-          returns 2<sup>52</sup> for C₀ = 2<sup>52</sup> instead of 2<sup
-            >52</sup
-          >
-          + 1 (finding 30) <span class="ev run">run</span>.
-        </li>
-        <li>
-          Result on <code>qemu-ime-rv64</code>: the files for SEW 32 and 64 pass
-          with Sail <code>c69e3e22</code>; the SEW=16 file fails on
-          <code>EMUL_C</code>=16 (finding 20). With
-          <code>sail-specfix.diff</code> all 8 files pass. The
-          <code>cp_fp_subdot</code> bins pass only because QEMU shares Sail's
-          deviation. <span class="ev run">run</span>
-        </li>
-        <li>
-          Not done: the mixed FP16/BF16 rows, the OFP8, OFP4 and microscaling
-          rows (Sail does not implement them), and rounding-sensitive data for
-          <code>cp_csr_frm_v</code>, which now runs each rounding mode on exact
-          data.
-        </li>
-      </ul>
-
-      <h3>
-        Step 5: <code>Zvvmttls.csv</code>, transposing tile loads and stores
-        (<code>4fd96e97a</code>)
-      </h3>
-      <ul>
-        <li>
-          Rows <code>vmttl.v</code> and <code>vmtts.v</code> with the
-          coverpoints of <code>Zvvmtls</code>, and two rows with
+          <strong><code>Zvvmttls.csv</code></strong> (<code>4fd96e97a</code>):
+          <code>vmttl.v</code> and <code>vmtts.v</code> with the
+          <code>Zvvmtls</code> coverpoints, plus two rows with
           <code>ExtraExtensions=Zvvmtls</code> for
-          <code>cp_custom_tile_crossmode</code> (§16b, round-trip and cross-mode
-          tests).
-        </li>
-        <li>
-          The natural LD of a transposing instruction is M = VLEN/(SEW·λ), which
-          depends on VLEN. The formatter computes it at run time as
-          <code>vlenb</code> &gt;&gt; log2(SEW·λ/8); tight, padded and double
-          are M, M+1 and 2M.
-        </li>
-        <li>
-          <code>cp_custom_tile_crossmode</code>: <code>vmtl.v</code> then
-          <code>vmtts.v</code>, and <code>vmttl.v</code> then
-          <code>vmts.v</code>, for each λ, LMUL and LD (natural or padded). The
-          destination window is read back.
-        </li>
-        <li>
-          Verification: the SDK QEMU does not decode these instructions. A
-          scratch configuration with the IME Sail fork as DUT (Sail
-          <code>rvmodel_macros.h</code> and <code>link.ld</code>,
-          <code>Zvvmttls</code> enabled in UDB and <code>sail.json</code>)
-          builds and passes all 16 files. Sail is then both DUT and reference,
-          so the run shows that the tests assemble and run without traps, not
-          that the results are right. <span class="ev run">run</span>
+          <code>cp_custom_tile_crossmode</code>. The natural LD of a transposing
+          instruction, M = VLEN/(SEW·λ), is computed at run time from
+          <code>vlenb</code>.
         </li>
       </ul>
 
-      <h3>Step 6: coverage (<code>0c44e37ae</code>)</h3>
+      <h3>Coverage decode (<code>0c44e37ae</code>)</h3>
       <ul>
         <li>
-          The coverage flow names each traced instruction with
-          <code>disassemble()</code>, and the covergroups dispatch on that name.
-          It returned <code>illegal</code> for every IME instruction.
           riscv-opcodes has no IME encodings, so the generated
-          <code>RISCV_imported_decode_pkg.svh</code> cannot provide them. The
-          handwritten <code>RISCV_decode_pkg.svh</code> now defines the four
-          tile load and store encodings and the eight multiply-accumulate
-          encodings with vm = 1.
-        </li>
-        <li>
-          No existing pattern overlaps an IME pattern, in either direction. For
-          the 5119 IME instructions in 49 built ELFs, the same patterns and
-          formats in Python reproduce the source line of each instruction.
+          <code>RISCV_imported_decode_pkg.svh</code> cannot name IME
+          instructions. The handwritten
+          <code>RISCV_decode_pkg.svh</code> defines the four tile load and store
+          encodings and the eight multiply-accumulate encodings with vm = 1. No
+          existing pattern overlaps an IME pattern.
           <span class="ev run">run</span>
         </li>
         <li>
-          Templates and helpers added in steps 1–5:
           <code>get_csr_val</code> decodes <code>vtype.lambda</code>,
-          <code>altfmt_a</code> and <code>altfmt_b</code>;
-          <code>vs_edges_check</code> handles EEW 4;
-          <code>ime_column_vl</code> and <code>ime_ld_check</code>; and one
-          template per IME coverpoint and row type.
+          <code>altfmt_a</code> and <code>altfmt_b</code>.
+          <code>vs_edges_check</code> handles EEW 4. Each IME coverpoint and row
+          type has a template.
         </li>
         <li>
-          No Questa or VCS is available, and ACT supports only those two
-          simulators, so <code>make coverage</code> has not run. Instead,
+          No Questa or VCS is available, so <code>make coverage</code> has not
+          run.
           <a href="ime-poc/slang_check.py"
-            ><code>ime-poc/slang_check.py</code></a
+            ><code>reports/ime-poc/slang_check.py</code></a
           >
-          compiles the coverage testbench with pyslang as the Questa script
+          compiles the coverage testbench with pyslang, as the Questa script
           does. With every <code>Zvv*</code> coverage group enabled, it reports
-          no errors. A planted syntax error and a planted undeclared function in
-          an IME covergroup were both reported, so the check elaborates the IME
-          covergroups. <span class="ev run">run</span>
-        </li>
-        <li>
-          Not done: running the coverage simulation and reading the bins that
-          the tests hit.
+          no errors. <span class="ev run">run</span>
         </li>
       </ul>
 
       <h3>
-        Step 7: <code>ExceptionsZvvm</code> privileged suite
-        (<code>a4e9bc82b</code>)
+        <code>ExceptionsZvvm</code> privileged suite (<code>a4e9bc82b</code>)
       </h3>
       <ul>
         <li>
@@ -2948,122 +2193,36 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           one per family extension, in
           <code>priv/extensions/ExceptionsZvvm.py</code>. Each trap case sets a
           legal IME <code>vtype</code>, breaks one rule and runs the
-          instruction; the trap handler records the trap. Cases are guarded by
+          instruction. The trap handler records the trap. Cases are guarded by
           the type extension, ELEN and the supported λ.
         </li>
         <li>
-          Multiply-accumulate: <code>vill</code>, <code>vstart</code> = 1, VL
-          not a multiple of λ·LMUL, LMUL = 1/2, <code>vd</code> misaligned to
+          Multiply-accumulate cases: <code>vill</code>, <code>vstart</code> = 1,
+          VL not a multiple of λ·LMUL, LMUL = 1/2, <code>vd</code> misaligned to
           <code>EMUL_C</code>, odd <code>vs1</code> or <code>vs2</code> at LMUL
           = 2, vm = 0 on <code>vmmacc.vv</code> and <code>vfmmacc.vv</code>, and
-          <code>vqmmacc.vv</code>/<code>v8wmmacc.vv</code> at a reserved SEW.
-          Tile loads and stores: <code>vill</code>, VL not a multiple, LMUL =
-          1/2, a misaligned group, a masked load into <code>v0</code>, the
+          a reserved SEW.
+        </li>
+        <li>
+          Tile load and store cases: <code>vill</code>, VL not a multiple, LMUL
+          = 1/2, a misaligned group, a masked load into <code>v0</code>, the
           immediate λ L64, and the legal resume from <code>vstart</code> = 1 and
-          VL/2. λ = 000 in <code>vtype</code> is not tested: <code>vsetvl</code>
-          does not let software select it.
+          VL/2. λ = 000 is not tested, because <code>vsetvl</code> does not let
+          software select it.
         </li>
         <li>
-          Privileged tests serve both XLENs, so the IME <code>vtype</code> value
-          is an assembler expression over <code>UDB_MXLEN</code>.
-        </li>
-        <li>
-          With the Sail fork as DUT and reference, all 5 files pass. On
-          <code>qemu-ime-rv64</code>, run one case at a time against the patched
-          Sail, the multiply-accumulate cases <code>vill</code>, LMUL = 1/2,
-          misaligned groups, vm = 0 and reserved SEW pass, as do the tile cases
-          LMUL = 1/2, misaligned group and <code>vstart</code> resume. The other
-          cases expose QEMU deviations (findings 31 and 32) and Sail deviations
-          (finding 22). <span class="ev run">run</span>
+          The <code>cp_ime_vl_not_multiple</code> bins follow specification
+          <code>main</code> (<code>6effbcae</code>). The ARC review draft makes
+          every VL legal for tile loads and stores and makes a non-multiple MACC
+          VL reserved. These bins need review when that draft is merged.
         </li>
       </ul>
 
-      <h3>Sail tile-index bug: reproducer and patch (work item 1)</h3>
+      <h3>Reference model</h3>
       <p>
-        The folder
-        <a href="issues/sail-ime-tile-ls-index/sail-ime-tile-ls-index.html"
-          ><code>issues/sail-ime-tile-ls-index/</code></a
-        >
-        holds a draft GitHub issue (<a
-          href="issues/sail-ime-tile-ls-index/ISSUE.md"
-          ><code>ISSUE.md</code></a
-        >, rendered as <code>sail-ime-tile-ls-index.html</code>), the reproducer
-        (<code>run.sh</code>), the patch (<code>sail-fix.diff</code>) and the
-        outputs. The issue is not filed yet.
-      </p>
-      <ul>
-        <li>
-          <code>a545cc41</code> fixed the bug (Sail fork update, below). The
-          issue no longer needs filing.
-        </li>
-        <li>
-          The bug is still present at <code>c69e3e22</code>.
-          <code>ime_mem_insts.sail</code> writes loaded elements at the flat
-          index on lines 73, 77, 81 and 85. Line 90 writes inactive elements;
-          that branch must be removed, because inactive tile-load elements stay
-          undisturbed. Line 160 reads the stored element at the flat index.
-          <span class="ev code">code</span>
-        </li>
-        <li>
-          The reproducer runs at VLEN=256, SEW=32, LMUL=2, λ=1. A round trip
-          through <code>vmtl.v</code> and <code>vmts.v</code> hides the bug, so
-          the reproducer reads the registers with <code>vse32.v</code>.
-        </li>
-        <li>
-          The patch indexes the four load writes and the store read with
-          <code>ime_tile_reg_idx</code>, and drops the inactive-element branch.
-          The patched Sail was built and matches QEMU on every step.
-          <span class="ev run">run</span>
-        </li>
-      </ul>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Step</th>
-              <th>SDK QEMU</th>
-              <th>Sail <code>c69e3e22</code></th>
-              <th>Sail + <code>sail-fix.diff</code></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>
-                <code>vmtl.v</code> A=0..15, then <code>vse32.v</code> of
-                <code>v8</code>, <code>v9</code>
-              </td>
-              <td><code>0 2 4 … 14 | 1 3 … 15</code></td>
-              <td><code>0 1 … 7 | 8 … 15</code></td>
-              <td><code>0 2 4 … 14 | 1 3 … 15</code></td>
-            </tr>
-            <tr>
-              <td>
-                <code>vid.v</code> into <code>v16</code>, <code>v17</code>, then
-                <code>vmts.v</code>
-              </td>
-              <td><code>0 8 1 9 … | 4 12 … 15</code></td>
-              <td><code>0 1 … 7 | 8 … 15</code></td>
-              <td><code>0 8 1 9 … | 4 12 … 15</code></td>
-            </tr>
-            <tr>
-              <td><code>vmtl.v</code> then <code>vmts.v</code></td>
-              <td><code>0 1 … 15</code></td>
-              <td><code>0 1 … 15</code></td>
-              <td><code>0 1 … 15</code></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>Sail fork update, 2026-11-06</h3>
-      <p>
-        Branch <code>cgomez/0.16-plus-ime</code> of the Sail fork moved from
-        <code>c69e3e22</code> to <code>a545cc41</code> on GitHub. Three local
-        commits on top (<code>6cccec69</code>) change only first-party tests and
-        CI, not the model. The rebuilt <code>build-016</code> binary still
-        reports <code>0.16-8-gc69e3e22</code> in <code>--build-info</code>: the
-        version string is set when CMake configures the build. The model
-        commits:
+        The reference model is branch <code>cgomez/0.16-plus-ime</code> of the
+        Sail fork at <code>a545cc41</code>. The model commits since
+        <code>c69e3e22</code>:
       </p>
       <div class="tablewrap">
         <table>
@@ -3076,17 +2235,14 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           </thead>
           <tbody>
             <tr>
-              <td><code>128a5b74</code></td>
-              <td><code>vf8wmmacc.vv</code> (W=8 FP)</td>
-              <td>
-                Not tested yet. The W=8 rows copy the per-product accumulation
-                of finding 30.
-              </td>
+              <td><code>a545cc41</code></td>
+              <td>Tile loads and stores use <code>tile_reg_idx</code></td>
+              <td>Fixes the tile-index bug (Section 16, work item 1).</td>
             </tr>
             <tr>
-              <td><code>c9361710</code></td>
-              <td>VL=0 for transposing tile loads and stores</td>
-              <td>None.</td>
+              <td><code>c1d96b3e</code></td>
+              <td>Natural LD for any zero value of <code>rs2</code></td>
+              <td>Fixes finding 21 (work item 12).</td>
             </tr>
             <tr>
               <td><code>fd88fd86</code></td>
@@ -3096,86 +2252,120 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>Fixes half of finding 22.</td>
             </tr>
             <tr>
-              <td><code>c1d96b3e</code></td>
-              <td>Natural LD for any zero value of <code>rs2</code></td>
-              <td>Fixes finding 21. All <code>Zvvmtls</code> files pass.</td>
+              <td><code>c9361710</code></td>
+              <td>VL=0 legal for transposing tile loads and stores</td>
+              <td>None.</td>
             </tr>
             <tr>
-              <td><code>a545cc41</code></td>
+              <td><code>128a5b74</code></td>
+              <td><code>vf8wmmacc.vv</code> (W=8 FP)</td>
+              <td>No ACT rows yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Two Sail deviations from the specification remain open:</p>
+      <ul>
+        <li>
+          The MACC rejects <code>EMUL_C</code>=16 (finding 20, work item 11).
+          Filed as
+          <a href="https://github.com/Openchip-Software/sail-riscv/issues/10"
+            >Openchip-Software/sail-riscv#10</a
+          >.
+        </li>
+        <li>
+          W&gt;1 FP accumulation adds each product into C (finding 30, work item
+          10). The draft issue
+          <a href="issues/sail-ime-wmmacc-partial-sum/ISSUE.md"
+            ><code>issues/sail-ime-wmmacc-partial-sum/ISSUE.md</code></a
+          >
+          is not filed. QEMU has the same deviation.
+        </li>
+      </ul>
+
+      <h3>Verification status, 2026-11-06</h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Suite</th>
+              <th>Result with Sail <code>a545cc41</code> as reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>I</td>
               <td>
-                Tile loads and stores use the register layout of the
-                specification
+                51 of 51 pass on <code>qemu-ime-rv64</code>
+                <span class="ev run">run</span>
               </td>
+            </tr>
+            <tr>
+              <td><code>Zvvmm</code></td>
               <td>
-                Fixes the tile-index bug (work item 1). The
-                <code>cp_custom_tile_macc</code> files pass.
+                SEW 8, 32 and 64 pass on <code>qemu-ime-rv64</code>: 13 files,
+                including <code>cp_custom_tile_macc</code>. The 4 SEW=16 files
+                fail at the Sail signature build because of
+                <code>EMUL_C</code>=16 (#10).
+                <span class="ev run">run</span>
+              </td>
+            </tr>
+            <tr>
+              <td><code>Zvvfmm</code></td>
+              <td>
+                SEW 32 and 64 pass on <code>qemu-ime-rv64</code>: 7 files. The
+                SEW=16 file fails on <code>EMUL_C</code>=16 (#10). The
+                <code>cp_fp_subdot</code> bins pass only because QEMU shares
+                Sail's per-product accumulation (finding 30).
+                <span class="ev run">run</span>
+              </td>
+            </tr>
+            <tr>
+              <td><code>Zvvmtls</code></td>
+              <td>
+                All 8 files pass on <code>qemu-ime-rv64</code>.
+                <span class="ev run">run</span>
+              </td>
+            </tr>
+            <tr>
+              <td><code>Zvvmttls</code></td>
+              <td>
+                16 of 16 pass with Sail as DUT and reference, in a scratch
+                configuration. QEMU does not decode these instructions. The run
+                shows that the tests assemble and run without traps, not that
+                the results are right. <span class="ev run">run</span>
+              </td>
+            </tr>
+            <tr>
+              <td><code>ExceptionsZvvm</code></td>
+              <td>
+                5 of 5 pass with Sail as DUT and reference. On QEMU, several
+                cases run instead of trapping (findings 31 and 32).
+                <span class="ev run">run</span>
+              </td>
+            </tr>
+            <tr>
+              <td>Coverage</td>
+              <td>
+                Not run: no Questa or VCS, and Verilator is deferred because
+                there is no RTL. The pyslang compile check passes.
               </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p>
-        Runs with the unpatched Sail as reference, on
-        <code>qemu-ime-rv64</code>: <code>Zvvmm</code> SEW 8, 32 and 64 pass (13
-        files), <code>Zvvfmm</code> SEW 32 and 64 pass (7 files), and all 8
-        <code>Zvvmtls</code> files pass. The 5 SEW=16 files of
-        <code>Zvvmm</code> and <code>Zvvfmm</code> still fail to build their
-        signature on <code>EMUL_C</code>=16 (finding 20). With Sail as DUT, the
-        16 <code>Zvvmttls</code> files and the 5
-        <code>ExceptionsZvvm</code> files pass. A Sail trace of
-        <code>ExceptionsZvvm</code> shows that the masked loads into
-        <code>v0</code> and the immediate λ L64 trap, and that the 16 VL-not-a-
-        multiple cases of the four tile instructions do not.
-        <span class="ev run">run</span>
-      </p>
-      <p>
-        Three Sail deviations from the specification at <code>6effbcae</code>
-        remain. Each has a draft issue with a reproducer. On 2026-11-07 the
-        first was filed as
-        <a href="https://github.com/Openchip-Software/sail-riscv/issues/10"
-          >Openchip-Software/sail-riscv#10</a
-        >. The second is not filed: issue #8 of the fork reported it and was
-        closed, because the ARC review draft of the specification
-        (<code>jmoreira/arc-review-updates-01</code>) makes every VL legal for
-        tile loads and stores. The same draft makes a multiply-accumulate VL
-        that is not a multiple of λ·LMUL reserved. The
-        <code>cp_ime_vl_not_multiple</code> bins of
-        <code>ExceptionsZvvm</code> follow <code>main</code> and need review
-        when that draft is merged.
-      </p>
-      <ul>
-        <li>
-          <code>EMUL_C</code>=16 (finding 20, work item 11):
-          <a href="issues/sail-ime-legality/ISSUE-emulc16.md"
-            ><code>issues/sail-ime-legality/ISSUE-emulc16.md</code></a
-          >.
-        </li>
-        <li>
-          Tile loads and stores with VL not a multiple of λ·LMUL (finding 22,
-          work item 12):
-          <a href="issues/sail-ime-legality/ISSUE-tile-vl.md"
-            ><code>issues/sail-ime-legality/ISSUE-tile-vl.md</code></a
-          >. The reproducer <code>legal.c</code> serves both issues.
-        </li>
-        <li>
-          W&gt;1 partial sum (finding 30, work item 10):
-          <a href="issues/sail-ime-wmmacc-partial-sum/ISSUE.md"
-            ><code>issues/sail-ime-wmmacc-partial-sum/ISSUE.md</code></a
-          >, now pinned to <code>a545cc41</code>. The reproducer output is
-          unchanged.
-        </li>
-      </ul>
 
       <h2 id="testplan">
-        <span class="n">16b</span>Testplan design (option C), 2026-10-27
+        <span class="n">16b</span>Testplan design (option C)
       </h2>
       <p>
-        This section designs native ACT testplans for the ime-test-gen plan
-        (option C, work item 7). It is a design only: no ACT file is changed.
-        Paths without a link are on the import branch at
-        <code>394462f26</code>. The specification is
-        <code>integrated-matrix.adoc</code> at <code>6effbcae</code>, cited as
-        <code>spec:</code> line numbers.
+        This section records the design decisions behind the native testplans of
+        Section 16a. The full design, with draft CSVs and the reasoning for each
+        formatter, is in
+        <a href="plans/ime-act-testplan-design.md"
+          ><code>plans/ime-act-testplan-design.md</code></a
+        >. The specification is <code>integrated-matrix.adoc</code> at
+        <code>6effbcae</code>, cited as <code>spec:</code> line numbers.
       </p>
       <div class="note">
         <span class="tag">Source of truth (decided 2026-10-27)</span>
@@ -3190,10 +2380,9 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             <strong>Sail contradicts the specification:</strong> Sail is wrong.
             The bins follow the specification and stay in place, with no
             <code>ignore_bins</code> and no exclusion. Their expected values
-            come from Sail, so they embed Sail's wrong values and fail on a
-            conforming DUT until Sail is fixed. Each case has a Sail issue or
-            work item. The tile-index bug and the W&gt;1 partial sum are handled
-            this way.
+            come from Sail, so they fail on a conforming DUT until Sail is
+            fixed. Each case has a Sail issue or work item. The W&gt;1 partial
+            sum and <code>EMUL_C</code>=16 are handled this way.
           </li>
           <li>
             <strong>The specification permits several behaviours</strong>, for
@@ -3303,12 +2492,9 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>
                 Sail contradicts the specification. It adds each product into C
                 on its own instead of forming the sub-dot-product sum S first
-                (spec:1386–1412). New <code>cp_fp_subdot</code> bins follow the
+                (spec:1386–1412). The <code>cp_fp_subdot</code> bins follow the
                 specification and fail on a conforming DUT until Sail is fixed
-                (work item 10,
-                <a href="issues/sail-ime-wmmacc-partial-sum/ISSUE.md"
-                  ><code>issues/sail-ime-wmmacc-partial-sum/</code></a
-                >). QEMU has the same deviation. That is a DUT finding.
+                (finding 30, work item 10).
               </td>
             </tr>
             <tr>
@@ -3316,42 +2502,23 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>
                 The specification permits λ only when <code>EMUL_C</code> ∈ {1,
                 2, 4, 8, 16} (spec:811–815). The UDB λ lists follow it. Sail
-                accepts any λ ≤ VLEN/SEW (<a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_utils.sail#L34-L37"
-                  ><code>ime_utils.sail:34-37</code></a
-                >), and its MACC rejects <code>EMUL_C</code>=16 (<a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_utils.sail#L91-L92"
-                  ><code>ime_utils.sail:91-92</code></a
-                >, used at
+                accepts any λ ≤ VLEN/SEW (finding 14), and its MACC rejects
+                <code>EMUL_C</code>=16 (finding 20,
                 <a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L244"
-                  ><code>ime_mem_insts.sail:244</code></a
-                >
-                and
-                <a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L497"
-                  ><code>ime_mem_insts.sail:497</code></a
-                >). Both are Sail deviations (work item 11).
-                <code>cr_lambda_lmul</code> bins with <code>EMUL_C</code>=16,
-                such as SEW=16 with λ=1 at VLEN 256, stay and fail until the
-                fix.
+                  href="https://github.com/Openchip-Software/sail-riscv/issues/10"
+                  >#10</a
+                >). <code>cr_lambda_lmul</code> bins with
+                <code>EMUL_C</code>=16, such as SEW=16 with λ=1 at VLEN 256,
+                stay and fail until the fix.
               </td>
             </tr>
             <tr>
               <td>LD = 0 in a register other than <code>x0</code></td>
               <td>
                 The specification selects the natural LD when the value of
-                <code>rs2</code> is 0 (spec:2278–2291, spec:5914–5915). Sail
-                selects it only when <code>rs2</code> is <code>x0</code>, and
-                otherwise uses LD = 0 (<a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L53-L55"
-                  ><code>ime_mem_insts.sail:53-55</code></a
-                >,
-                <a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L145-L147"
-                  ><code>ime_mem_insts.sail:145-147</code></a
-                >). The <code>cp_ld</code> bin with 0 in a register follows the
-                specification and fails until the fix (work item 12).
+                <code>rs2</code> is 0 (spec:2278–2291). <code>cp_ld</code> has a
+                bin for it. Sail follows the specification since
+                <code>c1d96b3e</code>.
               </td>
             </tr>
             <tr>
@@ -3405,7 +2572,10 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             </tr>
             <tr>
               <td><code>testplans/Zvvfmm.csv</code></td>
-              <td>21 unscaled rows, 30 microscaling rows</td>
+              <td>
+                8 rows, the ones Sail implements. The specification has 21
+                unscaled and 30 microscaling rows.
+              </td>
               <td><code>Zvvfmm8</code>…<code>Zvvfmm64</code></td>
             </tr>
             <tr>
@@ -3422,12 +2592,9 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td><code>Zvvmttls8</code>…<code>Zvvmttls64</code></td>
             </tr>
             <tr>
-              <td><code>testplans/priv/ExceptionsZvvm.csv</code> (later)</td>
-              <td>
-                illegal cases and <code>vstart</code>, after
-                <code>ExceptionsVx</code>
-              </td>
-              <td><code>EFFEW</code> per row</td>
+              <td><code>testplans/priv/ExceptionsZvvm.csv</code></td>
+              <td>illegal cases and <code>vstart</code></td>
+              <td>one generator per family</td>
             </tr>
           </tbody>
         </table>
@@ -3455,17 +2622,10 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           <code>expand_vector_extension</code>
           ({{src2:generators/testgen/src/testgen/io/testplans.py:28-39}}) and in
           covergroupgen's <code>_sew_variants_for</code>;
-          <code>vector_map</code> entries for <code>Zvvfmm&lt;n&gt;</code>
-          ({{src2:generators/testgen/src/testgen/io/templates.py:163-181}}).
-        </li>
-        <li>
-          A scratchpad run of <code>testgen</code> on <code>Zvbc.csv</code> with
-          an <code>ExtraExtensions</code> row produced the expected
-          <code>REQUIRED_EXTENSIONS</code>. <code>covergroupgen</code> lost the
-          extra group: <code>extra_testplans</code> is stored under the
-          unexpanded suite name
-          ({{src2:generators/coverage/src/covergroupgen/generate.py:343-353}}).
-          The fix is about 5 lines. <span class="ev run">run</span>
+          <code>vector_map</code> entries for
+          <code>Zvvfmm&lt;n&gt;</code>
+          ({{src2:generators/testgen/src/testgen/io/templates.py:163-181}}); the
+          covergroupgen fix for <code>ExtraExtensions</code> rows (finding 23).
         </li>
       </ul>
 
@@ -3486,7 +2646,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           upper bound.
         </li>
         <li>
-          A new helper <code>load_ime_vtype</code> emits
+          The helper <code>load_ime_vtype</code> emits
           <code>LI(xT, vtype)</code> and <code>vsetvl</code>. The IME fields (λ
           at <code>vtype[XLEN-2:XLEN-4]</code>, <code>bs</code>,
           <code>altfmt_A</code>, <code>altfmt_B</code>) are outside the
@@ -3497,14 +2657,11 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           columns (MACC) or lines (tile loads and stores), so
           <code>vlmax</code>, half, one and random VL stay VLEN-agnostic.
         </li>
+        <li>
+          λ selection in the test header was considered and dropped. It would
+          group chunks by λ and change <code>generate/unpriv.py</code>.
+        </li>
       </ul>
-      <div class="note">
-        <span class="tag">Not chosen</span>
-        <p>
-          λ selection in the test header would group chunks by λ and change
-          <code>generate/unpriv.py</code>. It was considered and dropped.
-        </p>
-      </div>
 
       <h3>Formatter types</h3>
       <div class="tablewrap">
@@ -3537,7 +2694,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             </tr>
             <tr>
               <td><code>FMMACC_MX</code>, <code>MMACC_MX</code></td>
-              <td>microscaling, vm=0</td>
+              <td>microscaling, vm=0. Not implemented: Sail lacks it.</td>
               <td>
                 as above, with scales in <code>v0</code>. C is always at
                 <code>v16</code> (spec:5013).
@@ -3570,10 +2727,9 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </table>
       </div>
       <p>
-        MACC tests use no tile instructions, so they are VLEN-agnostic and are
-        not affected by the Sail tile-index bug. An immediate λ is checked with
-        <code>csrr vtype</code> and <code>RVTEST_SIGUPD</code>. No new check
-        macro is needed. <span class="ev inf">inferred</span>
+        MACC tests use no tile instructions, so they are VLEN-agnostic. An
+        immediate λ is checked with <code>csrr vtype</code> and
+        <code>RVTEST_SIGUPD</code>.
       </p>
 
       <h3>Coverpoints</h3>
@@ -3605,10 +2761,10 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             <tr>
               <td>
                 <code>cp_vd_edges</code>, <code>cp_vs1_edges</code>,
-                <code>cp_vs2_edges</code>, <code>cr_vs1_vs2_edges</code>,
-                <code>cp_csr_frm</code>, <code>cp_csr_fflags</code>
+                <code>cp_vs2_edges</code>, <code>cp_csr_frm</code>,
+                <code>cp_csr_fflags</code>
               </td>
-              <td>reused; new Int4, FP8 and FP4 edge tables</td>
+              <td>reused; new Int4 edge table</td>
               <td>edges in element 0</td>
             </tr>
             <tr>
@@ -3628,20 +2784,16 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             <tr>
               <td>
                 <code>cp_tile_vl</code>, <code>cp_ld</code>,
-                <code>cp_imm_lambda</code>, <code>cr_tile_vtype_agnostic</code>,
-                <code>cp_scale</code>
+                <code>cp_imm_lambda</code>, <code>cr_tile_vtype_agnostic</code>
               </td>
               <td>new</td>
               <td>
                 VL; LD ∈ {natural, tight, padded, 2·linesize}; immediate λ ≠
-                <code>vtype</code> λ; <code>vta</code>×<code>vma</code>; E8M0
-                scales
+                <code>vtype</code> λ; <code>vta</code>×<code>vma</code>
               </td>
             </tr>
             <tr>
               <td>
-                <code>cp_custom_tile_layout</code>,
-                <code>cp_custom_tile_roundtrip</code>,
                 <code>cp_custom_tile_crossmode</code>,
                 <code>cp_custom_tile_macc</code>
               </td>
@@ -3655,6 +2807,15 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
                 W products that add up to one ULP of C₀, one bin per
                 <code>frm</code> value, below
               </td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_custom_tile_layout</code>,
+                <code>cp_custom_tile_roundtrip</code>, <code>cp_scale</code>,
+                FP8 and FP4 edge tables
+              </td>
+              <td>designed, not implemented</td>
+              <td>step 3a; microscaling and OFP rows (step 9)</td>
             </tr>
           </tbody>
         </table>
@@ -3675,7 +2836,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>
                 Each instruction alone with <code>cr_lambda_lmul</code>,
                 <code>cp_tile_vl</code>, <code>cp_ld</code>. The round trip
-                itself: <code>cp_custom_tile_roundtrip</code>.
+                itself: <code>cp_custom_tile_roundtrip</code> (step 3a).
               </td>
             </tr>
             <tr>
@@ -3692,7 +2853,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             </tr>
             <tr>
               <td>TC-LS-07 (<code>vstart</code>)</td>
-              <td><code>cp_vstart</code> in <code>ExceptionsZvvm</code></td>
+              <td><code>vstart</code> cases in <code>ExceptionsZvvm</code></td>
             </tr>
             <tr>
               <td>TC-VSE-03/04 address formula</td>
@@ -3729,19 +2890,15 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
         </table>
       </div>
 
-      <h3 id="testplan-sailbug">
-        Round trips and tests for the Sail bug class
-      </h3>
+      <h3 id="testplan-tileseq">Composed tile sequences</h3>
       <p>
         The vehicle is a <code>cp_custom_&lt;name&gt;</code> column. ACT uses
         such columns for sequences the plain formatter does not emit:
         <code>Vls.csv</code> has nine. <code>cp_custom_ffLS</code> builds its
         chunk and replaces the check
-        ({{src2:generators/testgen/src/testgen/coverpoints/vector/cp_custom_vls.py:62-132}}),
-        and <code>cp_custom_maskLS.sv</code> samples only
-        <code>vtype</code> fields. A row that also needs another family uses an
-        <code>ExtraExtensions</code> colon list. A dedicated row type would
-        duplicate the <code>VLT</code> and <code>VST</code> code.
+        ({{src2:generators/testgen/src/testgen/coverpoints/vector/cp_custom_vls.py:62-132}}).
+        A row that also needs another family uses an
+        <code>ExtraExtensions</code> colon list.
         <span class="ev code">code</span>
       </p>
       <div class="tablewrap">
@@ -3750,40 +2907,48 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             <tr>
               <th>Column and row</th>
               <th>Sequence</th>
-              <th>Check</th>
-              <th>Bins</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td>
-                <code>cp_custom_tile_layout</code> on <code>vmtl.v</code>,
-                <code>vmttl.v</code>
+                <code>cp_custom_tile_macc</code> on <code>vmmacc.vv</code> rows
+                with <code>ExtraExtensions=Zvvi&lt;n&gt;mm:Zvvmtls</code>
               </td>
               <td>
-                sentinel in <code>vd</code>; tile load from a ramp (element k
-                holds k mod 2<sup>SEW</sup>)
+                zero C; <code>vmtl.v</code> A and B<sub>tile</sub>;
+                <code>vmmacc.vv</code>; <code>vmts.v</code> C at LMUL =
+                <code>EMUL_C</code> (two m8 stores at 16), as ime-test-gen does
+                ({{src:ime-test-gen/src/expand_ir.rs:530-665}}). Bins
+                <code>lmul&lt;L&gt;_lambda&lt;λ&gt;</code>.
               </td>
-              <td>
-                <code>RVTEST_SIGUPD_V_LEN</code> on the <code>vd</code> group
-              </td>
-              <td>
-                <code>lmul&lt;L&gt;_lambda&lt;λ&gt;_ld&lt;nat|pad&gt;</code>
-              </td>
+              <td>Implemented (<code>797fc5784</code>)</td>
             </tr>
             <tr>
               <td>
-                <code>cp_custom_tile_layout</code> on <code>vmts.v</code>,
-                <code>vmtts.v</code>
+                <code>cp_custom_tile_crossmode</code> on
+                <code>vmttl.v</code> and <code>vmtts.v</code> rows with
+                <code>ExtraExtensions=Zvvmtls</code>
               </td>
               <td>
-                <code>vid.v vs3</code> at the tile LMUL, then the tile store
+                <code>vmtl.v</code> then <code>vmtts.v</code> (TC-LS-03);
+                <code>vmttl.v</code> then <code>vmts.v</code> (TC-LS-04), for
+                each λ, LMUL and LD (natural or padded). The result is the
+                transpose.
+              </td>
+              <td>Implemented (<code>4fd96e97a</code>)</td>
+            </tr>
+            <tr>
+              <td>
+                <code>cp_custom_tile_layout</code> on all four tile instructions
               </td>
               <td>
-                memory window read back with <code>vle&lt;SEW&gt;.v</code>,
-                <code>RVTEST_SIGUPD_V_LEN</code>
+                Load: sentinel in <code>vd</code>, tile load from a ramp, check
+                the <code>vd</code> group. Store: <code>vid.v vs3</code>
+                at the tile LMUL, tile store, read the memory window back.
               </td>
-              <td>same</td>
+              <td>Step 3a, optional</td>
             </tr>
             <tr>
               <td>
@@ -3794,189 +2959,28 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
                 tile load of the same family, then the store. In the
                 <code>mixed</code> bins the store has an immediate λ′ ≠ λ.
               </td>
-              <td>as above</td>
-              <td>
-                <code>same_lmul&lt;L&gt;_lambda&lt;λ&gt;_ld&lt;nat|pad&gt;</code
-                >,
-                <code>mixed_lmul&lt;L&gt;_lambda&lt;λ&gt;_imm&lt;λ′&gt;</code>
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <code>cp_custom_tile_crossmode</code> on
-                <code>vmttl.v</code> and <code>vmtts.v</code> rows with
-                <code>ExtraExtensions=Zvvmtls</code>
-              </td>
-              <td>
-                <code>vmtl.v</code> then <code>vmtts.v</code> (TC-LS-03);
-                <code>vmttl.v</code> then <code>vmts.v</code> (TC-LS-04). The
-                result is the transpose.
-              </td>
-              <td>as above</td>
-              <td>
-                <code>lmul&lt;L&gt;_lambda&lt;λ&gt;_ld&lt;nat|pad&gt;</code>
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <code>cp_custom_tile_macc</code> on <code>vmmacc.vv</code> rows
-                with <code>ExtraExtensions=Zvvi&lt;n&gt;mm:Zvvmtls</code>
-              </td>
-              <td>
-                zero C; <code>vmtl.v</code> A and B<sub>tile</sub>;
-                <code>vmmacc.vv</code>; <code>vmts.v</code> C at LMUL =
-                <code>EMUL_C</code> (two m8 stores at 16), as ime-test-gen does
-                ({{src:ime-test-gen/src/expand_ir.rs:530-665}})
-              </td>
-              <td>
-                C window read back with <code>vle&lt;SEW&gt;.v</code>,
-                <code>RVTEST_SIGUPD_V_LEN</code>
-              </td>
-              <td><code>lmul&lt;L&gt;_lambda&lt;λ&gt;</code></td>
+              <td>Step 3a, optional</td>
             </tr>
           </tbody>
         </table>
       </div>
-      <ul>
-        <li>
-          Bins cover LMUL ∈ {1,2,4,8}, every λ through the gate, and LD natural
-          (<code>rs2 = x0</code>) and padded. LMUL=1 bins are controls:
-          <code>tile_reg_idx(i, 1, λ, epr) = i</code>.
-        </li>
-        <li>
-          <code>same</code> and cross-mode pairs cannot detect a wrong
-          register-element mapping f. The load writes tile element i to f(i) and
-          the store reads it from f(i), so memory gets
-          <code>dst[off_store(i)] = src[off_load(i)]</code> for any f. The
-          <code>mixed</code> bins break this, because
-          <code>tile_reg_idx</code> differs between λ and λ′ when LMUL&gt;1.
-          <span class="ev inf">inferred</span>
-        </li>
-        <li>
-          <code>cp_custom_tile_macc</code> data: A[i][0]=i, A[i][1]=1,
-          B<sub>tile</sub>[j][0]=256, B<sub>tile</sub>[j][1]=j, other k zero, so
-          C[i][j] = 256·i + j names its row and column. Tile loads place the
-          data from a fixed memory layout, so the test is VLEN-agnostic.
-          <code>EMUL_C</code> depends on VLEN, so an
-          <code>#if UDB_VLEN == …</code> chain picks the <code>vtype</code> for
-          the C store. The C store also catches a store-only error at LMUL=1,
-          because <code>EMUL_C</code> &gt; 1.
-        </li>
-        <li>
-          The mixed-λ bins pass on Sail after the fix: the fork takes the
-          immediate λ when it is nonzero (<code>ime_mem_insts.sail:32</code>).
-          <span class="ev code">code</span>
-        </li>
-      </ul>
       <p>
-        Expected mismatch at the reproducer configuration (VLEN=256, SEW=32,
-        LMUL=2, λ=1, epr=8, linesize=2). QEMU follows the specification. Sail
-        <code>c69e3e22</code> writes the signature. Rows tagged
-        <span class="ev run">run</span> are the reproducer output
-        (<code>sail.out</code>, <code>qemu.out</code>). Rows tagged
-        <span class="ev inf">inferred</span> were computed from the
-        specification's <code>tile_reg_idx</code> and Sail's flat index; the
-        same computation reproduces all three reproducer steps.
+        A round trip or a cross-mode pair cannot detect a wrong register-element
+        mapping, because the load and the store apply the same mapping. Only a
+        layout test, a <code>mixed</code> round trip or a MACC result stored at
+        LMUL&gt;1 can. <code>cp_custom_tile_macc</code> covers the last case.
+        Step 3a adds direct layout and round-trip conformance tests.
+        <span class="ev inf">inferred</span>
       </p>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Bin</th>
-              <th>QEMU (specification)</th>
-              <th>Sail <code>c69e3e22</code></th>
-              <th>Words that differ</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>layout <code>vmtl.v</code>, LD=2</td>
-              <td><code>0 2 4 … 14 | 1 3 … 15</code></td>
-              <td><code>0 1 … 7 | 8 … 15</code></td>
-              <td>14 of 16 <span class="ev run">run</span></td>
-            </tr>
-            <tr>
-              <td>layout <code>vmtl.v</code>, LD=3</td>
-              <td><code>0 3 6 … 21 | 1 4 7 … 22</code></td>
-              <td><code>0 1 3 4 6 7 9 10 | 12 13 … 22</code></td>
-              <td>14 of 16 <span class="ev inf">inferred</span></td>
-            </tr>
-            <tr>
-              <td>layout <code>vmttl.v</code>, LD=8</td>
-              <td><code>0 1 … 15</code></td>
-              <td><code>0 8 1 9 … 7 15</code></td>
-              <td>14 of 16 <span class="ev inf">inferred</span></td>
-            </tr>
-            <tr>
-              <td>layout <code>vmts.v</code> from <code>vid.v</code>, LD=2</td>
-              <td><code>0 8 1 9 2 10 3 11 | 4 12 … 7 15</code></td>
-              <td><code>0 1 … 15</code></td>
-              <td>14 of 16 <span class="ev run">run</span></td>
-            </tr>
-            <tr>
-              <td>
-                roundtrip <code>mixed_lmul2_lambda1_imm2</code> (store LD=4)
-              </td>
-              <td><code>0 2 1 3 4 6 5 7 | 8 10 9 11 …</code></td>
-              <td><code>0 1 … 15</code></td>
-              <td>8 of 16 <span class="ev inf">inferred</span></td>
-            </tr>
-            <tr>
-              <td>roundtrip <code>same</code>; both cross-mode pairs</td>
-              <td colspan="2">equal</td>
-              <td>
-                0 <span class="ev run">run</span> (same)
-                <span class="ev inf">inferred</span> (cross)
-              </td>
-            </tr>
-            <tr>
-              <td>
-                <code>cp_custom_tile_macc</code>, LMUL=2 (M=8,
-                K<sub>eff</sub>=2, <code>EMUL_C</code>=8)
-              </td>
-              <td>
-                row 0: <code>0x0 … 0x7</code>; row 1: <code>0x100 … 0x107</code>
-              </td>
-              <td>row 0: <code>0x400 0x200 0x600 0x200 …</code></td>
-              <td>63 of 64 <span class="ev inf">inferred</span></td>
-            </tr>
-            <tr>
-              <td>
-                <code>cp_custom_tile_macc</code>, LMUL=1 (K<sub>eff</sub>=1)
-              </td>
-              <td>C[i][j] = j</td>
-              <td>the transpose, C[i][j] = i</td>
-              <td>56 of 64 <span class="ev inf">inferred</span></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="note warn">
-        <span class="tag">Failing bins are the signal</span>
-        <p>
-          The expected values come from Sail. Until the Sail fix lands, every
-          tile bin at LMUL&gt;1 and every detecting
-          <code>cp_custom_tile_*</code> bin fails on a conforming DUT such as
-          QEMU. The bins are not moved to <code>ignore_bins</code> and are not
-          excluded in <code>config/ime/ci.yaml</code>: AGENTS.md reserves
-          <code>ignore_bins</code> for unreachable bins. After the fix, the same
-          bins pass on QEMU and on Sail.
-        </p>
-      </div>
       <p>
-        <strong>W&gt;1 partial sum.</strong> The same treatment applies to the
-        Sail fork's W&gt;1 FP accumulation. The specification reduces the W
+        <strong>W&gt;1 partial sum.</strong> The specification reduces the W
         products of a sub-dot-product into S, then updates C once with
         round<sub>frm</sub>(C + S) (spec:1352–1412). Sail adds each product into
-        C on its own (<a
-          href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L547-L597"
-          ><code>ime_mem_insts.sail:547-597</code></a
-        >). The new column <code>cp_fp_subdot</code> on the FP rows with W&gt;1
-        and vm=1 (<code>vfwmmacc.vv</code>, <code>vfqmmacc.vv</code>,
-        <code>vf8wmmacc.vv</code>) detects it. Its data: in one sub-dot-product
-        of C[0][0], W equal products that are exact in the C format, each at
-        most half an ULP of C₀, adding up to one ULP of C₀. All other products
-        of the element are zero. Bins
+        C on its own (finding 30). The column <code>cp_fp_subdot</code> on the
+        FP rows with W&gt;1 and vm=1 detects it. Its data: in one
+        sub-dot-product of C[0][0], W equal products that are exact in the C
+        format, each at most half an ULP of C₀, adding up to one ULP of C₀. All
+        other products of the element are zero. Bins
         <code>ulp_&lt;rne|rtz|rdn|rup|rmm&gt;</code> set <code>frm</code>.
       </p>
       <ul>
@@ -3991,7 +2995,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           <span class="ev inf">inferred</span>
         </li>
         <li>
-          Before the Sail fix, Sail writes the per-product result into the
+          Until the Sail fix, Sail writes the per-product result into the
           signature. A conforming DUT fails the bins. The SDK QEMU passes them,
           because it has the same deviation. After the fix, QEMU fails them
           until QEMU is fixed.
@@ -4004,7 +3008,7 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <th>Bin <code>ulp_rne</code>, VLEN 256, λ=1</th>
               <th>A[0][k], B[k][0], C₀</th>
               <th>Specification</th>
-              <th>Sail <code>c69e3e22</code> and QEMU</th>
+              <th>Sail and QEMU</th>
             </tr>
           </thead>
           <tbody>
@@ -4255,8 +3259,8 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
       <ul>
         <li>
           Integer accumulation wraps modulo 2<sup>SEW</sup> (spec:1112), so
-          random data is exact. A <code>ramp</code> bin keeps the ime-test-gen
-          positional values.
+          random data is exact. A <code>ramp</code> bin for the ime-test-gen
+          positional values is not implemented yet.
         </li>
         <li>
           FP: with G=1, every group is one sub-dot-product of W products. The
@@ -4294,9 +3298,9 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
           choice, so the data excludes it. <span class="ev inf">inferred</span>
         </li>
         <li>
-          Multi-term tests that only need the specification's S are no longer
-          deferred: <code>cp_fp_subdot</code> covers them now and fails until
-          the Sail fix (work item 10).
+          <code>cp_fp_subdot</code> covers the multi-term tests that need only
+          the specification's S. Its bins fail on a conforming DUT until the
+          Sail fix (work item 10).
         </li>
         <li>
           Tests whose result depends on the (G, psm, rnd) choice, such as
@@ -4340,9 +3344,8 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
             <tr>
               <td>OFP8, OFP4, BF16 output, microscaling</td>
               <td>
-                Rows are written. The Sail fork does not implement them, so no
-                DUT configuration selects them. Rows with BF16 or E5M2 output
-                also require Zvfbfa.
+                Not written: the Sail fork does not implement them (step 9).
+                Rows with BF16 or E5M2 output will also require Zvfbfa.
               </td>
             </tr>
             <tr>
@@ -4356,24 +3359,23 @@ RVCP: Expected Value: 0x0000000000000012      <span class="c"># Sail: A[1]·B[0]
               <td>λ outside the DUT list</td>
               <td>
                 Sail accepts it, including λ values the specification does not
-                permit (work item 11). Negative λ tests in
-                <code>ExceptionsZvvm</code> follow the specification and wait
-                for a configurable λ set in Sail.
+                permit (work item 11). Negative λ tests wait for a configurable
+                λ set in Sail.
               </td>
             </tr>
             <tr>
               <td>IME decode in coverage</td>
               <td>
-                Encodings go in <code>disassemble.svh</code> until riscv-opcodes
-                has IME; <code>vtype</code> fields go in
-                <code>RISCV_coverage_csr.svh</code>.
+                Encodings are in the handwritten
+                <code>RISCV_decode_pkg.svh</code> until riscv-opcodes has IME
+                (<code>0c44e37ae</code>).
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <h3>Draft CSV excerpts</h3>
+      <h3>CSV excerpts</h3>
       <pre data-label="testplans/Zvvmm.csv (excerpt)">
 Instruction,Type,RV32,RV64,ExtraExtensions,EFFEW8,EFFEW16,EFFEW32,EFFEW64,cp_asm_count,cp_vd,cp_vs1,cp_vs2,cp_vd_edges,cp_vs1_edges,cp_vs2_edges,cp_altfmt,cr_lambda_lmul,cp_tile_vl,cp_custom_tile_macc
 vmmacc.vv,MMACC,x,x,Zvvi32mm,,,x,,x,emul16,x,x,x,x,x,x,x,x,
@@ -4382,190 +3384,58 @@ vqmmacc.vv,MMACC,x,x,Zvvi8i32mm,,,x,,x,emul16,x,x,x,emulf4,emulf4,x,x,x,
 v8wmmacc.vv,MMACC,x,x,Zvvi4i32mm,,,x,,x,emul16,x,x,x,emulf8,emulf8,x,x,x,
 vmmacc.vv,MMACC,x,x,Zvvi32mm:Zvvmtls,,,x,,,,,,,,,,,,x</pre>
       <pre data-label="testplans/Zvvmttls.csv (complete)">
-Instruction,Type,RV32,RV64,ExtraExtensions,EFFEW8,EFFEW16,EFFEW32,EFFEW64,cp_asm_count,cp_vd,cp_vs3,cp_rs1,cp_rs2,cp_ld,cp_imm_lambda,cp_masking_edges,cr_lambda_lmul,cp_tile_vl,cr_tile_vtype_agnostic,cp_custom_tile_layout,cp_custom_tile_roundtrip,cp_custom_tile_crossmode
-vmttl.v,VLT,x,x,,x,x,x,x,x,x,,nx0,x,x,x,x,x,x,x,x,,
-vmtts.v,VST,x,x,,x,x,x,x,x,,x,nx0,x,x,x,x,x,x,,x,x,
-vmttl.v,VLT,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x
-vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
+Instruction,Type,RV32,RV64,ExtraExtensions,EFFEW8,EFFEW16,EFFEW32,EFFEW64,cp_asm_count,cp_vd,cp_vs3,cp_rs1,cp_rs2,cp_ld,cp_imm_lambda,cp_masking_edges,cr_lambda_lmul,cp_tile_vl,cr_tile_vtype_agnostic,cp_custom_tile_crossmode
+vmttl.v,VLT,x,x,,x,x,x,x,x,x,,nx0,x,x,x,x,x,x,x,
+vmtts.v,VST,x,x,,x,x,x,x,x,,x,nx0,x,x,x,x,x,x,,
+vmttl.v,VLT,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,x
+vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,x</pre>
       <p>
-        <code>Zvvmtls.csv</code> has the same columns without
-        <code>cp_custom_tile_crossmode</code>, and only the first two rows.
-        <code>Zvvfmm.csv</code> adds <code>cr_vs1_vs2_edges</code>,
-        <code>cp_csr_frm</code> (<code>v</code>), <code>cp_csr_fflags</code>,
-        <code>cp_fp_subdot</code> (W&gt;1 rows) and <code>cp_scale</code>, with
-        edge suffixes such as <code>f_bf16</code>, <code>f_emulf2</code> and
-        <code>f_ofp8</code>.
+        <code>Zvvmtls.csv</code> has the same coverpoints without
+        <code>cp_custom_tile_crossmode</code> and without the
+        <code>ExtraExtensions</code> column. <code>Zvvfmm.csv</code> uses
+        <code>cp_csr_frm</code> (<code>v</code>),
+        <code>cp_csr_fflags</code> (<code>voun</code>),
+        <code>cp_fp_subdot</code> on the W&gt;1 rows, and the edge suffixes
+        <code>f</code>, <code>f_emulf2</code>, <code>f_emulf4</code> and
+        <code>f_bf16</code>.
       </p>
 
       <h3>One generated testcase</h3>
       <pre
-        data-label="tests/rv64i/Zvvmm32/Zvvmm32Zvvi32mm-vmmacc.vv-00.S (proposed, abridged)"
+        data-label="tests/rv64i/Zvvmm32/Zvvmm32Zvvi32mm-vmmacc.vv-00.S (abridged)"
       ><span class="c">##### START_TEST_CONFIG #####
 # REQUIRED_EXTENSIONS: ['I', 'Zvvmm', 'Zvvi32mm', 'Zve32x']
 # params:
 #   MXLEN: 64
 # MARCH: rv64i_zicsr_zifencei_zve32x_zvvi32mm_zvvmm
 ##### END_TEST_CONFIG #####</span>
+#define RVTEST_VECTOR
 #define RVTEST_SEW 32
-#define RVTEST_EXPERIMENTAL
-<span class="c"># Testcase cr_lambda_lmul (lambda = 2, lmul = 2, vl = vlmax)</span>
+<span class="c"># Testcase cr_lambda_lmul (Test lambda = 2, lmul = 2, vl = vlmax)</span>
 #if defined(UDB_SUPPORTED_LAMBDA_SEW32_2)
-  vsetvli x17, x0, e32, m8, tu, mu       <span class="c"># C window v16-v31</span>
-  LA (x17, vd_ime_c_random_e32)
-  vle32.v v16, (x17)
-  <span class="c">… second m8 half into v24 …</span>
-  vsetvli x17, x0, e32, m2, tu, mu       <span class="c"># A in v4, B in v10</span>
-  <span class="c">… vle32.v v4 and v10 …</span>
-  LI (x20, 0x2000000000000011)           <span class="c"># lambda=2, e32, m2</span>
-  vsetvl x17, x0, x20
+<span class="c"># C window v0-v15: two m8 loads</span>
+  vsetvli x13, x0, e32, m8, tu, mu
+  LA (x13, vd_random_length_111)
+  vle32.v v0, (x13)
+  <span class="c">… second m8 half into v8 …</span>
+<span class="c"># A (vs1 = v30) and B (vs2 = v28) at LMUL=2, VL=VLMAX</span>
+  vsetvli x13, x0, e32, m2, tu, mu
+  <span class="c">… vle32.v v30 and v28 …</span>
+  LI(x29, 0x2000000000000011)            <span class="c"># lambda=2, e32, m2</span>
+  vsetvl x13, x0, x29
 <span class="hl">Zvvmm32Zvvi32mm_vmmacc_vv_cg_cr_lambda_lmul_lambda_2_lmul_2_vl_vlmax:</span>
-  vmmacc.vv v16, v4, v10
-  vsetvli x17, x0, e32, m8, tu, mu
-  RVTEST_SIGUPD_V_LEN(…, v16, …, 32, 8, …)
-  RVTEST_SIGUPD_V_LEN(…, v24, …, 32, 8, …)
+  vmmacc.vv v0, v30, v28
+  vsetvli x13, x0, e32, m8, tu, mu
+  RVTEST_SIGUPD_V_LEN(…, v0, …, 32, 8, …)
+  RVTEST_SIGUPD_V_LEN(…, v8, …, 32, 8, …)
 #endif</pre>
       <p>
         On <code>qemu-ime-rv64</code>, λ=2 at SEW=32 gives
-        <code>EMUL_C</code>=2: C is <code>v16</code>–<code>v17</code>, and the
-        check also confirms that <code>v18</code>–<code>v31</code> are
-        unchanged. <code>vsetvli</code> keeps λ, because a change of LMUL alone
-        does not change λ (spec:741).
+        <code>EMUL_C</code>=2: C is <code>v0</code>–<code>v1</code>, and the
+        check also confirms that <code>v2</code>–<code>v15</code> are unchanged.
+        <code>vsetvli</code> keeps λ, because a change of LMUL alone does not
+        change λ (spec:741).
       </p>
-
-      <h3>Order of work</h3>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Step</th>
-              <th>Depends on</th>
-              <th>Effort</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td class="num">1</td>
-              <td>
-                Slice 1: <code>vmmacc.vv</code> with <code>Zvvi32mm</code>,
-                <code>cp_asm_count</code> and <code>cr_lambda_lmul</code>. Suite
-                expansion, the covergroupgen fix, <code>MMACC</code>,
-                <code>load_ime_vtype</code>, the λ gate. Passes on QEMU and Sail
-                before the Sail fix. <strong>Done</strong>:
-                <code>9ef93d17a</code> (§16a).
-              </td>
-              <td>—</td>
-              <td>3–4 days</td>
-            </tr>
-            <tr>
-              <td class="num">2</td>
-              <td>
-                All 13 integer rows and their coverpoints, with Int4 data.
-                <code>cr_lambda_lmul</code> bins with <code>EMUL_C</code>=16
-                fail until work item 11. <strong>Done</strong> except the
-                <code>ramp</code> bin: <code>978527c1e</code>…<code
-                  >6e9f5b04b</code
-                >
-                (§16a).
-              </td>
-              <td>1</td>
-              <td>4–5 days</td>
-            </tr>
-            <tr>
-              <td class="num">3</td>
-              <td>
-                <code>Zvvmtls.csv</code>: <code>VLT</code>, <code>VST</code> and
-                the tile coverpoints. LMUL&gt;1 bins pass on QEMU only after the
-                Sail fix. <strong>Done</strong>: <code>feb5d61a4</code> (§16a).
-              </td>
-              <td>1</td>
-              <td>4–5 days</td>
-            </tr>
-            <tr>
-              <td class="num">3a</td>
-              <td>
-                <code>cp_custom_tile_layout</code> and
-                <code>cp_custom_tile_roundtrip</code>. Before the Sail fix,
-                LMUL=1 and <code>same</code> bins pass; LMUL&gt;1 layout and
-                <code>mixed</code> bins fail with the values above. This is the
-                ACT regression test for work item 1.
-              </td>
-              <td>3</td>
-              <td>2–3 days</td>
-            </tr>
-            <tr>
-              <td class="num">3b</td>
-              <td>
-                <code>cp_custom_tile_macc</code> and the four
-                <code>Zvvi&lt;n&gt;mm:Zvvmtls</code> rows.
-              </td>
-              <td>2, 3a</td>
-              <td>2 days</td>
-            </tr>
-            <tr>
-              <td class="num">4</td>
-              <td>
-                <code>Zvvfmm.csv</code> rows that Sail implements, portable FP
-                data, <code>cp_csr_frm_v</code>, <code>cp_csr_fflags</code>,
-                <code>cp_fp_subdot</code>. The <code>cp_fp_subdot</code> bins
-                fail on a conforming DUT until work item 10, and pass on QEMU
-                until then. <strong>Done</strong>: <code>a25873963</code>…<code
-                  >dd060485c</code
-                >
-                (§16a).
-              </td>
-              <td>2</td>
-              <td>5–7 days</td>
-            </tr>
-            <tr>
-              <td class="num">5</td>
-              <td>
-                <code>Zvvmttls.csv</code> with
-                <code>cp_custom_tile_crossmode</code>; Sail only.
-                <strong>Done</strong>: <code>4fd96e97a</code> (§16a).
-              </td>
-              <td>3, 3a</td>
-              <td>2–3 days</td>
-            </tr>
-            <tr>
-              <td class="num">6</td>
-              <td>
-                Coverage: decoder entries, <code>vtype</code> fields, templates.
-                <strong>Done</strong> except the simulation run:
-                <code>0c44e37ae</code> (§16a).
-              </td>
-              <td>2–5</td>
-              <td>4–6 days</td>
-            </tr>
-            <tr>
-              <td class="num">7</td>
-              <td>
-                <code>ExceptionsZvvm</code>: illegal cases and
-                <code>vstart</code>. <strong>Done</strong>:
-                <code>a4e9bc82b</code> (§16a).
-              </td>
-              <td>3, 4</td>
-              <td>4–5 days</td>
-            </tr>
-            <tr>
-              <td class="num">8</td>
-              <td>
-                <code>psm</code> and <code>rnd</code> parameters, and the tests
-                whose result depends on the disclosed tuple.
-              </td>
-              <td>4; disclosure; Sail change</td>
-              <td>3–4 days</td>
-            </tr>
-            <tr>
-              <td class="num">9</td>
-              <td>OFP8, OFP4, BF16 output and microscaling rows.</td>
-              <td>Sail implementation</td>
-              <td>5–7 days</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p>Steps 1–7 take about 6–8 engineer-weeks.</p>
 
       <h3>Open questions</h3>
       <ol>
@@ -4585,8 +3455,15 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           rows fit no tuple.
         </li>
         <li>
-          Does the Sail fork support RV32, Int4 and W=1 BF16? Does QEMU support
-          Int4?
+          Does the Sail fork support RV32 and W=1 BF16 (<code>Zvvbf16mm</code>)?
+          Both Sail and QEMU execute Int4.
+        </li>
+        <li>
+          The ARC review draft of the specification
+          (<code>jmoreira/arc-review-updates-01</code>) makes every VL legal for
+          tile loads and stores, makes a non-multiple MACC VL reserved, and
+          renames λ to KLEN. When it is merged, the
+          <code>ExceptionsZvvm</code> VL bins and the λ naming need review.
         </li>
       </ol>
       <p>
@@ -4596,180 +3473,245 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
       </p>
 
       <h2 id="plan"><span class="n">17</span>Work plan</h2>
+      <p>Work items of the integration:</p>
       <div class="tablewrap">
         <table>
           <thead>
             <tr>
               <th>#</th>
               <th>Work item</th>
-              <th>Owner area</th>
-              <th>Depends on</th>
+              <th>Area</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="num">1</td>
+              <td>Tile loads and stores use <code>tile_reg_idx</code></td>
+              <td>Sail fork</td>
+              <td>Done: <code>a545cc41</code></td>
+            </tr>
+            <tr>
+              <td class="num">2</td>
+              <td>Sail fork on the <code>0.16</code> tag</td>
+              <td>Sail fork</td>
+              <td>Done: <code>cgomez/0.16-plus-ime</code> (Section 12a)</td>
+            </tr>
+            <tr>
+              <td class="num">3</td>
+              <td>UDB definitions and λ-set parameters</td>
+              <td>ACT</td>
+              <td>Done: <code>fa3641965</code></td>
+            </tr>
+            <tr>
+              <td class="num">3a</td>
+              <td>IME extensions experimental, <code>.insn</code> macros</td>
+              <td>ACT</td>
+              <td>Done: <code>85586531e</code></td>
+            </tr>
+            <tr>
+              <td class="num">4</td>
+              <td>IME DUT configuration</td>
+              <td>ACT</td>
+              <td>Done: <code>394462f26</code></td>
+            </tr>
+            <tr>
+              <td class="num">5</td>
+              <td><code>testgen</code> IR importer (option B)</td>
+              <td>ACT testgen</td>
+              <td>
+                Not pursued. The branch went directly to native testplans
+                (option C).
+              </td>
+            </tr>
+            <tr>
+              <td class="num">6</td>
+              <td>
+                Semantic actions instead of raw <code>Asm</code> in the
+                tile-only families
+              </td>
+              <td>ime-test-gen</td>
+              <td>Open. Needed only for option A or B.</td>
+            </tr>
+            <tr>
+              <td class="num">7</td>
+              <td>Native IME testplans, formatters and coverpoints</td>
+              <td>ACT testgen, covergroupgen</td>
+              <td>
+                Done for the rows Sail implements: §16b steps 1–7. Open items in
+                the next table.
+              </td>
+            </tr>
+            <tr>
+              <td class="num">8</td>
+              <td>IME encodings and <code>vtype</code> fields in coverage</td>
+              <td>ACT fcov</td>
+              <td>
+                Done: <code>0c44e37ae</code>. The coverage simulation has not
+                run.
+              </td>
+            </tr>
+            <tr>
+              <td class="num">9</td>
+              <td>VLEN above 1024</td>
+              <td>ACT</td>
+              <td>
+                Open. IME tests stay at VLEN ≤ 1024. λ ≥ 16 bins at SEW=8 stay
+                uncovered.
+              </td>
+            </tr>
+            <tr>
+              <td class="num">10</td>
+              <td>
+                Sail W&gt;1 FP accumulation forms S before it updates C (finding
+                30)
+              </td>
+              <td>Sail fork</td>
+              <td>
+                Open. File the draft issue
+                <a href="issues/sail-ime-wmmacc-partial-sum/ISSUE.md"
+                  ><code>issues/sail-ime-wmmacc-partial-sum/ISSUE.md</code></a
+                >. No patch yet.
+              </td>
+            </tr>
+            <tr>
+              <td class="num">11</td>
+              <td>
+                Sail λ legality: accept <code>EMUL_C</code>=16 in the MACC
+                (finding 20), reject λ with <code>EMUL_C</code> outside {1, 2,
+                4, 8, 16} (finding 14), make the λ set configurable
+              </td>
+              <td>Sail fork</td>
+              <td>
+                Open. <code>EMUL_C</code>=16 is filed as
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/issues/10"
+                  >#10</a
+                >. It blocks the 5 SEW=16 files.
+              </td>
+            </tr>
+            <tr>
+              <td class="num">12</td>
+              <td>Sail tile load and store legality (findings 21 and 22)</td>
+              <td>Sail fork</td>
+              <td>
+                Partly done: <code>c1d96b3e</code> and <code>fd88fd86</code>.
+                The VL check that spec <code>main</code> requires is still
+                missing. The ARC review draft drops it (fork issue #8, closed).
+                Revisit when the draft is merged.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Testplan steps of §16b:</p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Content</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td class="num">1</td>
               <td>
-                Use <code>ime_tile_reg_idx</code> in the Sail fork's
-                <code>vmtl.v</code> and <code>vmts.v</code> (<code
-                  >ime_mem_insts.sail</code
-                >
-                lines 73–90 and 160 on <code>c69e3e22</code>). Add a first-party
-                test that runs a MACC and then a store at LMUL&gt;1.
-                <strong>Ready, not merged:</strong> reproducer, draft issue and
-                tested patch in
-                <code>issues/sail-ime-tile-ls-index/</code> (Section 16a). The
-                issue is not filed yet.
+                Slice 1: <code>vmmacc.vv</code> for <code>Zvvi32mm</code>,
+                <code>MMACC</code>, <code>load_ime_vtype</code>, the λ gate
               </td>
-              <td>Sail fork</td>
-              <td>—</td>
+              <td>Done: <code>34afab1e9</code>, <code>9ef93d17a</code></td>
             </tr>
             <tr>
               <td class="num">2</td>
+              <td>All 13 integer rows and their coverpoints</td>
               <td>
-                Rebase the Sail fork onto <code>0.16</code>, so that the 0.16
-                <code>sail.json</code> schema and the ACT version gate hold.
-                <strong>Done:</strong> <code>cgomez/0.16-plus-ime</code>
-                (<code>c69e3e22</code>), Section 12a.
+                Done: <code>978527c1e</code>…<code>6e9f5b04b</code>. Open: the
+                <code>ramp</code> value bin.
               </td>
-              <td>Sail fork</td>
-              <td>—</td>
             </tr>
             <tr>
               <td class="num">3</td>
               <td>
-                Define Zvvm, Zvvmm, Zvvfmm, Zvvmtls and Zvvmttls, plus a λ-set
-                parameter, in UDB, or through <code>UDB_LOCAL_PATH</code>.
-                <strong>Done:</strong> ACT UDB overlay <code>ime</code>
-                (<code>fa3641965</code>) with 65 extensions and
-                <code>SUPPORTED_LAMBDA_SEW&lt;n&gt;</code>. Not through
-                <code>UDB_LOCAL_PATH</code>.
+                <code>Zvvmtls.csv</code>, <code>VLT</code>, <code>VST</code>
               </td>
-              <td>UDB</td>
-              <td>—</td>
+              <td>Done: <code>feb5d61a4</code></td>
             </tr>
             <tr>
               <td class="num">3a</td>
               <td>
-                Mark the IME extensions experimental in ACT, and add
-                <code>.insn</code> macros for every IME instruction.
-                <strong>Done:</strong> <code>85586531e</code>.
+                <code>cp_custom_tile_layout</code> and
+                <code>cp_custom_tile_roundtrip</code>, optional layout and
+                round-trip conformance tests
               </td>
-              <td>ACT</td>
-              <td>3</td>
+              <td>Open. Unblocked: Sail follows the specification layout.</td>
+            </tr>
+            <tr>
+              <td class="num">3b</td>
+              <td><code>cp_custom_tile_macc</code></td>
+              <td>Done: <code>797fc5784</code></td>
             </tr>
             <tr>
               <td class="num">4</td>
               <td>
-                Add an IME DUT configuration under <code>config/</code>: Sail
-                IME as reference, SDK QEMU as DUT, an SDK toolchain wrapper.
-                <strong>Done:</strong> <code>config/ime/qemu-ime-rv64</code>
-                (<code>394462f26</code>).
+                <code>Zvvfmm.csv</code> rows that Sail implements, FP data,
+                <code>cp_csr_frm_v</code>, <code>cp_csr_fflags</code>,
+                <code>cp_fp_subdot</code>
               </td>
-              <td>ACT</td>
-              <td>2, 3</td>
+              <td>
+                Done: <code>52a08ff97</code>,
+                <code>a25873963</code>…<code>dd060485c</code>. Open: mixed
+                FP16/BF16 rows, <code>vf8wmmacc.vv</code> rows (Sail has them
+                since <code>128a5b74</code>), rounding-sensitive data for
+                <code>cp_csr_frm_v</code>.
+              </td>
             </tr>
             <tr>
               <td class="num">5</td>
               <td>
-                Write a <code>testgen</code> IR importer module, extending
-                <code>ir2act.py</code> to FP MACC, <code>CheckFflags</code> and
-                m16 accumulators. Emit the header from the overlay: family and
-                type extensions in <code>REQUIRED_EXTENSIONS</code>, λ in
-                <code>params</code>.
+                <code>Zvvmttls.csv</code> with
+                <code>cp_custom_tile_crossmode</code>
               </td>
-              <td>ACT testgen</td>
-              <td>1 (open); 3, 3a and 4 are done</td>
+              <td>Done: <code>4fd96e97a</code></td>
             </tr>
             <tr>
               <td class="num">6</td>
+              <td>Coverage decode, <code>vtype</code> fields, templates</td>
               <td>
-                Replace the raw-<code>Asm</code> actions in the tile-only
-                families with semantic actions.
+                Done: <code>0c44e37ae</code>. Open: run the coverage simulation
+                and read the bins.
               </td>
-              <td>ime-test-gen</td>
-              <td>—</td>
             </tr>
             <tr>
               <td class="num">7</td>
+              <td><code>ExceptionsZvvm</code></td>
               <td>
-                Write the four IME testplans, the IME formatters, coverpoints
-                and covergroup templates (option C). <strong>Designed:</strong>
-                Section 16b gives the suites, rows, formatter types,
-                coverpoints, the tests for the Sail bug class and the order of
-                work.
+                Done: <code>a4e9bc82b</code>. Open: review the VL bins when the
+                ARC review draft is merged.
               </td>
-              <td>ACT testgen, covergroupgen</td>
-              <td>5</td>
             </tr>
             <tr>
               <td class="num">8</td>
               <td>
-                Add the IME encodings to the coverage decoder, and the IME
-                <code>vtype</code> fields to RVVI.
+                <code>psm</code> and <code>rnd</code> parameters, and tests
+                whose result depends on the disclosed tuple
               </td>
-              <td>ACT fcov</td>
-              <td>7</td>
+              <td>Open. Needs the target disclosure and a Sail change.</td>
             </tr>
             <tr>
               <td class="num">9</td>
-              <td>
-                Raise <code>RVTEST_VLEN_MAX</code> above 1024, or keep IME tests
-                at VLEN ≤ 1024.
-              </td>
-              <td>ACT</td>
-              <td>—</td>
-            </tr>
-            <tr>
-              <td class="num">10</td>
-              <td>
-                In the Sail fork's <code>execute_ime_fp_gemm</code>, reduce the
-                W products of each sub-dot-product into an exact S, round S with
-                <code>frm</code>, and add it to C once (<code
-                  >ime_mem_insts.sail</code
-                >
-                lines 547–597 on <code>c69e3e22</code>).
-                <strong>Draft issue ready:</strong>
-                reproducer and outputs in
-                <code>issues/sail-ime-wmmacc-partial-sum/</code>. No patch yet,
-                and the issue is not filed. The SDK QEMU has the same deviation;
-                that is a DUT finding, not a Sail item.
-              </td>
-              <td>Sail fork</td>
-              <td>—</td>
-            </tr>
-            <tr>
-              <td class="num">11</td>
-              <td>
-                λ legality in the Sail fork. Accept only λ with
-                <code>EMUL_C</code> ∈ {1, 2, 4, 8, 16}, in <code>vsetvl</code>,
-                <code>vsetvli</code> and the tile-load immediate (<code
-                  >ime_utils.sail</code
-                >
-                lines 34–54). Accept <code>EMUL_C</code>=16 in the MACC (lines
-                91–92). Make the supported λ set configurable in
-                <code>sail.json</code>, so that Sail can model the DUT's UDB λ
-                lists.
-              </td>
-              <td>Sail fork</td>
-              <td>—</td>
-            </tr>
-            <tr>
-              <td class="num">12</td>
-              <td>
-                Tile load and store legality in the Sail fork. Use the natural
-                LD when the value of <code>rs2</code> is 0, not only for
-                <code>x0</code> (<code>ime_mem_insts.sail</code> lines 53–55 and
-                145–147). Raise an illegal-instruction exception when VL is not
-                a multiple of λ·LMUL, and for a masked load whose
-                <code>vd</code> is <code>v0</code> (spec:5874–5881).
-              </td>
-              <td>Sail fork</td>
-              <td>—</td>
+              <td>OFP8, OFP4, BF16 output and microscaling rows</td>
+              <td>Open. Needs the Sail implementation.</td>
             </tr>
           </tbody>
         </table>
       </div>
+      <p>
+        Other open items: rebase the branch onto <code>act4</code>
+        <code>7569d06d6</code>, and open a pull request to <code>act4</code>
+        after user approval.
+      </p>
 
       <!-- ============================ REFERENCE ============================ -->
       <div class="part-title">Reference</div>
@@ -5011,8 +3953,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                   ><code>trans_rvzvvmm.c.inc:610-669</code></a
                 >,
                 <a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L547-L563"
-                  ><code>ime_mem_insts.sail:547-563</code></a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/a545cc412ba022edae38b87f2caf8f2f54caf1e9/model/extensions/IME/ime_mem_insts.sail#L612-L628"
+                  ><code>ime_mem_insts.sail:612-628</code></a
                 >
               </td>
             </tr>
@@ -5031,8 +3973,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                   ><code>trans_rvzvvmm.c.inc:1150-1153</code></a
                 >,
                 <a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L525-L526"
-                  ><code>ime_mem_insts.sail:525-526</code></a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/a545cc412ba022edae38b87f2caf8f2f54caf1e9/model/extensions/IME/ime_mem_insts.sail#L590-L591"
+                  ><code>ime_mem_insts.sail:590-591</code></a
                 >
               </td>
             </tr>
@@ -5099,74 +4041,59 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 The Sail fork's MACC raises an illegal-instruction exception for
                 <code>EMUL_C</code>=16. The specification permits
                 <code>EMUL_C</code> ∈ {1, 2, 4, 8, 16} (spec:381, spec:811–815).
-                At VLEN 256 this affects SEW=16 with λ=1. Observed on
-                2026-10-28: the Sail signature build of all three SEW=16 files
-                of <code>Zvvmm.csv</code> fails, because λ=1 is the default λ of
-                every base-suite testcase at SEW 16 (§16a, step 2). Accepting 16
-                in <code>ime_group_size_legal</code> is not enough: the GEMM
-                then fails the assertion of <code>read_single_element</code>,
-                which allows a register group of at most 8 registers
+                At VLEN 256 this affects SEW=16 with λ=1. The Sail signature
+                build of the 5 SEW=16 files of <code>Zvvmm</code> and
+                <code>Zvvfmm</code> fails, because λ=1 is the default λ of every
+                base-suite testcase at SEW 16. Accepting 16 in
+                <code>ime_group_size_legal</code> is not enough: the GEMM then
+                fails the assertion of <code>read_single_element</code>, which
+                allows a register group of at most 8 registers
                 (<code>vext_control.sail:56</code>).
               </td>
               <td>
                 Sail violates the specification. Work item 11. Still open at
-                <code>a545cc41</code> (§16a, Sail fork update).
+                <code>a545cc41</code>. Filed as
+                <a
+                  href="https://github.com/Openchip-Software/sail-riscv/issues/10"
+                  >Openchip-Software/sail-riscv#10</a
+                >.
               </td>
               <td>
                 <span class="ev run">run</span>
                 <span class="ev code">code</span>
                 <a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_utils.sail#L91-L92"
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/a545cc412ba022edae38b87f2caf8f2f54caf1e9/model/extensions/IME/ime_utils.sail#L91-L92"
                   ><code>ime_utils.sail:91-92</code></a
                 >,
                 <a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L244"
-                  ><code>ime_mem_insts.sail:244</code></a
+                  href="https://github.com/Openchip-Software/sail-riscv/blob/a545cc412ba022edae38b87f2caf8f2f54caf1e9/model/extensions/IME/ime_mem_insts.sail#L249"
+                  ><code>ime_mem_insts.sail:249</code></a
                 >
               </td>
             </tr>
             <tr>
               <td class="num">21</td>
               <td>
-                The Sail fork's tile loads and stores use the natural LD only
-                when <code>rs2</code> is <code>x0</code>. A register that holds
-                0 gives LD = 0. The specification selects the natural LD when
-                the value of <code>rs2</code> is 0 (spec:2278–2291).
+                The Sail fork's tile loads and stores used LD = 0 when
+                <code>rs2</code> held 0 in a register other than
+                <code>x0</code>. The specification selects the natural LD.
               </td>
-              <td>
-                Sail violated the specification. Work item 12. Fixed by
-                <code>c1d96b3e</code>.
-              </td>
-              <td>
-                <span class="ev code">code</span>
-                <a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L53-L55"
-                  ><code>ime_mem_insts.sail:53-55</code></a
-                >
-              </td>
+              <td>Sail. Fixed by <code>c1d96b3e</code> (fork issue #4).</td>
+              <td><span class="ev run">run</span></td>
             </tr>
             <tr>
               <td class="num">22</td>
               <td>
-                The Sail fork's tile loads do not raise an illegal-instruction
-                exception when VL is not a multiple of λ·LMUL, or for a masked
-                load whose <code>vd</code> is <code>v0</code>. The specification
-                requires both (spec:5874–5881). This affects only the negative
-                tests of <code>ExceptionsZvvm</code>.
+                The Sail fork's tile loads did not trap for a masked load into
+                <code>v0</code>, or for VL not a multiple of λ·LMUL.
               </td>
               <td>
-                Sail violates the specification. Work item 12.
-                <code>fd88fd86</code> fixed the masked load into
-                <code>v0</code>. The VL check is still missing at
-                <code>a545cc41</code>, in loads and in stores.
+                Sail. The masked load is fixed by <code>fd88fd86</code> (fork
+                issue #7). The VL case is superseded: the ARC review draft makes
+                every VL legal for tile loads and stores (fork issue #8,
+                closed).
               </td>
-              <td>
-                <span class="ev code">code</span>
-                <a
-                  href="https://github.com/Openchip-Software/sail-riscv/blob/c69e3e2274eb75f0b803fbc282bf9c10e5e2717b/model/extensions/IME/ime_mem_insts.sail#L34-L48"
-                  ><code>ime_mem_insts.sail:34-48</code></a
-                >
-              </td>
+              <td><span class="ev code">code</span></td>
             </tr>
           </tbody>
         </table>
@@ -5174,8 +4101,8 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
 
       <h3>ACT framework issues found during the migration</h3>
       <p>
-        These issues came up while steps 1 and 2 of §16b were implemented on
-        2026-10-28. They are in ACT, not in ime-test-gen or the models.
+        These issues came up during the implementation of §16b. Findings 23 to
+        29 are in ACT. Findings 30 to 32 are in the models.
       </p>
       <div class="tablewrap">
         <table>
@@ -5191,37 +4118,20 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
             <tr>
               <td class="num">23</td>
               <td>
-                covergroupgen dropped every <code>ExtraExtensions</code> row of
-                a vector testplan that expands into per-SEW suites. The rows
-                were stored under the testplan name, for example
-                <code>Zvbc</code>, and looked up under the per-SEW name, for
-                example <code>Zvbc64</code>. Copying them would also have put
-                them into every SEW, because they were not filtered by
-                <code>EFFEW</code>. A testplan whose rows all have
-                <code>ExtraExtensions</code> raised <code>KeyError</code>.
+                covergroupgen dropped the <code>ExtraExtensions</code> rows of a
+                testplan that expands into per-SEW suites.
               </td>
-              <td>
-                ACT defect. Fixed in <code>34afab1e9</code>. No existing
-                covergroup changed.
-              </td>
-              <td>
-                <span class="ev run">run</span>
-                <code>generators/coverage/src/covergroupgen/generate.py</code>,
-                <code>read_testplans</code>
-              </td>
+              <td>ACT defect. Fixed in <code>34afab1e9</code>.</td>
+              <td><span class="ev run">run</span></td>
             </tr>
             <tr>
               <td class="num">24</td>
               <td>
-                <code>make tests EXTENSIONS=Zvvmm</code> generates nothing.
+                <code>EXTENSIONS=Zvvmm</code> generates nothing.
                 <code>EXTENSIONS</code> matches the per-SEW suite names, for
-                example <code>Zvvmm32</code>. The handoff's acceptance command
-                used the testplan name.
+                example <code>Zvvmm32</code>.
               </td>
-              <td>
-                ACT usability; documentation fixed in <code>HANDOFF.md</code>.
-                Not changed in ACT.
-              </td>
+              <td>ACT usability. Not changed in ACT; documented in §16a.</td>
               <td><span class="ev run">run</span></td>
             </tr>
             <tr>
@@ -5285,34 +4195,24 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
             <tr>
               <td class="num">28</td>
               <td>
-                Functional coverage had no template for
-                <code>cp_vd_edges</code> without an EGS suffix, no
-                <code>cp_vs1_edges_emulf2/4/8</code>, and no EEW=4 case in
-                <code>vs_edges_check</code>. <code>get_csr_val</code> did not
-                decode the IME <code>vtype</code> fields.
+                Functional coverage lacked the templates and helpers that IME
+                edges and <code>vtype</code> fields need.
               </td>
               <td>
-                Missing in ACT for IME. Added in <code>9ef93d17a</code>,
-                <code>ea4f9edd7</code> and <code>38c196f92</code>. Not yet run
-                in a coverage simulation.
+                Added in <code>9ef93d17a</code>, <code>ea4f9edd7</code> and
+                <code>38c196f92</code>. Not yet run in a coverage simulation.
               </td>
               <td><span class="ev code">code</span></td>
             </tr>
             <tr>
               <td class="num">29</td>
               <td>
-                <code>get_vector_base_extension</code> raises the base extension
-                of a <code>vw*</code> or <code>vfw*</code> instruction at SEW=32
-                to <code>Zve64x</code> or <code>Zve64d</code>, because a V
-                widening instruction has a 2·SEW operand. The rule also matched
-                <code>vwmmacc.vv</code> and <code>vfwmmacc.vv</code>, where SEW
-                is the accumulator width and no operand is wider than SEW.
+                <code>get_vector_base_extension</code> applied the V widening
+                rule, which raises the base extension to <code>Zve64*</code>, to
+                <code>vwmmacc.vv</code> and <code>vfwmmacc.vv</code>.
               </td>
               <td>ACT defect for IME. Fixed in <code>52a08ff97</code>.</td>
-              <td>
-                <span class="ev run">run</span>
-                <code>generators/testgen/src/testgen/io/templates.py</code>
-              </td>
+              <td><span class="ev run">run</span></td>
             </tr>
             <tr>
               <td class="num">30</td>
@@ -5320,13 +4220,12 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 Sail's <code>vfqmmacc.vv</code> (FP16→FP64) adds the four
                 products 0.25 to C₀ = 2<sup>52</sup> one at a time and returns
                 2<sup>52</sup> under <code>rne</code>. The specification forms S
-                = 1.0 first and gives 2<sup>52</sup> + 1. Sail also left
-                <code>fflags</code> at 0, although each of its additions is
-                inexact.
+                = 1.0 first and gives 2<sup>52</sup> + 1. Sail raises NX for its
+                inexact additions; the specification result is exact.
               </td>
               <td>
-                Sail violates the specification (work item 10). The missing NX
-                is an additional Sail observation.
+                Sail violates the specification (work item 10). Draft issue in
+                <code>issues/sail-ime-wmmacc-partial-sum/</code>, not filed.
               </td>
               <td>
                 <span class="ev run">run</span> Sail trace of
@@ -5342,7 +4241,10 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 illegal-instruction exception in both cases. QEMU also clears
                 <code>vstart</code>.
               </td>
-              <td>QEMU (DUT finding). Sail traps as required.</td>
+              <td>
+                QEMU (DUT finding). Sail traps as required. The ARC review draft
+                makes a non-multiple MACC VL reserved.
+              </td>
               <td>
                 <span class="ev run">run</span> <code>ExceptionsZvvm</code>,
                 QEMU <code>-d int</code> trace
@@ -5360,8 +4262,9 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
                 test.
               </td>
               <td>
-                QEMU (DUT finding). Sail traps on <code>vill</code> and L64, but
-                not on the last two cases (finding 22).
+                QEMU (DUT finding). Sail traps on <code>vill</code>, L64 and the
+                masked load into <code>v0</code>. Sail does not trap on the VL
+                case, which the ARC review draft makes legal (finding 22).
               </td>
               <td>
                 <span class="ev run">run</span> <code>ExceptionsZvvm</code>,
@@ -5401,6 +4304,12 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           <code>moon-oxn-n04</code>).
         </li>
         <li>
+          <strong>Sail fork, current:</strong> the same branch @
+          <code>a545cc41</code>, the reference model of the 2026-11-06
+          verification runs in Section 16a. Sail links in the open findings of
+          Section 18 point at this commit.
+        </li>
+        <li>
           <strong>IME specification:</strong>
           <code>riscv/integrated-matrix-extension</code> @
           <code>6effbcae</code> (2026-08-04). The UDB overlay, the
@@ -5418,31 +4327,29 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           from, so the FP mmacc code is the same in both. The Sail code cited
           for the source-of-truth decisions in Section 16b (λ, Zvfbfa, register
           overlap, LD) is at <code>c69e3e22</code>, read on 2026-10-27. QEMU
-          links in Sections 16b and 18 point at this commit. Sail links point at
-          <code>c69e3e22</code>.
+          links in Sections 16b and 18 point at this commit. Sail links in
+          Section 16b point at <code>c69e3e22</code>.
         </li>
         <li>
-          <strong>FP profile probe:</strong> <code>fprnd.c</code> with the
-          tile-index reproducer's <code>start.S</code> (plus
-          <code>mstatus.FS</code>) and <code>link.ld</code>, run on 2026-10-27
-          on the SDK QEMU and on Sail <code>c69e3e22</code> with Zvvfmm enabled.
-          It is the reproducer in
+          <strong>FP profile probe:</strong> <code>fprnd.c</code>, run on
+          2026-10-27 on the SDK QEMU and on Sail <code>c69e3e22</code> with
+          Zvvfmm enabled. It is the reproducer in
           <code>reports/issues/sail-ime-wmmacc-partial-sum/</code>, which adds
           the W=2 f32→f64 and W=4 f16→f64 cases.
         </li>
         <li>
           <strong>ACT import branch:</strong>
-          <code>cgomez/import-ime-tests-to-act4</code> on <code>act4</code>
-          <code>8b9ddedcd</code>, with <code>fa3641965</code>,
-          <code>85586531e</code> and <code>394462f26</code> (2026-10-26). The
-          IME tests of Section 16a are in
-          <code>~/tools/act4/ime-poc/act-min</code>.
+          <code>cgomez/import-ime-tests-to-act4</code>, 19 commits on
+          <code>act4</code> <code>8b9ddedcd</code>, head <code>a4e9bc82b</code>.
         </li>
         <li>
-          <strong>Sail issue drafts:</strong>
-          <code>reports/issues/sail-ime-tile-ls-index/</code> and
-          <code>reports/issues/sail-ime-wmmacc-partial-sum/</code>, run against
-          <code>c69e3e22</code> and the SDK QEMU.
+          <strong>Sail issues:</strong>
+          <code>EMUL_C</code>=16 is filed as
+          <a href="https://github.com/Openchip-Software/sail-riscv/issues/10"
+            >Openchip-Software/sail-riscv#10</a
+          >. The W&gt;1 partial-sum draft is
+          <code>reports/issues/sail-ime-wmmacc-partial-sum/</code>, pinned to
+          <code>a545cc41</code>.
         </li>
         <li>
           <strong>SDK:</strong> <code>sdk-2026.10.14.sif</code>,
@@ -5457,9 +4364,6 @@ vmtts.v,VST,x,x,Zvvmtls,x,x,x,x,,,,,,,,,,,,,,x</pre>
           <code>moon-oxn-n04</code>, 2026-10-23. Results are in
           <code>riscv-ime-arch-tests/ci/results/moon-v512-20261023-120510/</code
           >.
-        </li>
-        <li>
-          <strong>Proof of concept:</strong> <code>~/tools/act4/ime-poc/</code>.
         </li>
       </ul>
       <p class="totop"><a href="#summary">Back to summary</a></p>

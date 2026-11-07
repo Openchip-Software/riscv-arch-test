@@ -1,1 +1,0 @@
-apptainer exec /srv/nfs/shared/home/constantino.gomez/repo/ime/sdk-2026.10.14.sif qemu-system-riscv64 -nographic -semihosting -icount shift=1 -machine virt -cpu max,vlen=256,x-zvvm=true,pmu-mask=0xfffffff8 -bios

@@ -174,6 +174,6 @@ Sail integers can hold the scaled significands.
 - When this model is the ACT reference model, the expected values of such tests are wrong.
   A conforming implementation then fails them.
   QEMU passes them, because it has the same deviation.
-- The ACT testplan design adds bins that detect the deviation.
+- The ACT `Zvvfmm` suite has `cp_fp_subdot` bins that detect the deviation.
   They fail on a conforming implementation until Sail is fixed.
 - Tests whose products and partial sums are exact in the C format, with exact running sums, do not detect the defect.

@@ -1,9 +1,0 @@
-Sail RISC-V git: 0.16-8-gc69e3e22
-enabling unratified extensions.
-config: VLEN=256 SEW=32 LMUL=2 lambda=1 vl=16 LD=2
-1 vmtl.v A=0..15; vse32.v v8,v9: 0 1 2 3 4 5 6 7 | 8 9 10 11 12 13 14 15
-2 vid.v v16,v17; vmts.v -> mem:  0 1 2 3 4 5 6 7 | 8 9 10 11 12 13 14 15
-3 vmtl.v + vmts.v round trip:    0 1 2 3 4 5 6 7 | 8 9 10 11 12 13 14 15
-HTIF located at 0x80001000
-Entry point: 0x80000000
-SUCCESS

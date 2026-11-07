@@ -1,7 +1,0 @@
-name: qemu-ime-rv64
-compiler_exe: /srv/nfs/shared/home/constantino.gomez/tools/act4/ime-poc/bin/riscv64-ime-gcc
-objdump_exe: /srv/nfs/shared/home/constantino.gomez/tools/act4/ime-poc/bin/riscv64-ime-objdump
-ref_model_exe: /srv/nfs/shared/home/constantino.gomez/tools/act4/ime-poc/bin/sail_ime_sim
-udb_config: qemu-ime-rv64.yaml
-linker_script: link.ld
-dut_include_dir: .
