@@ -55,3 +55,4 @@ Filed Sail issues are tracked on GitHub, not here. `EMUL_C`=16 is
 | ---------------------------- | ------------------------------------------------------------------------------------------- |
 | `HANDOFF.md`                 | Self-contained handoff for the next agent or engineer: setup, rules, status and next steps. |
 | `ime-act-testplan-design.md` | Full testplan design (option C) behind Report 2, Section 16b.                               |
+| `upstream-ci/`               | Work packages for upstream CI, one self-contained file per repository.                      |

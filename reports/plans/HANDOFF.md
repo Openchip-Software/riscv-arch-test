@@ -161,14 +161,19 @@ On 2026-11-06, with Sail `a545cc41` as reference:
 | `ExceptionsZvvm`          | Sail | 5/5 files pass                                                           |
 | `ExceptionsZvvm`          | QEMU | fails at the first QEMU deviation (below)                                |
 
-Open Sail deviations from the specification. The tests follow the specification and keep these bins:
+Open Sail deviations from the specification, for the binary used here (`a545cc41`). The tests follow the
+specification and keep these bins:
 
 1. **`EMUL_C`=16 raises illegal-instruction** in every MACC instruction. Filed as
-   [Openchip-Software/sail-riscv#10](https://github.com/Openchip-Software/sail-riscv/issues/10), with a reproducer and
-   a fix sketch. It blocks all SEW=16 MACC files at VLEN 256 (λ=1).
-2. **W>1 FP MACC adds each product into C** instead of forming the sub-dot-product sum S first. Draft issue with
-   reproducer: `reports/issues/sail-ime-wmmacc-partial-sum/ISSUE.md`, not filed. The `cp_fp_subdot` bins pass on QEMU
-   only because QEMU has the same deviation. The `vf8wmmacc.vv` rows that Sail added in `128a5b74` have it too.
+   [Openchip-Software/sail-riscv#10](https://github.com/Openchip-Software/sail-riscv/issues/10). It blocks all SEW=16
+   MACC files at VLEN 256 (λ=1). The fork head `7707a9a1` (2026-11-09) fixes it for the FP instructions only
+   (`359d9800`). The integer path still rejects it.
+2. **W>1 FP MACC adds each product into C** instead of forming the sub-dot-product sum S first. Fixed at the fork
+   head in `7707a9a1`, so the draft issue in `reports/issues/sail-ime-wmmacc-partial-sum/` is not needed. With the
+   new Sail, the `cp_fp_subdot` bins follow the specification and fail on QEMU.
+
+Moving to the fork head needs a `sail.json` update for the new config schema. See
+[upstream-ci/06-act-ime-tests-ci.md](upstream-ci/06-act-ime-tests-ci.md), task A.
 
 Fixed in Sail: the tile register index at LMUL>1 (`a545cc41`), the natural LD for a zero value in `rs2` (`c1d96b3e`),
 and the trap for a masked tile load into `v0` (`fd88fd86`).
