@@ -74,6 +74,27 @@ The ELFs stop at the first failure, so later bins of the failing QEMU files are 
 UDB macro forms: string values are uppercase (`UDB_ZVVM_FP_RND_SEW32_W2_IDX0_XCT`). Boolean arrays emit only
 `UDB_ZVVM_FP_PSM_SEW<s>_W<w>_MASK`.
 
+## Step 4.1: BF16 accumulator (`Zvvbf16mm`, `59666b161`)
+
+- New `Zvvfmm.csv` row: `vfmmacc.vv` at SEW=16 with `altfmt_A = altfmt_B = altfmt = 1`. `altfmt` is `vtype[8]`
+  (Zvfbfa position) and selects the C format. `InstructionParams.altfmt` sets it.
+- The FMMACC formatter and `cp_fp_rnd` take the C format from the row: BF16 when the type extension ends in `bf16mm`.
+  A BF16 C holds 8 significant bits, so its data uses inputs in [-1, 1] and C = k + 0.5 with |k| <= 31. Every sum
+  stays below 96 and is exact.
+- New coverage template `cp_vd_edges_f_bf16_sew16`.
+- Both configs declare `Zvvbf16mm`. The other IME tests regenerate byte for byte.
+
+| Config          | Result                                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------------------- |
+| `sail-ime-rv64` | Zvvfmm16: 2/2 files pass.                                                                                  |
+| `qemu-ime-rv64` | `Zvvbf16mm` fails at its first testcase: QEMU treats `vtype[8]` as reserved without `x-zvfbfa`, so `vill`. |
+
+The spec lists only Zve32f as the dependency of `Zvvbf16mm`, so `altfmt` must be writable without Zvfbfa; Sail
+does this. With `x-zvfbfa=true` the same QEMU ELF passes. The QEMU command line is not changed.
+
+Open: covergroups do not check `altfmt`, `altfmt_A` or `altfmt_B`. At SEW=16 the `Zvvfp16mm` and `Zvvbf16mm`
+covergroups both sample every `vfmmacc.vv`. The same holds at SEW=32 for `Zvvfp16fp32mm` and `Zvvbf16fp32mm`.
+
 ## Decisions
 
 - **Family flags.** In UDB each type extension requires its family; a family alone enables no type. In Sail a family
