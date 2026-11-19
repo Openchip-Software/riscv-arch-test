@@ -3,8 +3,6 @@
 $schema: config_schema.json#
 kind: architecture configuration
 type: fully configured
-# ACT UDB overlay framework/src/act/data/udb_overlays/ime defines the Zvvm extensions and parameters.
-arch_overlay: ime
 name: qemu-ime-rv64
 description: >-
   OpenChip SDK QEMU 10.2.50 with -cpu max,vlen=256,x-zvvm=true. The Zvvm extensions listed are the
@@ -153,35 +151,35 @@ implemented_extensions:
   - { name: Zvl64b, version: "= 1.0.0" }
   - { name: Zvl128b, version: "= 1.0.0" }
   - { name: Zvl256b, version: "= 1.0.0" }
-  # Integrated Matrix Extension (IME), defined by the ime overlay
-  - { name: Zvvmm, version: "= 1.0.0" }
-  - { name: Zvvfmm, version: "= 1.0.0" }
-  - { name: Zvvmtls, version: "= 1.0.0" }
-  # - { name: Zvvmttls, version: "= 1.0.0" } # QEMU does not decode vmttl.v and vmtts.v
+  # Integrated Matrix Extension (IME), defined by riscv-unified-db
+  - { name: Zvvmm, version: "= 0.9.0" }
+  - { name: Zvvfmm, version: "= 0.9.0" }
+  - { name: Zvvmtls, version: "= 0.9.0" }
+  # - { name: Zvvmttls, version: "= 0.9.0" } # QEMU does not decode vmttl.v and vmtts.v
   # Integer: QEMU and Sail implement every input and accumulator width
-  - { name: Zvvi4i8mm, version: "= 1.0.0" }
-  - { name: Zvvi4i16mm, version: "= 1.0.0" }
-  - { name: Zvvi4i32mm, version: "= 1.0.0" }
-  - { name: Zvvi8mm, version: "= 1.0.0" }
-  - { name: Zvvi8i16mm, version: "= 1.0.0" }
-  - { name: Zvvi8i32mm, version: "= 1.0.0" }
-  - { name: Zvvi8i64mm, version: "= 1.0.0" }
-  - { name: Zvvi16mm, version: "= 1.0.0" }
-  - { name: Zvvi16i32mm, version: "= 1.0.0" }
-  - { name: Zvvi16i64mm, version: "= 1.0.0" }
-  - { name: Zvvi32mm, version: "= 1.0.0" }
-  - { name: Zvvi32i64mm, version: "= 1.0.0" }
-  - { name: Zvvi64mm, version: "= 1.0.0" }
+  - { name: Zvvi4i8mm, version: "= 0.9.0" }
+  - { name: Zvvi4i16mm, version: "= 0.9.0" }
+  - { name: Zvvi4i32mm, version: "= 0.9.0" }
+  - { name: Zvvi8mm, version: "= 0.9.0" }
+  - { name: Zvvi8i16mm, version: "= 0.9.0" }
+  - { name: Zvvi8i32mm, version: "= 0.9.0" }
+  - { name: Zvvi8i64mm, version: "= 0.9.0" }
+  - { name: Zvvi16mm, version: "= 0.9.0" }
+  - { name: Zvvi16i32mm, version: "= 0.9.0" }
+  - { name: Zvvi16i64mm, version: "= 0.9.0" }
+  - { name: Zvvi32mm, version: "= 0.9.0" }
+  - { name: Zvvi32i64mm, version: "= 0.9.0" }
+  - { name: Zvvi64mm, version: "= 0.9.0" }
   # Floating point: the rows that the Sail fork implements. Sail has no OFP4, OFP8,
   # BF16-accumulator or microscaled (Zvvx*) rows.
-  - { name: Zvvfp16mm, version: "= 1.0.0" }
-  - { name: Zvvfp16fp32mm, version: "= 1.0.0" }
-  - { name: Zvvfp16fp64mm, version: "= 1.0.0" }
-  - { name: Zvvbf16fp32mm, version: "= 1.0.0" }
-  - { name: Zvvbf16fp64mm, version: "= 1.0.0" }
-  - { name: Zvvfp32mm, version: "= 1.0.0" }
-  - { name: Zvvfp32fp64mm, version: "= 1.0.0" }
-  - { name: Zvvfp64mm, version: "= 1.0.0" }
+  - { name: Zvvfp16mm, version: "= 0.9.0" }
+  - { name: Zvvfp16fp32mm, version: "= 0.9.0" }
+  - { name: Zvvfp16fp64mm, version: "= 0.9.0" }
+  - { name: Zvvbf16fp32mm, version: "= 0.9.0" }
+  - { name: Zvvbf16fp64mm, version: "= 0.9.0" }
+  - { name: Zvvfp32mm, version: "= 0.9.0" }
+  - { name: Zvvfp32fp64mm, version: "= 0.9.0" }
+  - { name: Zvvfp64mm, version: "= 0.9.0" }
 
 params:
   # Trap delegation: the writable medeleg and mideleg bits (sail.json base.medeleg and
@@ -739,11 +737,6 @@ params:
   REPORT_CAUSE_IN_VSTVAL_ON_SHADOW_STACK_SOFTWARE_CHECK: true
   # Sdtrig params
   DBG_HCONTEXT_WIDTH: 14
-  DBG_SCONTEXT_WIDTH: 32
-  DCSR_MPRVEN_TYPE: rw
-  DCSR_STEPIE_TYPE: rw
-  DCSR_STOPCOUNT_TYPE: rw
-  DCSR_STOPTIME_TYPE: rw
   HCONTEXT_IMPLEMENTED: false
   HSTATEEN_CONTEXT_TYPE: rw
   MCONTEXT_IMPLEMENTED: true
@@ -754,6 +747,16 @@ params:
   # Smstateen params
   MSTATEEN_ENVCFG_TYPE: rw
   MSTATEEN_CONTEXT_TYPE: rw
+  # QEMU write masks: the C bits are read-only 0, and SE0 (bit 63) of mstateen0-3 is read-write.
+  MSTATEEN0_C_TYPE: read-only-0
+  MSTATEEN0_SE0_TYPE: rw
+  MSTATEEN1_SE0_TYPE: rw
+  MSTATEEN2_SE0_TYPE: rw
+  MSTATEEN3_SE0_TYPE: rw
+  HSTATEEN0_C_TYPE: read-only-0
+  SSTATEEN0_C_TYPE: read-only-0
+  # QEMU hedeleg write mask includes the instruction address misaligned exception.
+  HEDELEG_IAM_WRITABLE: true
   # Csrind params
   HSTATEEN_CSRIND_TYPE: rw
   MSTATEEN_CSRIND_TYPE: rw
@@ -814,3 +817,25 @@ params:
   SDTRIG_TEXTRA_MHSELECT_MCONTEXT_MATCH: true
   SDTRIG_TEXTRA_MHSELECT_VMID_MATCH: false
   SDTRIG_TEXTRA_SSELECT_ASID_MATCH: false
+  # Zvvm floating-point disclosure. QEMU adds each product to C with one fused multiply-add
+  # rounded with frm. For W=1 that is G=1, psm=0, rnd=xct. For W>1 QEMU also adds product by product,
+  # which no disclosure describes; the values below repeat the W=1 profile.
+  ZVVM_FP_GROUPING_SEW16_W1: [1, 1, 1, 0, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW32_W1: [1, 1, 0, 0, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW32_W2: [1, 1, 0, 0, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW64_W1: [1, 1, 0, 0, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW64_W2: [1, 1, 0, 0, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW64_W4: [1, 1, 0, 0, 0, 0, 0]
+  ZVVM_FP_PSM1_ALGORITHM: none
+  ZVVM_FP_PSM_SEW16_W1: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW32_W1: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW32_W2: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW64_W1: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW64_W2: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW64_W4: [false, false, false, false, false, false, false]
+  ZVVM_FP_RND_SEW16_W1: [xct, xct, xct, none, none, none, none]
+  ZVVM_FP_RND_SEW32_W1: [xct, xct, none, none, none, none, none]
+  ZVVM_FP_RND_SEW32_W2: [xct, xct, none, none, none, none, none]
+  ZVVM_FP_RND_SEW64_W1: [xct, xct, none, none, none, none, none]
+  ZVVM_FP_RND_SEW64_W2: [xct, xct, none, none, none, none, none]
+  ZVVM_FP_RND_SEW64_W4: [xct, xct, none, none, none, none, none]

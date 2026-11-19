@@ -14,9 +14,13 @@ image. The reference model is a Sail fork with IME support.
   `smpmpmt=false` is removed from the run command.
 - `svade=true` is set because QEMU 10.2.50 does not enable Svade by default, and the UDB configuration
   and `sail.json` claim Svade and Svadu.
-- The UDB configuration sets `arch_overlay: ime`. The ACT UDB overlay in
-  `framework/src/act/data/udb_overlays/ime` defines the Zvvm extensions and the `SUPPORTED_LAMBDA_SEW*`
-  parameters, which riscv-unified-db does not define yet.
+- The Zvvm extensions, the `SUPPORTED_LAMBDA_SEW*` parameters and the `ZVVM_FP_*` disclosure parameters
+  come from riscv-unified-db branch `ime/fp-mx` (Openchip-Software fork). No UDB release defines them yet,
+  so ACT uses a local checkout of that branch through `UDB_LOCAL_PATH` (see Setup). The extension version
+  is 0.9.0.
+- The `ZVVM_FP_*` parameters disclose the floating-point profile of QEMU. QEMU adds each product to C with
+  one fused multiply-add, rounded with `frm`. For W=1 this is G=1, psm=0, rnd=xct. For W>1 QEMU also adds
+  product by product, which no disclosure describes, and the configuration repeats the W=1 profile.
 - The UDB configuration declares the IME extensions that both QEMU and the Sail fork implement:
   - Family extensions Zvvmm, Zvvfmm and Zvvmtls. QEMU does not decode `vmttl.v` and `vmtts.v`, so
     Zvvmttls is not declared, and `sail.json` disables it.
@@ -61,6 +65,18 @@ UDB locks files under `$XDG_DATA_HOME` (default `~/.local/share`) with `flock`. 
 ```bash
 export XDG_DATA_HOME=/tmp/$USER-xdg-data
 ```
+
+UDB 0.1.18 does not define IME. Point `UDB_LOCAL_PATH` at a checkout of riscv-unified-db branch `ime/fp-mx`.
+The ACT Gemfile then takes the `udb`, `udb-gen`, `udb_helpers` and `idlc` gems from that checkout, and UDB
+reads the architecture data in its `spec/std/isa`:
+
+```bash
+git clone -b ime/fp-mx https://github.com/Openchip-Software/riscv-unified-db.git
+export UDB_LOCAL_PATH=$PWD/riscv-unified-db
+```
+
+UDB writes resolved data under `<checkout>/gen`. On NFS, make `gen` a symlink to a local disk. Bundler
+rewrites `framework/src/act/data/Gemfile.lock` for the local gems; do not commit that change.
 
 ## Building and running
 

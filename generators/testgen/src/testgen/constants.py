@@ -38,9 +38,8 @@ PRIV_TRAP_SIGUPD_COUNT = 1500
 # Extension Configuration
 # =============================================================================
 
-# Integrated Matrix Extension (IME) extensions. These are the extensions that the ACT UDB overlay
-# framework/src/act/data/udb_overlays/ime/ext/ defines. testgen does not depend on the act package,
-# so it cannot read the overlay, and the names are listed here.
+# Integrated Matrix Extension (IME) extensions that riscv-unified-db defines. testgen does not depend on
+# the act package, so the names are listed here. framework/src/act/toolchain.py has the same list.
 IME_EXTENSIONS = frozenset(
     {
         # Family extensions
