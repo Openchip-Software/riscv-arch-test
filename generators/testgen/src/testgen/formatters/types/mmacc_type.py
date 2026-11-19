@@ -27,7 +27,7 @@ from testgen.data.state import TestData
 from testgen.formatters.registry import InstructionTypeConfig, VectorTypeConfig, add_instruction_formatter
 
 # C occupies EMUL_C = VLEN/(SEW*lambda^2) registers, which can be 16. A window of 16 registers at v0 or v16 fits
-# every VLEN. The specification does not say whether vd may overlap vs1 or vs2; the tests keep them apart.
+# every VLEN. The specification forbids vd to overlap vs1 or vs2.
 mmacc_config = InstructionTypeConfig(
     required_params={"vd", "vs1", "vs2"},
     vector_data=VectorTypeConfig(

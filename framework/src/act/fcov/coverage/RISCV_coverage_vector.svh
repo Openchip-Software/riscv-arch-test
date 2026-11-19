@@ -514,6 +514,36 @@ function ime_ld_t ime_ld_check(int hart, int issue, bit rs2_is_x0, `XLEN_BITS rs
   else                               return ime_ld_other;
 endfunction
 
+typedef enum {
+  ime_overlap_none,
+  ime_overlap_vs1_base,
+  ime_overlap_vs1_inside,
+  ime_overlap_vs2_base,
+  ime_overlap_vs2_inside,
+  ime_overlap_vs1_base_vl0
+} ime_overlap_t;
+
+// IME multiply-accumulate: classify an overlap of the C group (vd, EMUL_C = VLEN/(SEW*lambda^2) registers) with the
+// A group (vs1) or the B group (vs2), each LMUL registers. vs1 is checked first.
+function ime_overlap_t ime_vd_overlap(int hart, int issue, bit [4:0] vd, bit [4:0] vs1, bit [4:0] vs2);
+  int lambda_field = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "lambda"));
+  int vlmul = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "vlmul"));
+  int sew = 8 << int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "vsew"));
+  int vl = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vl", "vl"));
+  int lambda, emul_c, lmul;
+  if (lambda_field == 0 || vlmul > 3) return ime_overlap_none;
+  lambda = 1 << (lambda_field - 1);
+  emul_c = `UDB_VLEN / (sew * lambda * lambda);
+  if (emul_c < 1) emul_c = 1;
+  lmul = 1 << vlmul;
+  if (vs1 < vd + emul_c && vd < vs1 + lmul) begin
+    if (vs1 != vd) return ime_overlap_vs1_inside;
+    return (vl == 0) ? ime_overlap_vs1_base_vl0 : ime_overlap_vs1_base;
+  end
+  if (vs2 < vd + emul_c && vd < vs2 + lmul) return (vs2 == vd) ? ime_overlap_vs2_base : ime_overlap_vs2_inside;
+  return ime_overlap_none;
+endfunction
+
 function vl_t vl_check(int hart, int issue, int egs = 1);
   int vl = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vl", "vl"));
   int vstart = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vstart", "vstart"));

@@ -234,6 +234,33 @@ def trap_cases(test_data: TestData, row: TestPlanData, coverpoint: str) -> list[
                 chunks.append(
                     case.chunk(sew, "vs2_odd_lmul_2", "vs2 = v9 at LMUL = 2", 2, lambda t, v, a: [instr(vs2=B_REG + 1)])
                 )
+            case "cp_ime_vd_overlap":
+                # vd shall not overlap vs1 or vs2, regardless of VL. The C group starts at v16.
+                for bin_name, desc, body in (
+                    ("vs1_v16", f"vs1 = v{C_REG}", lambda t, v, a: [instr(vs1=C_REG)]),
+                    ("vs2_v16", f"vs2 = v{C_REG}", lambda t, v, a: [instr(vs2=C_REG)]),
+                    (
+                        "vs1_v16_vl_0",
+                        f"vs1 = v{C_REG} at VL = 0",
+                        lambda t, v, a: [f"LI (x{t}, 0)", *vtype_keep(t, v, f"x{t}"), instr(vs1=C_REG)],
+                    ),
+                ):
+                    chunks.append(case.chunk(sew, bin_name, desc, 1, body))
+                # vs2 at the last register of a C group of EMUL_C >= 2 registers
+                for lambda_value in ime_lambdas(sew):
+                    for emul_c in (2, 4, 8, 16):
+                        vs2 = C_REG + emul_c - 1
+                        chunks.append(
+                            case.chunk(
+                                sew,
+                                f"vs2_v{vs2}_lambda_{lambda_value}",
+                                f"vs2 = v{vs2}, the last register of the C group, lambda = {lambda_value}",
+                                1,
+                                lambda t, v, a, r=vs2: [instr(vs2=r)],
+                                extra_guard=[f"(UDB_VLEN / ({sew} * {lambda_value * lambda_value}) == {emul_c})"],
+                                lambda_value=lambda_value,
+                            )
+                        )
             case "cp_ime_vm0":
                 funct6, funct3 = MACC_VM0_ENCODING[row.instr_name]
                 chunks.append(
