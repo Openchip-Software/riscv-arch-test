@@ -177,6 +177,7 @@ implemented_extensions:
   - { name: Zvvi64mm, version: "= 0.9.0" }
   # Floating-point types covered by testplans/Zvvfmm.csv
   - { name: Zvvfp16mm, version: "= 0.9.0" }
+  - { name: Zvvbf16mm, version: "= 0.9.0" }
   - { name: Zvvfp16fp32mm, version: "= 0.9.0" }
   - { name: Zvvfp16fp64mm, version: "= 0.9.0" }
   - { name: Zvvbf16fp32mm, version: "= 0.9.0" }

@@ -173,6 +173,7 @@ implemented_extensions:
   # Floating point: the rows that the Sail fork implements. Sail has no OFP4, OFP8,
   # BF16-accumulator or microscaled (Zvvx*) rows.
   - { name: Zvvfp16mm, version: "= 0.9.0" }
+  - { name: Zvvbf16mm, version: "= 0.9.0" }
   - { name: Zvvfp16fp32mm, version: "= 0.9.0" }
   - { name: Zvvfp16fp64mm, version: "= 0.9.0" }
   - { name: Zvvbf16fp32mm, version: "= 0.9.0" }

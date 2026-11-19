@@ -13,7 +13,14 @@ from testgen.data.random import random_range
 from testgen.data.state import TestData, return_testcase_registers
 from testgen.data.test_chunk import TestChunk
 from testgen.formatters import format_single_testcase
-from testgen.formatters.types.mmacc_type import C_WINDOW_REGS, WIDENING, fp_bits, fp_input_format
+from testgen.formatters.types.mmacc_type import (
+    C_WINDOW_REGS,
+    WIDENING,
+    fp_bits,
+    fp_c_range,
+    fp_input_format,
+    fp_output_format,
+)
 from testgen.instructions.vector_params import generate_random_vector_params
 
 FRM_NAMES = ["rne", "rtz", "rdn", "rup", "rmm"]
@@ -28,14 +35,15 @@ WIDENING_VALUES = {
 }
 
 
-def rnd_values(sew: int, w: int, input_fmt: str) -> tuple[float, list[tuple[float, float]]] | None:
+def rnd_values(sew: int, w: int, input_fmt: str, output_fmt: str) -> tuple[float, list[tuple[float, float]]] | None:
     """C0 and the nonzero (A, B) products of C[0][0], or None when the row has no such data."""
     if w > 1:
         return WIDENING_VALUES.get((sew, w))
-    if input_fmt != f"fp{sew}":
+    if input_fmt != output_fmt:
         return None
-    # W = 1: S = (1 + 2^-(p-1)) * (1 + 2^-(p-2)) = 1 + 3 * 2^-(p-1) + 2^-(2p-3). Rounded in fp<SEW>, S loses 2^-(2p-3)
-    # in every rounding mode except rup, which rounds S up to 1 + 4 * 2^-(p-1). C0 + S is exact in fp<SEW>.
+    # W = 1: S = (1 + 2^-(p-1)) * (1 + 2^-(p-2)) = 1 + 3 * 2^-(p-1) + 2^-(2p-3). Rounded in the C format, S loses
+    # 2^-(2p-3) in every rounding mode except rup, which rounds S up to 1 + 4 * 2^-(p-1). C0 + S is exact in the C
+    # format.
     p = PRECISION[input_fmt]
     return -1.0, [(1.0 + 2.0 ** -(p - 1), 1.0 + 2.0 ** -(p - 2))]
 
@@ -53,7 +61,8 @@ def make_fp_rnd(instr_name: str, instr_type: str, coverpoint: str, test_data: Te
     sew = test_data.config.sew
     w = WIDENING[instr_name]
     input_fmt = fp_input_format(test_data, sew, w)
-    values = rnd_values(sew, w, input_fmt)
+    output_fmt = fp_output_format(test_data, sew)
+    values = rnd_values(sew, w, input_fmt, output_fmt)
     if values is None:
         return []
     c0, products = values
@@ -76,8 +85,9 @@ def make_fp_rnd(instr_name: str, instr_type: str, coverpoint: str, test_data: Te
                 count - 1
             )
             c_count = VLEN_MAX * C_WINDOW_REGS // sew
-            c = [fp_bits(c0, f"fp{sew}")] + [
-                fp_bits(random_range(-128, 128) + 0.5, f"fp{sew}") for _ in range(c_count - 1)
+            c_range = fp_c_range(output_fmt)
+            c = [fp_bits(c0, output_fmt)] + [
+                fp_bits(random_range(-c_range, c_range) + 0.5, output_fmt) for _ in range(c_count - 1)
             ]
             labels = {}
             for reg, data in (("vs1", a), ("vs2", b), ("vd", c)):
@@ -99,7 +109,7 @@ def make_fp_rnd(instr_name: str, instr_type: str, coverpoint: str, test_data: Te
                 **labels,
             )
             desc = (
-                f"cp_fp_rnd (Test a partial sum that is not exact in fp{sew}, rnd = frm, lambda = {lambda_value}, "
+                f"cp_fp_rnd (Test a partial sum that is not exact in {output_fmt}, rnd = frm, lambda = {lambda_value}, "
                 f"frm = {frm_name})"
             )
             tc = format_single_testcase(

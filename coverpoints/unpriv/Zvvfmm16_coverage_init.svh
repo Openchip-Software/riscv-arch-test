@@ -10,6 +10,9 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////
+`ifdef ZVVBF16MM_SUPPORTED
+    Zvvfmm16Zvvbf16mm_vfmmacc_vv_cg = new(); Zvvfmm16Zvvbf16mm_vfmmacc_vv_cg.set_inst_name("obj_Zvvfmm16Zvvbf16mm_vfmmacc_vv");
+`endif
 `ifdef ZVVFP16MM_SUPPORTED
     Zvvfmm16Zvvfp16mm_vfmmacc_vv_cg = new(); Zvvfmm16Zvvfp16mm_vfmmacc_vv_cg.set_inst_name("obj_Zvvfmm16Zvvfp16mm_vfmmacc_vv");
 `endif

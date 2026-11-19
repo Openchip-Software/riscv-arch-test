@@ -78,8 +78,27 @@ def fp_input_format(test_data: TestData, sew: int, w: int) -> str:
     return f"fp{sew // w}"
 
 
+def fp_output_format(test_data: TestData, sew: int) -> str:
+    """Return the C format of a row: bf16 when its type extension ends in bf16mm (Zvv<in>bf16mm), else fp<SEW>."""
+    if any(ext.endswith("bf16mm") for ext in test_data.config.extra_extensions):
+        return "bf16"
+    return f"fp{sew}"
+
+
+def fp_c_range(output_fmt: str) -> int:
+    """Largest |k| of a C value k + 0.5. A BF16 C has 8 significant bits, so the C range and the input range shrink."""
+    return 31 if output_fmt == "bf16" else 128
+
+
 def fp_exact_data(
-    test_data: TestData, reg: str, sew: int, w: int, input_fmt: str, emul: float, background: float | None = None
+    test_data: TestData,
+    reg: str,
+    sew: int,
+    w: int,
+    input_fmt: str,
+    output_fmt: str,
+    emul: float,
+    background: float | None = None,
 ) -> str:
     """
     Register a label of SEW-wide storage elements that fills emul registers at VLEN_MAX with exact FP data.
@@ -89,18 +108,25 @@ def fp_exact_data(
     limits lambda), so every running sum stays below 512 in magnitude, where fp16 still has a 0.25 resolution. Every
     value is therefore exact in fp16, bf16 (inputs only), fp32 and fp64.
 
+    A BF16 C resolves 0.5 only below 128. For a BF16 C, the inputs are in [-1, 1] and |k| <= 31, so every running
+    sum stays below 96 in magnitude.
+
     With background set, every input element (or every C element) holds that value instead.
     """
     count = int(VLEN_MAX * emul) // sew
     lane_bits = sew // w
+    c_range = fp_c_range(output_fmt)
+    input_range = 1 if output_fmt == "bf16" else 2
     elements = []
     for _ in range(count):
         if reg == "vd":
-            value = background if background is not None else random_range(-128, 128) + 0.5
-            elements.append(fp_bits(value, f"fp{sew}"))
+            value = background if background is not None else random_range(-c_range, c_range) + 0.5
+            elements.append(fp_bits(value, output_fmt))
         else:
             lanes = [
-                background if background is not None else (random_range(-2, 2) if random_range(0, 3) == 0 else 0)
+                background
+                if background is not None
+                else (random_range(-input_range, input_range) if random_range(0, 3) == 0 else 0)
                 for _ in range(w)
             ]
             elements.append(sum(fp_bits(float(v), input_fmt) << (i * lane_bits) for i, v in enumerate(lanes)))
@@ -109,14 +135,16 @@ def fp_exact_data(
     return label
 
 
-def fp_edge_data(test_data: TestData, reg: str, edge_label: str, sew: int, w: int, input_fmt: str, emul: float) -> str:
+def fp_edge_data(
+    test_data: TestData, reg: str, edge_label: str, sew: int, w: int, input_fmt: str, output_fmt: str, emul: float
+) -> str:
     """
     Register exact background data for reg with the edge value of edge_label in input element 0 (C element 0 for
     vd). An A or B edge has a background of 0, a C edge a background of exact random C values.
     """
     elements, _ = test_data.vector_labels[edge_label]
     lane_bits = sew // w if reg != "vd" else sew
-    label = fp_exact_data(test_data, reg, sew, w, input_fmt, emul, background=None if reg == "vd" else 0.0)
+    label = fp_exact_data(test_data, reg, sew, w, input_fmt, output_fmt, emul, background=None if reg == "vd" else 0.0)
     data, _ = test_data.vector_labels[label]
     mask = (1 << lane_bits) - 1
     edge_data = [(data[0] & ~mask) | (elements[0] & mask), *data[1:]]
@@ -133,9 +161,11 @@ def format_fmmacc(
     assert params.csr_frm_val is not None, "FMMACC tests run with a dynamic rounding mode"
     w = WIDENING[instr_str]
     input_fmt = fp_input_format(test_data, params.sew, w)
+    output_fmt = fp_output_format(test_data, params.sew)
 
-    # BF16 inputs are selected by altfmt_A = altfmt_B = 1
+    # BF16 inputs are selected by altfmt_A = altfmt_B = 1, a BF16 C by altfmt = 1
     params.altfmt_a = params.altfmt_b = input_fmt == "bf16"
+    params.altfmt = output_fmt == "bf16"
     if params.vector_suite == "base":
         params.vl = "vlmax"
 
@@ -156,9 +186,13 @@ def format_fmmacc(
         if any(tag in (getattr(params, f"{reg}_val_pointer") or "") for tag in ("_subdot_", "_rnd_")):
             continue  # cp_fp_subdot and cp_fp_rnd build complete data
         if reg == edge_reg:
-            label = fp_edge_data(test_data, reg, getattr(params, f"{reg}_val_pointer"), params.sew, w, input_fmt, emul)
+            label = fp_edge_data(
+                test_data, reg, getattr(params, f"{reg}_val_pointer"), params.sew, w, input_fmt, output_fmt, emul
+            )
         else:
-            label = fp_exact_data(test_data, reg, params.sew, w, input_fmt, emul, background=backgrounds[reg])
+            label = fp_exact_data(
+                test_data, reg, params.sew, w, input_fmt, output_fmt, emul, background=backgrounds[reg]
+            )
         setattr(params, f"{reg}_val_pointer", label)
     params.vector_suite = "length"
 
