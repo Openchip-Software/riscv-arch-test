@@ -153,8 +153,8 @@ def format_fmmacc(
     elif edge_reg is not None:
         backgrounds["vs2" if edge_reg == "vs1" else "vs1"] = 1.0
     for reg, emul in (("vs1", params.lmul), ("vs2", params.lmul), ("vd", C_WINDOW_REGS)):
-        if "_subdot_" in (getattr(params, f"{reg}_val_pointer") or ""):
-            continue  # cp_fp_subdot builds complete data
+        if any(tag in (getattr(params, f"{reg}_val_pointer") or "") for tag in ("_subdot_", "_rnd_")):
+            continue  # cp_fp_subdot and cp_fp_rnd build complete data
         if reg == edge_reg:
             label = fp_edge_data(test_data, reg, getattr(params, f"{reg}_val_pointer"), params.sew, w, input_fmt, emul)
         else:
@@ -232,6 +232,9 @@ def format_mmacc(
     ]
 
     lambdas = ime_lambdas(params.sew) if params.lambda_ is None else [params.lambda_]
-    handle_parameter_exclusions(params.lmul, setup, check, ime_condition=ime_lambda_condition(params.sew, lambdas))
+    ime_condition = ime_lambda_condition(params.sew, lambdas)
+    if params.ime_guard is not None:
+        ime_condition = f"{ime_condition} && {params.ime_guard}"
+    handle_parameter_exclusions(params.lmul, setup, check, ime_condition=ime_condition)
 
     return (setup, test, check)

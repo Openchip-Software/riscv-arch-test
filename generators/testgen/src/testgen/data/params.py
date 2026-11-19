@@ -91,6 +91,7 @@ class InstructionParams:
     ignore_vector_safety: bool = False  # Set this to disable vector safety (e.g. allow arbitrary index values)
     vd_different_eew_overlap: bool = False  # A source-dest overlap at different eews are tail and mask agnostic
     lambda_: int | None = None  # IME vtype.lambda value (1, 2, 4, ..., 64); None selects the smallest supported
+    ime_guard: str | None = None  # IME preprocessor condition added to the lambda guard
     altfmt_a: bool = False  # IME vtype.altfmt_A; for integer MACC, 1 makes A unsigned
     altfmt_b: bool = False  # IME vtype.altfmt_B; for integer MACC, 1 makes B unsigned
     imm_lambda: int | None = None  # IME tile load/store immediate lambda (L1 ... L64); None uses vtype.lambda
