@@ -1,11 +1,33 @@
 # ACT Configuration for the Integrated Matrix Extension (IME)
 
-These configurations bring up IME (Zvvm\*) testing. The DUT and the toolchain come from the OpenChip SDK
-image. The reference model is a Sail fork with IME support.
+These configurations bring up IME (Zvvm\*) testing. The toolchain comes from the OpenChip SDK image. The
+reference model is the Sail IME fork, Openchip-Software/sail-riscv branch `cleanup/ime-0.9.0`. The tests
+follow the IME specification at commit 58810918 (v0.9.0-on-main with exact E8M0 block scales).
 
-| Config          | DUT                                                                | Reference model           |
-| --------------- | ------------------------------------------------------------------ | ------------------------- |
-| `qemu-ime-rv64` | SDK `qemu-system-riscv64` 10.2.50, `-cpu max,vlen=256,x-zvvm=true` | Sail 0.16 with IME (fork) |
+| Config          | DUT                                                                | VLEN | Reference model |
+| --------------- | ------------------------------------------------------------------ | ---- | --------------- |
+| `qemu-ime-rv64` | SDK `qemu-system-riscv64` 10.2.50, `-cpu max,vlen=256,x-zvvm=true` | 256  | Sail IME fork   |
+| `sail-ime-rv64` | Sail IME fork                                                      | 1024 | Sail IME fork   |
+
+## Common to both configurations
+
+- The Zvvm extensions, the `SUPPORTED_LAMBDA_SEW*` parameters and the `ZVVM_FP_*` disclosure parameters
+  come from riscv-unified-db branch `ime/fp-mx` (Openchip-Software fork). No UDB release defines them yet,
+  so ACT uses a local checkout of that branch through `UDB_LOCAL_PATH` (see Setup). The extension version
+  is 0.9.0.
+- The lambda lists contain the values that the specification permits for the VLEN of the configuration:
+  VLEN/(SEW\*lambda^2) is 1, 2, 4, 8 or 16. The Sail fork supports exactly these values.
+- The `ZVVM_FP_*` parameters disclose the floating-point profile of the DUT: the group size G, the partial-sum
+  mode psm and the rounding rnd of a group partial sum. Sail computes G=1, psm=0, rnd=frm. Tests whose result
+  depends on rnd are generated for rnd=frm and run only on a DUT that discloses it.
+- In UDB each type extension (for example Zvvfp16fp32mm) requires its family extension (Zvvfmm), and a family
+  alone enables no type. In Sail a family flag enables every type of its family. Each `sail.json` therefore
+  sets the families Zvvmm and Zvvfmm to false and each type that the UDB configuration declares to true.
+- The UDB configurations declare the 13 integer types Zvvi4i8mm to Zvvi64mm and the floating-point types that
+  `testplans/Zvvfmm.csv` covers: Zvvfp16mm, Zvvfp32mm, Zvvfp64mm, Zvvfp16fp32mm, Zvvfp16fp64mm,
+  Zvvfp32fp64mm, Zvvbf16fp32mm and Zvvbf16fp64mm.
+
+## `qemu-ime-rv64`
 
 `qemu-ime-rv64` is `config/qemu/qemu-rv64-max` adapted to the SDK QEMU:
 
@@ -14,25 +36,24 @@ image. The reference model is a Sail fork with IME support.
   `smpmpmt=false` is removed from the run command.
 - `svade=true` is set because QEMU 10.2.50 does not enable Svade by default, and the UDB configuration
   and `sail.json` claim Svade and Svadu.
-- The Zvvm extensions, the `SUPPORTED_LAMBDA_SEW*` parameters and the `ZVVM_FP_*` disclosure parameters
-  come from riscv-unified-db branch `ime/fp-mx` (Openchip-Software fork). No UDB release defines them yet,
-  so ACT uses a local checkout of that branch through `UDB_LOCAL_PATH` (see Setup). The extension version
-  is 0.9.0.
-- The `ZVVM_FP_*` parameters disclose the floating-point profile of QEMU. QEMU adds each product to C with
-  one fused multiply-add, rounded with `frm`. For W=1 this is G=1, psm=0, rnd=xct. For W>1 QEMU also adds
-  product by product, which no disclosure describes, and the configuration repeats the W=1 profile.
-- The UDB configuration declares the IME extensions that both QEMU and the Sail fork implement:
-  - Family extensions Zvvmm, Zvvfmm and Zvvmtls. QEMU does not decode `vmttl.v` and `vmtts.v`, so
-    Zvvmttls is not declared, and `sail.json` disables it.
-  - All 13 integer extensions, Zvvi4i8mm to Zvvi64mm.
-  - The floating-point extensions that the Sail fork implements: Zvvfp16mm, Zvvfp32mm, Zvvfp64mm,
-    Zvvfp16fp32mm, Zvvfp16fp64mm, Zvvfp32fp64mm, Zvvbf16fp32mm and Zvvbf16fp64mm. The Sail fork has no
-    OFP4, OFP8, BF16-to-BF16 or microscaled (Zvvx\*) rows.
-- The lambda lists contain the values that the specification permits for VLEN 256 and both models
-  accept: `SUPPORTED_LAMBDA_SEW8: [2, 4]`, `SUPPORTED_LAMBDA_SEW16: [1, 2, 4]`,
-  `SUPPORTED_LAMBDA_SEW32: [1, 2]` and `SUPPORTED_LAMBDA_SEW64: [1, 2]`. The specification permits a
-  value when VLEN/(SEW\*lambda^2) is 1, 2, 4, 8 or 16. QEMU accepts every lambda. The Sail fork accepts
-  lambda <= VLEN/SEW.
+- The stateen `C` and `SE0` types and `HEDELEG_IAM_WRITABLE` follow the write masks in the QEMU source.
+- QEMU does not decode `vmttl.v` and `vmtts.v`, so Zvvmttls is not declared, and `sail.json` disables it.
+- QEMU adds each product to C with one fused multiply-add, rounded with `frm`. For W=1 this is G=1, psm=0,
+  rnd=xct. For W>1 QEMU also adds product by product, which no disclosure describes, and the configuration
+  repeats the W=1 profile.
+
+## `sail-ime-rv64`
+
+`sail-ime-rv64` is `config/sail/sail-rv64-max` with the IME. Sail is both the DUT and the reference model, so
+this configuration shows that the tests build and run, and it runs the tests that `qemu-ime-rv64` skips:
+Zvvmttls and the tests gated on rnd=frm.
+
+- VLEN is 1024, as in `sail-rv64-max`. The lambda lists are `SUPPORTED_LAMBDA_SEW8: [4, 8]`,
+  `SUPPORTED_LAMBDA_SEW16: [2, 4, 8]`, `SUPPORTED_LAMBDA_SEW32: [2, 4]` and `SUPPORTED_LAMBDA_SEW64: [1, 2, 4]`.
+- The floating-point disclosure is Sail's: G=1, psm=0, rnd=frm.
+- The stateen and `hedeleg` parameters follow `sail.json`.
+
+## The IME in ACT
 
 The IME extensions are experimental in ACT. An IME test requires its Zvvm extensions in
 `REQUIRED_EXTENSIONS` and its lambda values as params, for example `SUPPORTED_LAMBDA_SEW32: 1`. ACT
@@ -47,7 +68,7 @@ The tools are wrappers in `config/ime/bin`. They need three settings:
 ```bash
 export PATH=$PWD/config/ime/bin:$PATH
 export SDK_SIF=/path/to/sdk-<date>.sif                      # OpenChip SDK image, run with apptainer
-export SAIL_IME_SIM=/path/to/sail-riscv/build/c_emulator/sail_riscv_sim   # Sail 0.16 with IME
+export SAIL_IME_SIM=/path/to/sail-riscv/build/c_emulator/sail_riscv_sim   # Sail IME fork, cleanup/ime-0.9.0
 ```
 
 - `openchip-sdk-run` runs a command with `apptainer exec "$SDK_SIF"`. The run command uses it for QEMU.
@@ -80,27 +101,27 @@ rewrites `framework/src/act/data/Gemfile.lock` for the local gems; do not commit
 
 ## Building and running
 
-The IME configurations are not run in CI (`ci.yaml`). Run them manually:
+The IME configurations are not run in CI (`ci.yaml`). Generate the IME suites and run one configuration:
 
 ```bash
-EXTENSIONS=I make qemu-ime-rv64
+uv run testgen testplans -o tests --extensions Zvvmm32,Zvvfmm32,ExceptionsZvvm
+uv run act config/ime/sail-ime-rv64/test_config.yaml --test-dir tests --workdir <work> \
+  --extensions Zvvmm32,Zvvfmm32,ExceptionsZvvm --enable-experimental-extensions -k
+./run_tests.py "$(cat config/ime/sail-ime-rv64/run_cmd.txt)" <work>/sail-ime-rv64/elfs/rv64i/Zvvmm32
 ```
 
-IME tests are not generated by testgen yet. To build and run a directory of IME tests that contains an
-`env` link to `tests/env`:
-
-```bash
-uv run act config/ime/qemu-ime-rv64/test_config.yaml --test-dir <ime-tests> --workdir <work> \
-  --extensions Zvvmm --enable-experimental-extensions
-./run_tests.py "$(cat config/ime/qemu-ime-rv64/run_cmd.txt)" <work>/qemu-ime-rv64/elfs
-```
-
-Without `--enable-experimental-extensions`, ACT skips the IME tests.
+The suites are per accumulator width: `Zvvmm8` to `Zvvmm64`, `Zvvfmm8` to `Zvvfmm64`, `Zvvmtls8` to
+`Zvvmtls64`, `Zvvmttls8` to `Zvvmttls64`, and the privileged suite `ExceptionsZvvm`. Without
+`--enable-experimental-extensions`, ACT skips the IME tests.
 
 ## Known issues
 
-- The Sail fork's `vmtl.v` and `vmts.v` index register elements with the flat element index instead of
-  `tile_reg_idx`. Sail stores the C tile transposed whenever LMUL>1. Every IME test that stores a tile
-  with `vmts.v` at LMUL>1 embeds wrong expected values and fails on a conforming DUT.
+- QEMU adds each product of a W>1 floating-point multiply-accumulate to C on its own. The specification forms
+  the partial sum of the W products first. The W>1 Zvvfmm files fail on `qemu-ime-rv64` at `cp_fp_subdot`.
+- QEMU does not trap on several reserved IME cases, for example a multiply-accumulate with `vstart` != 0.
+  ExceptionsZvvm fails on `qemu-ime-rv64`.
+- The QEMU source maps A and B elements with the layout of the IME specification before commit 3c1b4457: each
+  register holds lambda K elements of a row instead of lambda\*W. No test result shows this yet, because the W>1
+  files stop at `cp_fp_subdot` first.
 - The QEMU exclusions in `config/qemu/ci.yaml` also apply to this QEMU. For example, the
   `Svadu_sv*_Svadu_fault` tests fail.

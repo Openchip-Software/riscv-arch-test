@@ -2,6 +2,8 @@
   "$schema": "https://github.com/riscv/sail-riscv/releases/download/0.16/sail_riscv_config_schema.json",
   "base": {
     "xlen": 64,
+    // Whether `misa` is implemented. Required by the Sail IME fork (cleanup/ime-0.9.0).
+    "misa_implemented": true,
     // Whether the base ISA is E, in which case accessing
     // x16-31 is reserved and in this implementation will
     // raise an illegal instruction exception.
@@ -642,6 +644,9 @@
       "mutable_misa": false,
       "supported": true,
       "geilen": 7,
+      // Whether hedeleg bit 0 (instruction address misaligned) is writable when IALIGN = 16.
+      // Matches HEDELEG_IAM_WRITABLE in qemu-ime-rv64.yaml.
+      "hedeleg_zero_writable": true,
       // Whether an implicit access to a VS-stage PTE sets the D bit of a writable G-stage PTE
       "implicit_vs_pte_access_sets_gstage_d": false,
       "guest_page_fault_writes_htval": true,
@@ -880,11 +885,80 @@
     "Zvfhmin": {
       "supported": true
     },
-    // Integrated Matrix Extension (IME) in the Sail fork. These flags match the family extensions in
-    // qemu-ime-rv64.yaml. The fork has no flags for the computational extensions. QEMU does not
-    // decode the Zvvmttls instructions, so Zvvmttls is disabled.
-    "Zvvmm": {
+    // Integrated Matrix Extension (IME). The flags match qemu-ime-rv64.yaml. A family flag (Zvvmm, Zvvfmm) enables
+    // every type of its family in Sail, so the families are off and each declared type is on. QEMU does not decode
+    // vmttl.v and vmtts.v, so Zvvmttls is off.
+    "Zvvbf16fp32mm": {
       "supported": true
+    },
+    "Zvvbf16fp64mm": {
+      "supported": true
+    },
+    "Zvvbf16mm": {
+      "supported": false
+    },
+    "Zvvfmm": {
+      "supported": false
+    },
+    "Zvvfp16fp32mm": {
+      "supported": true
+    },
+    "Zvvfp16fp64mm": {
+      "supported": true
+    },
+    "Zvvfp16mm": {
+      "supported": true
+    },
+    "Zvvfp32fp64mm": {
+      "supported": true
+    },
+    "Zvvfp32mm": {
+      "supported": true
+    },
+    "Zvvfp64mm": {
+      "supported": true
+    },
+    "Zvvi16i32mm": {
+      "supported": true
+    },
+    "Zvvi16i64mm": {
+      "supported": true
+    },
+    "Zvvi16mm": {
+      "supported": true
+    },
+    "Zvvi32i64mm": {
+      "supported": true
+    },
+    "Zvvi32mm": {
+      "supported": true
+    },
+    "Zvvi4i16mm": {
+      "supported": true
+    },
+    "Zvvi4i32mm": {
+      "supported": true
+    },
+    "Zvvi4i8mm": {
+      "supported": true
+    },
+    "Zvvi64mm": {
+      "supported": true
+    },
+    "Zvvi8i16mm": {
+      "supported": true
+    },
+    "Zvvi8i32mm": {
+      "supported": true
+    },
+    "Zvvi8i64mm": {
+      "supported": true
+    },
+    "Zvvi8mm": {
+      "supported": true
+    },
+    "Zvvmm": {
+      "supported": false
     },
     "Zvvmtls": {
       "supported": true
@@ -892,8 +966,122 @@
     "Zvvmttls": {
       "supported": false
     },
-    "Zvvfmm": {
-      "supported": true
+    "Zvvofp4bf16mm": {
+      "supported": false
+    },
+    "Zvvofp4fp16mm": {
+      "supported": false
+    },
+    "Zvvofp4fp32mm": {
+      "supported": false
+    },
+    "Zvvofp4ofp8mm": {
+      "supported": false
+    },
+    "Zvvofp8bf16mm": {
+      "supported": false
+    },
+    "Zvvofp8fp16mm": {
+      "supported": false
+    },
+    "Zvvofp8fp32mm": {
+      "supported": false
+    },
+    "Zvvofp8fp64mm": {
+      "supported": false
+    },
+    "Zvvofp8mm": {
+      "supported": false
+    },
+    "Zvvxi4bf16mm": {
+      "supported": false
+    },
+    "Zvvxi4fp16mm": {
+      "supported": false
+    },
+    "Zvvxi4fp32mm": {
+      "supported": false
+    },
+    "Zvvxi8bf16mm": {
+      "supported": false
+    },
+    "Zvvxi8fp16mm": {
+      "supported": false
+    },
+    "Zvvxi8fp32mm": {
+      "supported": false
+    },
+    "Zvvxi8fp64mm": {
+      "supported": false
+    },
+    "Zvvxni4bf16mm": {
+      "supported": false
+    },
+    "Zvvxni4fp16mm": {
+      "supported": false
+    },
+    "Zvvxni4fp32mm": {
+      "supported": false
+    },
+    "Zvvxni8bf16mm": {
+      "supported": false
+    },
+    "Zvvxni8fp16mm": {
+      "supported": false
+    },
+    "Zvvxni8fp32mm": {
+      "supported": false
+    },
+    "Zvvxni8fp64mm": {
+      "supported": false
+    },
+    "Zvvxnofp4bf16mm": {
+      "supported": false
+    },
+    "Zvvxnofp4fp16mm": {
+      "supported": false
+    },
+    "Zvvxnofp4fp32mm": {
+      "supported": false
+    },
+    "Zvvxnofp4ofp8mm": {
+      "supported": false
+    },
+    "Zvvxnofp8bf16mm": {
+      "supported": false
+    },
+    "Zvvxnofp8fp16mm": {
+      "supported": false
+    },
+    "Zvvxnofp8fp32mm": {
+      "supported": false
+    },
+    "Zvvxnofp8fp64mm": {
+      "supported": false
+    },
+    "Zvvxofp4bf16mm": {
+      "supported": false
+    },
+    "Zvvxofp4fp16mm": {
+      "supported": false
+    },
+    "Zvvxofp4fp32mm": {
+      "supported": false
+    },
+    "Zvvxofp4ofp8mm": {
+      "supported": false
+    },
+    "Zvvxofp8bf16mm": {
+      "supported": false
+    },
+    "Zvvxofp8fp16mm": {
+      "supported": false
+    },
+    "Zvvxofp8fp32mm": {
+      "supported": false
+    },
+    "Zvvxofp8fp64mm": {
+      "supported": false
     },
     "Zvbb": {
       "supported": true
@@ -1095,7 +1283,23 @@
         "address_select_matches_all_addresses": true,
         // Maximum length of a chain. This cannot exceed the number of
         // triggers.  A value of 0 implies chains are not supported.
-        "max_chain_length": 1
+        "max_chain_length": 1,
+        // Access sizes that an address or data match supports (Sail IME fork defaults for RV64).
+        "supported_address_access_sizes": {
+          "bits8": true,
+          "bits16": true,
+          "bits32": true,
+          "bits48": true,
+          "bits64": true,
+          "bits128": true
+        },
+        "supported_data_access_sizes": {
+          "bits8": true,
+          "bits16": true,
+          "bits32": true,
+          "bits48": true,
+          "bits64": true
+        }
       },
       "textra": {
         // Which context matches are supported. Writes of unsupported
