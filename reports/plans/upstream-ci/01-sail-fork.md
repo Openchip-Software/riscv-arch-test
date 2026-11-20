@@ -5,8 +5,9 @@
 Repository: `Openchip-Software/sail-riscv`, default branch `integrated-matrix-extension`. Local clone:
 `~/repo/ime/sail-riscv`.
 
-State as of 2026-11-09. Branch head `7707a9a1` (PR #11, "Ime microscaling"). The branch is based on upstream
-`eb3e896f`, which is after the `0.16` tag.
+State as of 2026-11-20. ACT uses branch `cleanup/ime-0.9.0` at `0ebfc810`, which follows spec `58810918` and
+implements all 65 IME extensions except the OFP8-accumulator rows. Those are on the pending branch
+`cgomez/ime-ofp8-acc` (`2cb7eefb`).
 
 ## Why
 
@@ -16,23 +17,22 @@ fork. The release must not embed results that contradict the IME specification.
 
 ## Status of the known deviations
 
-| Deviation                              | Status                                                                                                                                                      |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| W>1 FP multiply-accumulate partial sum | Fixed in `7707a9a1`. `ime_fp_group_sum` (`ime_mx.sail:169-181`) sums the W products exactly, then rounds once.                                              |
-| `EMUL_C`=16, floating-point            | Fixed in `359d9800`. `ime_mx.sail:100` accepts `IME_EMUL_C_MAX` (16).                                                                                       |
-| `EMUL_C`=16, integer (issue #10)       | **Not fixed.** `execute_ime_int_gemm` calls `ime_group_size_legal` (`ime_mem_insts.sail:249`), which accepts only 1, 2, 4 and 8 (`ime_utils.sail:134-135`). |
+| Deviation                              | Status                                                                                                         |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| W>1 FP multiply-accumulate partial sum | Fixed in `7707a9a1`. `ime_fp_group_sum` (`ime_mx.sail:169-181`) sums the W products exactly, then rounds once. |
+| `EMUL_C`=16, floating-point            | Fixed in `359d9800`. `ime_mx.sail:100` accepts `IME_EMUL_C_MAX` (16).                                          |
+| `EMUL_C`=16, integer (issue #10)       | Fixed in `cleanup/ime-0.9.0`: the ACT SEW=16 integer files pass with `0ebfc810`.                               |
+| OFP8 accumulator rows                  | Raise an illegal-instruction exception in `0ebfc810`. Implemented on `cgomez/ime-ofp8-acc`.                    |
 
 ## Tasks
 
-1. Fix integer `EMUL_C`=16. The specification permits `EMUL_C` = VLEN/(SEW·λ²) in {1, 2, 4, 8, 16}, with vd at v0 or
-   v16 when `EMUL_C` is 16. Reuse the floating-point check in `ime_mx.sail` so both paths share one rule. Update issue
-   #10 to say that only the integer path was open, and close it with the fix.
+1. Merge `cgomez/ime-ofp8-acc`. Close issue #10 if it is still open.
 2. Resolve the VL=0 inconsistency. The integer path traps when N=0 (`ime_mem_insts.sail:244`). The new FP path
    (`ime_gemm_geometry`, `ime_mx.sail:97-99`) executes VL=0 as a no-op. Check what the specification says. If it is
    silent, pick one behaviour for both paths and record it in the implementation notes.
-3. Check the signed-zero behaviour of the new FP engine. The partial sum S starts at +0 (`ime_mx.sail:172`), so
-   C = −0 plus a −0 product gives +0 except with RDN rounding. Check this against the specification's
-   `fp_internal_zero` rule. If the specification is silent, record it.
+3. Signed zero: the spec does not define the sign of `fp_internal_zero()` (draft
+   `reports/issues/ime-fp-internal-zero-sign/ISSUE.md` in the ACT docs worktree). Sail starts S at +0. Keep it until
+   the spec decides.
 4. Add a first-party test for each fix, in the style of the existing IME tests.
 5. Publish a release for ACT:
    - Run `.github/workflows/release.yml` through `workflow_dispatch`. Scheduled runs do not run on a fork.
@@ -46,13 +46,11 @@ fork. The release must not embed results that contradict the IME specification.
 
 ## Acceptance
 
-- The integer and FP multiply-accumulate instructions accept `EMUL_C`=16 at VLEN 256, SEW 16 and λ=1.
+- The OFP8-accumulator rows execute.
 - A release exists with the asset names above, and `sail_riscv_sim --enable-experimental-extensions` runs from the
   unpacked tarball.
 
 ## Notes for ACT (do not change ACT from this repository)
 
-- The new config schema adds `misa_implemented`, `hedeleg_zero_writable`, the trigger keys
-  `supported_address_access_sizes` and `supported_data_access_sizes`, and 28 `Zvvx*`/`Zvvxn*` extension entries.
-  ACT's `sail.json` files for IME must be updated (package 06).
-- `vsetvli`/`vsetivli` with `zimm[8]` set now write `vtype.altfmt` when IME is enabled, instead of setting `vill`.
+- ACT's `config/ime/*/sail.json` already use the new config schema (ACT commit `b186cce44`).
+- `vset{i}vl{i}` write `vtype.altfmt` (`vtype[8]`) when IME is enabled. ACT relies on this for the BF16 accumulator.

@@ -1,129 +1,85 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# IME on riscv-unified-db ime/fp-mx and spec 58810918
+# Log: IME tests on riscv-unified-db and spec 58810918
 
-Started 2026-11-19. Code branch `cgomez/ime-udb-0.9.0` in `~/repo/ime/riscv-arch-test`, on `port-ime-tests-to-act4`.
+Started 2026-11-19 on branch `cgomez/ime-udb-0.9.0`. Pins, environment and current status are in
+[HANDOFF.md](HANDOFF.md). This file records what each step changed and why.
 
-## Pins
+Before this work, the tests followed spec `6effbcae` (the v0.9 freeze of 2026-08-04), took the IME definitions from
+an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 
-| What           | Where                                                                            | Commit                                                        |
-| -------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| UDB            | Openchip-Software/riscv-unified-db `ime/fp-mx`, worktree `~/repo/ime/udb-act`    | `f0045fec2ee773e3753375d238c1dad66f593c91`                    |
-| Sail reference | Openchip-Software/sail-riscv `cleanup/ime-0.9.0`, worktree `~/repo/ime/sail-act` | `0ebfc810f523fd225d02edbb78d375737141e825`                    |
-| IME spec       | riscv/integrated-matrix-extension                                                | `58810918` (= v0.9.0-on-main + `324c62b7`, exact E8M0 scales) |
+## Step 1: UDB replaces the overlay (`49b999ce9`)
 
-Before this work the tests followed spec `6effbcae` (same IME text as `3763fa96`, the v0.9 freeze of 2026-08-04) and
-Sail `cgomez/0.16-plus-ime` `a545cc41`.
+- Removed the overlay `framework/src/act/data/udb_overlays/ime` and the `arch_overlay` code in
+  `parse_udb_config.py`, which is the `act4` version again. `toolchain.py` lists the 65 IME extensions.
+- `qemu-ime-rv64.yaml`: Zvvm versions 1.0.0 → 0.9.0. The newer UDB rejects five Sdext/SCONTEXT parameters. It
+  requires the stateen `C`/`SE0` types and `HEDELEG_IAM_WRITABLE`; the values come from the write masks in the SDK
+  QEMU (`target/riscv/csr.c`).
+- QEMU FP disclosure: G=1, psm=0, rnd=xct. QEMU adds each product to C with one `float*_muladd` rounded with `frm`.
+  For W>1 it also adds product by product, which no disclosure describes. The config repeats the W=1 profile.
+- Check: `extensions.txt` unchanged. `rvtest_config.h` differs only in the version macros, the parameters above and
+  115 new `UDB_ZVVM_FP_*` lines. QEMU results unchanged.
 
-`ime/fp-mx` will merge into `ime/0.9.0`. Then move the `udb-act` worktree to `ime/0.9.0`; nothing else changes.
+## Step 2: Sail `cleanup/ime-0.9.0` and `sail-ime-rv64` (`b186cce44`)
 
-## Environment
-
-```bash
-source ~/tools/act4/env.sh   # mise, XDG_DATA_HOME and BUNDLE_PATH on local disk, UDB_LOCAL_PATH=~/repo/ime/udb-act
-export PATH=$PWD/config/ime/bin:$PATH SDK_SIF=~/repo/ime/sdk-2026.10.14.sif
-export SAIL_IME_SIM=~/repo/ime/sail-act/build-act/c_emulator/sail_riscv_sim
-```
-
-- `env.sh` was recreated on 2026-11-19. mise is the binary that `riscv-unified-db/bin/mise` bootstraps
-  (`~/.local/share/mise/bootstrap/mise-2026.10.17`, linked as `~/tools/act4/bin/mise`).
-- `bundle install` onto NFS hangs in the NFS server-side copy (`handle_async_copy`) while it installs `prism.so`.
-  `BUNDLE_PATH=/tmp/$USER-act-bundle` avoids it. `/tmp` is lost on reboot; the next ACT run reinstalls.
-- `UDB_LOCAL_PATH` makes bundler rewrite `framework/src/act/data/Gemfile.lock`. Restore it before each commit.
-- `~/repo/ime/udb-act/gen` points to `/tmp/$USER-udb-act-gen`.
-- Helper scripts in `~/repo/ime/act-udb-work/`: `fp_disclosure.py` prints the `ZVVM_FP_*` parameters for a config,
-  `phase1-run.sh` builds and runs suites on `qemu-ime-rv64`.
-
-## Step 1: overlay replaced by UDB (`49b999ce9`)
-
-- The overlay `framework/src/act/data/udb_overlays/ime` and the `arch_overlay` handling in `parse_udb_config.py` are
-  removed. `parse_udb_config.py` is the `act4` version again.
-- `toolchain.py` lists the 65 IME extensions, as `testgen/constants.py` does.
-- `qemu-ime-rv64.yaml`: Zvvm versions 1.0.0 → 0.9.0. The UDB on `ime/fp-mx` is newer than gem 0.1.18 and rejects
-  five Sdext/SCONTEXT parameters; it requires the stateen `C`/`SE0` types and `HEDELEG_IAM_WRITABLE`. The values come
-  from the write masks in the SDK QEMU (`target/riscv/csr.c`).
-- QEMU FP disclosure: G=1, psm=0, rnd=xct. QEMU adds each product to C with one `float*_muladd` rounded with `frm`
-  (`trans_rvzvvmm.c.inc`). For W>1 it also adds product by product, which no disclosure describes; the config repeats
-  the W=1 profile.
-- Check: `extensions.txt` unchanged. `rvtest_config.h` differs only in version macros, the base parameters above and
-  115 new `UDB_ZVVM_FP_*` lines. Zvvmm32, Zvvfmm32 and Zvvmtls32 with Sail `a545cc41`: 10/10 files pass on QEMU, as
-  before.
-
-## Step 2: Sail cleanup/ime-0.9.0 and `sail-ime-rv64` (`b186cce44`)
-
-- Sail built on moon with `~/repo/ime/sail-riscv-work/build.sh ~/repo/ime/sail-act ~/repo/ime/sail-act/build-act`
-  (job 65550, about 30 minutes with a cold z3 cache).
+- Sail built on a compute node (job 65550).
 - This Sail needs three new `sail.json` keys: `base.misa_implemented`, `H.hedeleg_zero_writable` and the Sdtrig
-  `mcontrol6` access-size tables (Sail defaults; not checked against QEMU).
-- `config/ime/sail-ime-rv64`: `sail-rv64-max` (VLEN 1024) with the IME, Zvvmttls and Sail's profile. Sail is the DUT.
+  `mcontrol6` access-size tables. The values are the Sail defaults and are not checked against QEMU.
+- `config/ime/sail-ime-rv64` is `config/sail/sail-rv64-max` (VLEN 1024) plus the IME extensions, Zvvmttls, the λ
+  lists for VLEN 1024 and Sail's FP profile. Sail is the DUT. It runs the gated tests and Zvvmttls.
 
-## Step 3: new tests for spec 58810918 (`413966b5a`, `aaa0c329c`)
+## Step 3: tests for spec 58810918 (`413966b5a`, `aaa0c329c`)
 
-- `cp_ime_vd_overlap` (ExceptionsZvvm): `vs1`/`vs2` = base of C, `vs2` = last register of C per λ, and VL = 0.
-- `cp_fp_rnd` (Zvvfmm): a partial sum S that is not exact in the C format, gated on rnd=frm and psm=0.
+- `cp_ime_vd_overlap` (ExceptionsZvvm): `vs1` or `vs2` at the base of C, `vs2` at the last register of C for each λ,
+  and VL = 0.
+- `cp_fp_rnd` (Zvvfmm): a group sum S that is not exact in the C format while C₀ + S is. The rnd=frm and rnd=xct
+  results then differ in every rounding mode. Gated on rnd=frm and psm=0.
+- Results: `sail-ime-rv64` 41/41 files pass. On `qemu-ime-rv64` the integer and tile suites pass. The 5 W>1 Zvvfmm
+  files fail at `cp_fp_subdot`, and ExceptionsZvvm fails 7/7 at `cp_ime_vstart`.
 
-Results with Sail `0ebfc810` (all suites at all SEWs, ExceptionsZvvm):
+## Step 4.1: BF16 accumulator `Zvvbf16mm` (`59666b161`)
 
-| Config          | Result                                                                                                                                                                         |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `sail-ime-rv64` | 41/41 files pass, Zvvmttls and ExceptionsZvvm included. SEW=16 MACC builds again (EMUL_C=16 fixed in Sail).                                                                    |
-| `qemu-ime-rv64` | Integer and tile suites pass. The 5 W>1 Zvvfmm files fail at `cp_fp_subdot` (QEMU adds products one by one). ExceptionsZvvm fails 7/7 at `cp_ime_vstart` (QEMU does not trap). |
-
-The ELFs stop at the first failure, so later bins of the failing QEMU files are not measured.
-
-UDB macro forms: string values are uppercase (`UDB_ZVVM_FP_RND_SEW32_W2_IDX0_XCT`). Boolean arrays emit only
-`UDB_ZVVM_FP_PSM_SEW<s>_W<w>_MASK`.
-
-## Step 4.1: BF16 accumulator (`Zvvbf16mm`, `59666b161`)
-
-- New `Zvvfmm.csv` row: `vfmmacc.vv` at SEW=16 with `altfmt_A = altfmt_B = altfmt = 1`. `altfmt` is `vtype[8]`
-  (Zvfbfa position) and selects the C format. `InstructionParams.altfmt` sets it.
+- New `Zvvfmm.csv` row: `vfmmacc.vv` at SEW=16 with `altfmt_A = altfmt_B = altfmt = 1`. `altfmt` is `vtype[8]`, the
+  Zvfbfa position, and selects the C format. `InstructionParams.altfmt` sets it.
 - The FMMACC formatter and `cp_fp_rnd` take the C format from the row: BF16 when the type extension ends in `bf16mm`.
-  A BF16 C holds 8 significant bits, so its data uses inputs in [-1, 1] and C = k + 0.5 with |k| <= 31. Every sum
+  A BF16 value has 8 significant bits. Its data uses inputs in [-1, 1] and C = k + 0.5 with |k| ≤ 31, so every sum
   stays below 96 and is exact.
-- New coverage template `cp_vd_edges_f_bf16_sew16`.
-- Both configs declare `Zvvbf16mm`. The other IME tests regenerate byte for byte.
-
-| Config          | Result                                                                                                     |
-| --------------- | ---------------------------------------------------------------------------------------------------------- |
-| `sail-ime-rv64` | Zvvfmm16: 2/2 files pass.                                                                                  |
-| `qemu-ime-rv64` | `Zvvbf16mm` fails at its first testcase: QEMU treats `vtype[8]` as reserved without `x-zvfbfa`, so `vill`. |
-
-The spec lists only Zve32f as the dependency of `Zvvbf16mm`, so `altfmt` must be writable without Zvfbfa; Sail
-does this. With `x-zvfbfa=true` the same QEMU ELF passes. The QEMU command line is not changed.
-
-Open: covergroups do not check `altfmt`, `altfmt_A` or `altfmt_B`. At SEW=16 the `Zvvfp16mm` and `Zvvbf16mm`
-covergroups both sample every `vfmmacc.vv`. The same holds at SEW=32 for `Zvvfp16fp32mm` and `Zvvbf16fp32mm`.
+- New coverage template `cp_vd_edges_f_bf16_sew16`. Both configs declare `Zvvbf16mm`.
+- The other IME tests regenerate byte for byte.
+- Results: Zvvfmm16 passes 2/2 on `sail-ime-rv64`. On `qemu-ime-rv64`, `Zvvbf16mm` fails at its first testcase
+  (HANDOFF, QEMU deviation 5).
 
 ## Decisions
 
-- **Family flags.** In UDB each type extension requires its family; a family alone enables no type. In Sail a family
-  flag (`Zvvmm`, `Zvvfmm`) enables every type of the family (`currentlyEnabled` in `ime_types.sail`), OFP8 included.
-  The `sail.json` files therefore set the families to false and each declared type to true, so Sail implements
-  exactly the rows that the UDB config declares.
+- **Family flags.** In UDB each type extension requires its family, and a family alone enables no type. In Sail a
+  family flag enables every type of the family (`currentlyEnabled` in `ime_types.sail`), OFP8 included. The
+  `sail.json` files set the families to false and each declared type to true.
 - **Gated FP tests.** Sail computes rnd=frm only. A test that depends on rnd is generated for rnd=frm and gated on
-  `UDB_ZVVM_FP_RND_SEW<s>_W<w>_IDX<i>_FRM` and psm=0. QEMU discloses xct and skips them; their bins stay open there.
-- **Sail as DUT.** `config/ime/sail-ime-rv64` is `config/sail/sail-rv64-max` (VLEN 1024) plus the IME extensions,
-  Zvvmttls, the λ lists for VLEN 1024 and Sail's profile. It runs the gated tests and Zvvmttls.
+  `UDB_ZVVM_FP_RND_SEW<s>_W<w>_IDX<i>_FRM` and on psm=0. QEMU discloses rnd=xct and skips them. Their bins stay open
+  there.
+- **`altfmt` without Zvfbfa.** The spec lists Zve32f as the only dependency of `Zvvbf16mm`, and UDB agrees. Sail
+  `0ebfc810` writes `vtype[8]` whenever IME is enabled. The rows therefore do not require Zvfbfa. This replaces the
+  decision of 2026-10-27, taken with the old Sail, that BF16 and E5M2 outputs require Zvfbfa.
+- **QEMU command line.** It stays as the SDK ships it. `x-zvfbfa=true` would hide QEMU deviation 5.
 
-## Spec delta 6effbcae → 58810918 and the ACT tests
+## Spec delta 6effbcae → 58810918
 
-| Spec commit                                                            | Change                                                                                 | ACT impact                                                                                                                               |
-| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `5bcd3946`                                                             | `vd` shall not overlap `vs1` or `vs2`, regardless of VL                                | New `cp_ime_vd_overlap` in ExceptionsZvvm (base, last register of C, VL = 0). The MMACC formatter already kept them apart.               |
-| `3c1b4457`                                                             | Each A/B register holds λ·W consecutive K elements per row (was λ)                     | No generator change: testgen does not model the layout, Sail computes the values. QEMU uses the old mapping and should fail W>1, LMUL>1. |
-| `cc42d98d`                                                             | N = VL/(λ·LMUL); VL not a multiple stays illegal                                       | None. `cp_ime_vl_not_multiple` stays.                                                                                                    |
-| `e4bf2c19`                                                             | `vta=1`: each tail element independently unchanged or all ones; VL = 0 updates nothing | None: MACC tests use `vta=0`.                                                                                                            |
-| `26b0fd87`, `d74d8d85`, `fcca60a8`                                     | W=1 term is the exact product; products may leave the C exponent range                 | None: FP data is exact under every profile.                                                                                              |
-| `fcc718d4`, `2a1fc11f`, `9eea6c86`, `dbc788ec`                         | Intrinsics text (immediate λ, mask type, `__riscv_vsetlambda`)                         | None. The immediate-λ rule matches `cp_ime_imm_lambda_unsupported`.                                                                      |
-| `37840bb8`                                                             | psm=1 rules                                                                            | Gated tests require psm=0.                                                                                                               |
-| `ad2d5f22`, `7ac568a5`, `0a13020a`, `e06eca02`, `40446383`, `324c62b7` | Block scales (E8M0, exact, LMUL limits, count)                                         | Step 4 (microscaling).                                                                                                                   |
+| Spec commit                                                            | Change                                                                     | ACT impact                                                               |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `5bcd3946`                                                             | `vd` must not overlap `vs1` or `vs2`, regardless of VL                     | New `cp_ime_vd_overlap`. The MMACC formatter already kept them apart.    |
+| `3c1b4457`                                                             | Each A/B register holds λ·W consecutive K elements per row (was λ)         | No generator change: Sail computes the values. QEMU uses the old layout. |
+| `cc42d98d`                                                             | N = VL/(λ·LMUL); a VL that is not a multiple stays illegal                 | None. `cp_ime_vl_not_multiple` stays.                                    |
+| `e4bf2c19`                                                             | `vta=1`: each tail element unchanged or all ones; VL = 0 updates nothing   | None: MACC tests use `vta=0`.                                            |
+| `26b0fd87`, `d74d8d85`, `fcca60a8`                                     | The W=1 term is the exact product; products may leave the C exponent range | None: FP data is exact under every profile.                              |
+| `fcc718d4`, `2a1fc11f`, `9eea6c86`, `dbc788ec`                         | Intrinsics text (immediate λ, mask type, `__riscv_vsetlambda`)             | None. The immediate-λ rule matches `cp_ime_imm_lambda_unsupported`.      |
+| `37840bb8`                                                             | psm=1 rules                                                                | Gated tests require psm=0.                                               |
+| `ad2d5f22`, `7ac568a5`, `0a13020a`, `e06eca02`, `40446383`, `324c62b7` | Block scales: E8M0, exact application, LMUL limits, count                  | Step 4.3 (microscaling).                                                 |
 
 ## OFP8 tests set aside
 
-Sail `0ebfc810` decodes the OFP8 accumulator rows and raises illegal instruction for them. The pending Sail branch
-`cgomez/ime-ofp8-acc` (`2cb7eefb`) implements them. Tests for these extensions are listed here and handled with that
-PR:
+Sail `0ebfc810` decodes the OFP8-accumulator rows and raises an illegal-instruction exception for them. The pending
+Sail branch `cgomez/ime-ofp8-acc` (`2cb7eefb`) implements them. Their tests are listed here and handled with that
+pull request.
 
 | Extension                           | Rows                        | Status              |
 | ----------------------------------- | --------------------------- | ------------------- |

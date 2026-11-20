@@ -7,7 +7,8 @@
 | 1. ACT4: components, workflow and examples          | `act-architecture.html`   |
 | 2. IME test generator: analysis and ACT integration | `ime-testgen-to-act.html` |
 
-Each report is one self-contained HTML file. Open it in a browser.
+Each report is one self-contained HTML file. Open it in a browser. Report 2 describes the state of 2026-11-07
+(overlay, Sail `a545cc41`, spec `6effbcae`); `plans/HANDOFF.md` has the current state.
 
 ## Rebuild
 
@@ -29,30 +30,24 @@ cited line range is inside the file.
 `slang_check.py` compiles the ACT coverage testbench with pyslang when no Questa or VCS is available.
 `plans/HANDOFF.md` gives the command.
 
-## Sail issue draft (`issues/sail-ime-wmmacc-partial-sum/`)
+## Issue drafts (`issues/`)
 
-Draft issue for Openchip-Software/sail-riscv, not filed. The IME Sail fork's W>1 FP multiply-accumulate
-instructions (`vfwmmacc.vv`, `vfqmmacc.vv`, `vf8wmmacc.vv`) add each product into C instead of forming the
-sub-dot-product sum first. Report 2, finding 30.
+`ime-fp-internal-zero-sign/ISSUE.md`: spec gap, not filed. The spec does not define the sign of `fp_internal_zero()`
+or of an exact zero group sum, so C = −0 with all −0 products has no defined result. Sail starts S at +0. Cited at
+spec `e99d9065` and Sail `7707a9a1`.
 
-| Path                   | Purpose                                                                    |
-| ---------------------- | -------------------------------------------------------------------------- |
-| `ISSUE.md`             | Issue text.                                                                |
-| `fprnd.c`, `start.S`   | Bare-metal probe at VLEN=256, λ=1: W=1, W=2 and W=4 cases.                 |
-| `link.ld`, `sail.json` | Linker script and Sail configuration override for the probe.               |
-| `run.sh`               | Builds the probe with the SDK GCC and runs it on Sail and the SDK QEMU.    |
-| `qemu.out`, `sail.out` | Output of `run.sh` on the SDK QEMU and on Sail.                            |
-| `qemu-mixed.out`       | Output of `fprnd-mixed.elf` on the SDK QEMU: adds a mixed-format W=1 case. |
-
-`run.sh` takes `SDK_SIF` and `SAIL` from the environment. The defaults are paths on the author's machine.
+`sail-ime-wmmacc-partial-sum/`: obsolete draft, kept because Report 2 links to it. The W>1 partial-sum bug it
+describes is fixed in Sail (`ime_fp_group_sum`). The SDK QEMU still has it.
 
 Filed Sail issues are tracked on GitHub, not here. `EMUL_C`=16 is
-[Openchip-Software/sail-riscv#10](https://github.com/Openchip-Software/sail-riscv/issues/10).
+[Openchip-Software/sail-riscv#10](https://github.com/Openchip-Software/sail-riscv/issues/10), fixed in
+`cleanup/ime-0.9.0`.
 
 ## Plans (`plans/`)
 
 | Path                         | Purpose                                                                                     |
 | ---------------------------- | ------------------------------------------------------------------------------------------- |
 | `HANDOFF.md`                 | Self-contained handoff for the next agent or engineer: setup, rules, status and next steps. |
+| `udb-0.9.0.md`               | Log of the move to riscv-unified-db and spec `58810918`, one section per step.              |
 | `ime-act-testplan-design.md` | Full testplan design (option C) behind Report 2, Section 16b.                               |
 | `upstream-ci/`               | Work packages for upstream CI, one self-contained file per repository.                      |

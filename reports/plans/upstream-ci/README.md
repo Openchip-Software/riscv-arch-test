@@ -6,7 +6,7 @@ Goal: merge the Integrated Matrix Extension (IME) tests into upstream `riscv/ris
 CI that runs them. Each file below is one work package for one repository. Each file is self-contained, so an agent
 working in that repository needs only that file.
 
-State as of 2026-11-09.
+State as of 2026-11-20. Packages 01-09 were written on 2026-11-09; the facts below are current.
 
 | File                                                       | Repository                            | Depends on   |
 | ---------------------------------------------------------- | ------------------------------------- | ------------ |
@@ -20,19 +20,24 @@ State as of 2026-11-09.
 | [08-act-cleanup.md](08-act-cleanup.md)                     | `riscv/riscv-arch-test`               | 02, 03, 06   |
 | [09-act-verification.md](09-act-verification.md)           | `riscv/riscv-arch-test` (checks only) | —            |
 
-Critical path: 01 (fix integer `EMUL_C`=16, publish a fork release) → 06 (the IME pull request). 05 and 09 can start
-now. 02, 03 and 04 run in parallel and shorten 07 and 08.
+Critical path: 01 (publish a fork release of `cleanup/ime-0.9.0`) and 03 (a UDB release with IME) → 06 (the IME pull
+request). 05 and 09 can start now. 02 and 04 run in parallel and shorten 07 and 08.
 
 ## Shared facts
 
-- IME specification pinned at commit `6effbcae`. The ARC review branch changes some rules (see 06).
+- IME specification pinned at commit `58810918` (v0.9.0-on-main plus exact E8M0 block scales). UDB, Sail and the
+  tests follow the same commit.
 - Source of truth: the specification. Where it is silent, follow the Sail fork and record "spec silent; Sail
   behaviour". Never use QEMU, GCC or the Rust `ime-test-gen` golden model as the source of truth.
-- ACT import branch: `Openchip-Software/riscv-arch-test`, branch `port-ime-tests-to-act4`, three commits on `act4`
-  `7569d06d6`:
-  - `0bb9717a4` Keep ExtraExtensions rows in per-SEW covergroups (generic fix, work package 05).
-  - `98595c2a5` Add tests for the Integrated Matrix Extension (work package 06).
-  - `8ada25d12` Add an IME DUT configuration with the SDK QEMU (Openchip fork only, never upstream).
+- ACT branch: `Openchip-Software/riscv-arch-test` `cgomez/ime-udb-0.9.0`, eight commits on `act4` `7569d06d6`
+  (list in `../HANDOFF.md` §5):
+  - `0bb9717a4`: generic covergroupgen fix (work package 05).
+  - `98595c2a5`, `49b999ce9`, `413966b5a`, `aaa0c329c`, `59666b161`: the IME tests (work package 06). `49b999ce9`
+    removes the UDB overlay of `98595c2a5`.
+  - `8ada25d12`, `b186cce44`: the `config/ime` DUT configurations (Openchip fork only, never upstream).
+- UDB: the IME definitions come from `Openchip-Software/riscv-unified-db` `ime/fp-mx` through the ACT Gemfile
+  variable `UDB_LOCAL_PATH`.
+- Reference model: `Openchip-Software/sail-riscv` `cleanup/ime-0.9.0` `0ebfc810`.
 - Upstream ACT CI facts that every package must respect:
   - The reference model is the official `riscv/sail-riscv` release, downloaded in
     `.github/actions/setup-tools/action.yml` (input `sail-version`, default `0.16`). The cache key is

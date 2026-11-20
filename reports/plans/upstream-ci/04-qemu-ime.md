@@ -5,7 +5,7 @@
 Repository: `Openchip-Software/riscv-ime-qemu`, default branch `master` (public). The SDK image ships the same QEMU
 as `qemu-system-riscv64` 10.2.50, run with `-cpu max,vlen=256,x-zvvm=true`.
 
-State as of 2026-11-09.
+State as of 2026-11-20. The ACT reference is Sail `0ebfc810` and spec `58810918`.
 
 ## Why
 
@@ -26,11 +26,15 @@ requires.
 5. A masked tile load into v0 executes instead of trapping.
 6. `vmttl.v` and `vmtts.v` (Zvvmttls) are not decoded.
 7. W>1 FP multiply-accumulate (`vfwmmacc.vv`, `vfqmmacc.vv`, `vf8wmmacc.vv`) adds each product to C with its own
-   rounding. The specification forms the partial sum of the W products first. Sail fixed this in `7707a9a1`, so the
-   ACT `cp_fp_subdot` bins now fail on QEMU.
+   rounding. The specification forms the partial sum of the W products first. The ACT `cp_fp_subdot` bins fail on
+   QEMU.
+8. `vtype[8]` (`altfmt`) is reserved unless `x-zvfbfa=true`. The spec makes Zve32f the only dependency of
+   `Zvvbf16mm`, so the bit must be writable with IME alone. With `x-zvfbfa=true` the ACT `Zvvbf16mm` tests pass.
+9. [Inferred] The A/B register layout follows spec `6effbcae` (λ K elements per register). Spec `3c1b4457` makes it
+   λ·W. Expected to fail W>1 at LMUL>1; item 7 hides it today.
 
-Not a deviation any more: tile loads and stores with VL not a multiple of λ·LMUL. After the ARC review, the
-specification makes every 0 ≤ VL ≤ VLMAX legal for tile loads and stores (Sail issue #8).
+Item 2 also covers tile loads and stores with VL not a multiple of λ·LMUL. Spec `58810918` still requires a multiple
+for them. The unmerged ARC review draft makes every 0 ≤ VL ≤ VLMAX legal (Sail issue #8); recheck when it merges.
 
 ## Tasks
 

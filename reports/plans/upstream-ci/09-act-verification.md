@@ -2,23 +2,24 @@
 
 # 09: ACT: checks to run before the IME pull request
 
-Repository: `Openchip-Software/riscv-arch-test`, branch `port-ime-tests-to-act4` (local clone
+Repository: `Openchip-Software/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0` (local clone
 `~/repo/ime/riscv-arch-test`). These are checks only; report the results to package 06.
 
-State as of 2026-11-09.
+State as of 2026-11-20.
 
 ## Environment
 
 ```bash
 cd ~/repo/ime/riscv-arch-test
-source ~/tools/act4/env.sh   # mise, uv, prek; sets XDG_DATA_HOME on local disk (UDB flock fails on NFS)
+source ~/tools/act4/env.sh   # see ../HANDOFF.md §3
 export PATH=$PWD/config/ime/bin:$PATH
 export SDK_SIF=~/repo/ime/sdk-2026.10.14.sif
-export SAIL_IME_SIM=~/repo/ime/sail-riscv/build-016/c_emulator/sail_riscv_sim
+export SAIL_IME_SIM=~/repo/ime/sail-act/build-act/c_emulator/sail_riscv_sim
 ```
 
-The upstream GCC is at `~/tools/act4/gcc/riscv/bin/riscv64-unknown-elf-gcc` (16.1). With it, all IME suites build and
-20 sample files pass with Sail as DUT. IME tests need `--enable-experimental-extensions` (`act`) or
+An upstream GCC 16.1 (`riscv64-unknown-elf-gcc`) built all IME suites with the old Sail `a545cc41`, and 20 sample
+files passed with Sail as DUT. That toolchain was under `~/tools/act4/gcc/` and is gone; reinstall it before check 2.
+Not rerun with `0ebfc810`. IME tests need `--enable-experimental-extensions` (`act`) or
 `ENABLE_EXPERIMENTAL_EXTENSIONS=True` (Make). Use per-SEW suite names, for example `Zvvmm32`.
 
 ## Checks
@@ -34,8 +35,7 @@ The upstream GCC is at `~/tools/act4/gcc/riscv/bin/riscv64-unknown-elf-gcc` (16.
 4. **Other VLENs.** The λ gating depends on VLEN. Run the IME suites with Sail as DUT at VLEN 128 and 512 by changing
    the UDB config (`VLEN`, `Zvl*b`, λ lists) and `sail.json` (`vlen_exp`). Report whether a second CI config is worth
    adding.
-5. **Sail config schema.** With the new fork release, check whether `sail_riscv_sim` rejects the current
-   `config/ime/qemu-ime-rv64/sail.json`, and list the keys it needs (see package 06, task A.1).
+5. **Sail config schema.** Done for `0ebfc810` (ACT commit `b186cce44`). Repeat for the release of package 01.
 
 ## Acceptance
 

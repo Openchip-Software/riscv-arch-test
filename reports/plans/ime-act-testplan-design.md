@@ -3,19 +3,19 @@
 # Design: the ime-test-gen plan as ACT testplans (option C)
 
 This file describes how the IME tests of ime-test-gen are expressed as native ACT testplans ("option C"). It covers
-the implemented design (steps 1-7), the open issues and the remaining work. It is the testplan design behind Report 2,
-Section 16b.
+the implemented design, the open issues and the remaining work. It is the testplan design behind Report 2,
+Section 16b. Current status, pins and results are in [HANDOFF.md](HANDOFF.md); this file does not repeat them.
 
 Pins and conventions:
 
-- ACT: `riscv-arch-test` branch `port-ime-tests-to-act4` at `8ada25d12`, 3 commits on `act4` `7569d06d6`.
-  The IME work is one commit, `98595c2a5`.
+- ACT: `riscv-arch-test` branch `cgomez/ime-udb-0.9.0` (HANDOFF §5).
 - Paths are relative to that repository unless they start with one of these prefixes:
   - `ime-test-gen/`: riscv-ime-arch-tests `46f3781`.
-  - `sail/`: the Sail fork `Openchip-Software/sail-riscv`, branch `cgomez/0.16-plus-ime`. The reference model is at
-    `a545cc41`. Line citations were taken at `c69e3e22` and can be a few lines off.
+  - `sail/`: the Sail fork `Openchip-Software/sail-riscv`. The reference model is `cleanup/ime-0.9.0` `0ebfc810`.
+    Line citations were taken on the older branch `cgomez/0.16-plus-ime` and may not match.
   - `qemu/`: `Openchip-Software/riscv-ime-qemu` branch `vrull/ime-wip` at `d856b96`, which is also the SDK QEMU pin.
-  - `spec:`: `integrated-matrix.adoc` at `6effbcae`, the head of `main`.
+  - `spec:`: the tests follow spec `58810918`. Line citations `spec:<n>` were taken at `6effbcae`
+    (`src/integrated-matrix.adoc`) and may be off. [udb-0.9.0.md](udb-0.9.0.md) lists the normative changes.
 - ARC review draft of the specification: branch `jmoreira/arc-review-updates-01` at `d051f35b` (commit `ad6de478da`).
   It is not merged. It makes every 0 ≤ VL ≤ VLMAX legal for tile loads and stores, and makes a MACC VL that is not a
   multiple of λ·LMUL reserved. It renames λ to KLEN and M to MLEN. `EMUL_C` ∈ {1,2,4,8,16} is unchanged. This design
@@ -28,7 +28,8 @@ Project decisions of 2026-10-27, still valid:
 
 1. λ is gated per testcase (§1.4). Selection in the test header is not used.
 2. Composed tile tests are extra bins (`cp_custom_tile_*`, §4.3).
-3. The target implementation uses G=1. Its `psm` and `rnd` are not disclosed (§5).
+3. The FP profile (G, psm, rnd) is disclosed per (SEW, W, λ) through UDB parameters (§5). The target
+   implementation's values are not known yet.
 4. **Source of truth** (§0.1). The IME specification decides conflicts. The Sail fork decides where the specification
    is silent or ambiguous. QEMU, the SDK GCC and the Rust golden model never decide.
 
@@ -39,16 +40,16 @@ Project decisions of 2026-10-27, still valid:
 - One row per (mnemonic, type extension). The type extension goes in `ExtraExtensions`. The `EFFEW<n>` columns give
   the accumulator SEW.
 - λ is gated per testcase with `#if defined(UDB_SUPPORTED_LAMBDA_SEW<n>_<λ>)`. UDB emits these macros from the
-  overlay parameters. The header names no λ, and no file is split by λ.
+  `SUPPORTED_LAMBDA_SEW<n>` parameters. The header names no λ, and no file is split by λ.
 - MACC tests load A, B and C with `vle<SEW>.v`. They check the 16-register C window with `RVTEST_SIGUPD_V_LEN`. They
-  do not use tile instructions, so they are VLEN-agnostic. `vd` never overlaps `vs1` or `vs2` (open question, §10).
+  do not use tile instructions, so they are VLEN-agnostic. `vd` never overlaps `vs1` or `vs2` (spec `5bcd3946`).
 - Tile load tests check the destination register group. Tile store tests read back a memory window with `vle`.
 - Two composed coverpoints are implemented: `cp_custom_tile_macc` (`vmmacc.vv` with tile-loaded A and B and a
   tile-stored C) and `cp_custom_tile_crossmode` (TC-LS-03/04). `cp_custom_tile_layout` and `cp_custom_tile_roundtrip`
   are optional (step 3a, §4.4).
 - FP data is exact: small integers in A and B, half-integers in C. The result then does not depend on `psm` or `rnd`.
-- `cp_fp_subdot` tests the W>1 partial sum. Its bins follow the specification. Sail and QEMU both add each product
-  into C, so the bins pass on QEMU and would fail on a conforming DUT until Sail is fixed (§4.5).
+  `cp_fp_rnd` adds profile-dependent data, gated on the disclosed profile (§5).
+- `cp_fp_subdot` tests the W>1 partial sum (§4.5). Sail follows the specification; QEMU fails these bins.
 - No new check macro was needed. `act` test selection and the build needed no change.
 
 ### 0.1 Source of truth (decided 2026-10-27)
@@ -63,18 +64,18 @@ ambiguous, the IME Sail fork decides. QEMU, the SDK GCC and the Rust golden mode
   choice (§5).
 - **The specification is silent:** tests follow the Sail code. The design records "spec silent; Sail behaviour".
 
-| Conflict                                                     | Basis                                                        | Resolution                                                                                        |
-| ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| W>1 FP accumulation                                          | Sail and QEMU contradict the specification (spec:1352-1412)  | Open. `cp_fp_subdot` bins follow the specification (§4.5).                                        |
-| MACC `EMUL_C`=16                                             | Sail rejects it; the specification permits it (spec:381)     | Open: [sail-riscv#10](https://github.com/Openchip-Software/sail-riscv/issues/10). Bins stay (§7). |
-| λ with `EMUL_C` < 1                                          | Sail accepts it; the specification forbids it (spec:811-815) | UDB λ lists follow the specification. Positive tests are gated, so they never use such a λ (§7).  |
-| W=1 FP rounding: Sail rnd=frm, QEMU rnd=xct                  | The specification permits both                               | Not a conflict. W=1 data keeps products exact (§5).                                               |
-| MACC `vd` overlap with `vs1`/`vs2`                           | Spec silent; Sail allows overlap and computes in place       | Open: user decision (§3.2, §10).                                                                  |
-| `altfmt=1` for an FP output without Zvfbfa                   | Spec silent; in Sail, `vtype` bit 8 is reserved              | Rows with BF16 or E5M2 output require Zvfbfa (§7).                                                |
-| W=4 mnemonics                                                | GCC and QEMU names differ from the specification             | Specification names in the CSVs. GCC names exist only as macro aliases (§2.2).                    |
-| Family and type extension direction                          | ime-test-gen differs from the specification                  | The overlay direction holds (§1.3).                                                               |
-| `zvmma`, `zvvxofp8mm`, `zvvxnofp8mm`                         | GCC-only names                                               | Not used in ACT.                                                                                  |
-| QEMU microscaling and mixed-format paths; Rust model `--fma` | Not sources of truth                                         | Findings only (§6.1).                                                                             |
+| Conflict                                                     | Basis                                                              | Resolution                                                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| W>1 FP accumulation                                          | QEMU contradicts the specification (spec:1352-1412)                | Fixed in Sail. `cp_fp_subdot` bins follow the specification and fail on QEMU (§4.5).                   |
+| MACC `EMUL_C`=16                                             | Old Sail rejected it; the specification permits it (spec:381)      | Fixed in Sail `0ebfc810` ([sail-riscv#10](https://github.com/Openchip-Software/sail-riscv/issues/10)). |
+| λ with `EMUL_C` < 1                                          | Sail accepts it; the specification forbids it (spec:811-815)       | UDB λ lists follow the specification. Positive tests are gated, so they never use such a λ (§7).       |
+| W=1 FP rounding: Sail rnd=frm, QEMU rnd=xct                  | The specification permits both                                     | Not a conflict. W=1 data keeps products exact (§5).                                                    |
+| MACC `vd` overlap with `vs1`/`vs2`                           | Spec `5bcd3946` forbids it                                         | `cp_ime_vd_overlap` expects a trap (§7).                                                               |
+| `altfmt=1` for an FP output without Zvfbfa                   | Spec lists only Zve32f; Sail `0ebfc810` writes `vtype[8]` with IME | Rows do not require Zvfbfa. QEMU needs `x-zvfbfa=true` (§7).                                           |
+| W=4 mnemonics                                                | GCC and QEMU names differ from the specification                   | Specification names in the CSVs. GCC names exist only as macro aliases (§2.2).                         |
+| Family and type extension direction                          | ime-test-gen differs from the specification                        | The UDB direction holds (§1.3).                                                                        |
+| `zvmma`, `zvvxofp8mm`, `zvvxnofp8mm`                         | GCC-only names                                                     | Not used in ACT.                                                                                       |
+| QEMU microscaling and mixed-format paths; Rust model `--fma` | Not sources of truth                                               | Findings only (§6.1).                                                                                  |
 
 Fixed in the Sail fork, with no workaround left in ACT:
 
@@ -114,7 +115,7 @@ Why four suites:
   needed.
 - [ACT] ACT moves toward fewer suites that use `ExtraExtensions`. Commit `574c6b55c` merged `<Suite><Ext>` testplans
   into their base suites. Per-type CSVs would create 65 suites.
-- [Overlay] Microscaling extensions require `Zvvfmm` (`framework/src/act/data/udb_overlays/ime/ext/Zvvxi8fp16mm.yaml`).
+- [UDB] Microscaling extensions require `Zvvfmm` (UDB `spec/std/isa/ext/Zvvxi8fp16mm.yaml`).
   Their rows therefore belong in `Zvvfmm.csv`, including the integer-input forms `vfwimmacc.vv`, `vfqimmacc.vv` and
   `vf8wimmacc.vv`.
 
@@ -150,15 +151,15 @@ Extension direction (§0.1):
 - [Spec] A row is legal only when the extension in its encoding-map cell is implemented (spec:6646-6649). A family
   extension therefore implies no type extension. ime-test-gen's opposite direction is generator finding 13.
 - [Spec silent; Sail] The specification does not say whether a type extension requires its family extension. The
-  overlay requires it, as GCC does. Sail decodes IME instructions only when the family extension is enabled.
+  UDB requires it, as GCC does. In Sail a family flag enables every type of the family, so the `sail.json` files
+  enable only the declared types.
 
 ### 1.4 λ gating per testcase (decided)
 
 - [ACT] A header `params` key holds one value, so one file could require only one λ per SEW. Header selection was
   therefore not used.
-- [ACT] UDB turns each list parameter into one macro per value in `rvtest_config.h`. The overlay parameters
-  `SUPPORTED_LAMBDA_SEW8` … `SUPPORTED_LAMBDA_SEW64` (`framework/src/act/data/udb_overlays/ime/param/`) produce
-  `UDB_SUPPORTED_LAMBDA_SEW<n>_<λ>`.
+- [ACT] UDB turns each list parameter into one macro per value in `rvtest_config.h`. The UDB parameters
+  `SUPPORTED_LAMBDA_SEW8` … `SUPPORTED_LAMBDA_SEW64` produce `UDB_SUPPORTED_LAMBDA_SEW<n>_<λ>`.
 - [Impl] `asm/vector_helpers.py` provides the gate:
   - `ime_lambdas(sew)` returns the λ values with SEW·λ² ≤ `VLEN_MAX` (1024). Larger λ need `EMUL_C` < 1 at every
     supported VLEN.
@@ -188,20 +189,20 @@ Extension direction (§0.1):
 
 [Spec] Rows follow the encoding maps (spec:6640-6974). A reserved (instruction, SEW) cell gets an empty `EFFEW` cell.
 
-| Mnemonic                                               | Type         | `ExtraExtensions` → EFFEW                                                                                                                                              | Status                                |
-| ------------------------------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| `vmmacc.vv`                                            | `MMACC`      | `Zvvi8mm`→8, `Zvvi16mm`→16, `Zvvi32mm`→32, `Zvvi64mm`→64                                                                                                               | done                                  |
-| `vwmmacc.vv`                                           | `MMACC`      | `Zvvi4i8mm`→8, `Zvvi8i16mm`→16, `Zvvi16i32mm`→32, `Zvvi32i64mm`→64                                                                                                     | done                                  |
-| `vqmmacc.vv`                                           | `MMACC`      | `Zvvi4i16mm`→16, `Zvvi8i32mm`→32, `Zvvi16i64mm`→64                                                                                                                     | done                                  |
-| `v8wmmacc.vv`                                          | `MMACC`      | `Zvvi4i32mm`→32, `Zvvi8i64mm`→64                                                                                                                                       | done                                  |
-| `vfmmacc.vv`                                           | `FMMACC`     | done: `Zvvfp16mm`→16, `Zvvfp32mm`→32, `Zvvfp64mm`→64. Planned: `Zvvbf16mm`→16, `Zvvfp16mm:Zvvbf16mm`→16, `Zvvofp8mm`→8                                                 | partial                               |
-| `vfwmmacc.vv`                                          | `FMMACC`     | done: `Zvvfp16fp32mm`→32, `Zvvbf16fp32mm`→32, `Zvvfp32fp64mm`→64. Planned: `Zvvfp16fp32mm:Zvvbf16fp32mm`→32, `Zvvofp4ofp8mm`→8, `Zvvofp8fp16mm`→16, `Zvvofp8bf16mm`→16 | partial                               |
-| `vfqmmacc.vv`                                          | `FMMACC`     | done: `Zvvfp16fp64mm`→64, `Zvvbf16fp64mm`→64. Planned: `Zvvfp16fp64mm:Zvvbf16fp64mm`→64, `Zvvofp4fp16mm`→16, `Zvvofp4bf16mm`→16, `Zvvofp8fp32mm`→32                    | partial                               |
-| `vf8wmmacc.vv`                                         | `FMMACC`     | `Zvvofp4fp32mm`→32, `Zvvofp8fp64mm`→64                                                                                                                                 | planned; Sail has it since `128a5b74` |
-| `vfwmmacc.vv`, `vfqmmacc.vv`, `vf8wmmacc.vv` with vm=0 | `FMMACC_MX`  | 16 rows `Zvvx[n]ofp*` (microscaled OFP8/OFP4 inputs)                                                                                                                   | planned; needs Sail                   |
-| `vfwimmacc.vv`, `vfqimmacc.vv`, `vf8wimmacc.vv`        | `MMACC_MX`   | 14 rows `Zvvx[n]i8*`, `Zvvx[n]i4*`                                                                                                                                     | planned; needs Sail                   |
-| `vmtl.v`, `vmts.v`                                     | `VLT`, `VST` | none; EFFEW 8 to 64                                                                                                                                                    | done                                  |
-| `vmttl.v`, `vmtts.v`                                   | `VLT`, `VST` | none; EFFEW 8 to 64                                                                                                                                                    | done                                  |
+| Mnemonic                                               | Type         | `ExtraExtensions` → EFFEW                                                                                                                                              | Status  |
+| ------------------------------------------------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `vmmacc.vv`                                            | `MMACC`      | `Zvvi8mm`→8, `Zvvi16mm`→16, `Zvvi32mm`→32, `Zvvi64mm`→64                                                                                                               | done    |
+| `vwmmacc.vv`                                           | `MMACC`      | `Zvvi4i8mm`→8, `Zvvi8i16mm`→16, `Zvvi16i32mm`→32, `Zvvi32i64mm`→64                                                                                                     | done    |
+| `vqmmacc.vv`                                           | `MMACC`      | `Zvvi4i16mm`→16, `Zvvi8i32mm`→32, `Zvvi16i64mm`→64                                                                                                                     | done    |
+| `v8wmmacc.vv`                                          | `MMACC`      | `Zvvi4i32mm`→32, `Zvvi8i64mm`→64                                                                                                                                       | done    |
+| `vfmmacc.vv`                                           | `FMMACC`     | done: `Zvvfp16mm`→16, `Zvvbf16mm`→16, `Zvvfp32mm`→32, `Zvvfp64mm`→64. Planned: `Zvvfp16mm:Zvvbf16mm`→16, `Zvvofp8mm`→8                                                 | partial |
+| `vfwmmacc.vv`                                          | `FMMACC`     | done: `Zvvfp16fp32mm`→32, `Zvvbf16fp32mm`→32, `Zvvfp32fp64mm`→64. Planned: `Zvvfp16fp32mm:Zvvbf16fp32mm`→32, `Zvvofp4ofp8mm`→8, `Zvvofp8fp16mm`→16, `Zvvofp8bf16mm`→16 | partial |
+| `vfqmmacc.vv`                                          | `FMMACC`     | done: `Zvvfp16fp64mm`→64, `Zvvbf16fp64mm`→64. Planned: `Zvvfp16fp64mm:Zvvbf16fp64mm`→64, `Zvvofp4fp16mm`→16, `Zvvofp4bf16mm`→16, `Zvvofp8fp32mm`→32                    | partial |
+| `vf8wmmacc.vv`                                         | `FMMACC`     | `Zvvofp4fp32mm`→32, `Zvvofp8fp64mm`→64                                                                                                                                 | planned |
+| `vfwmmacc.vv`, `vfqmmacc.vv`, `vf8wmmacc.vv` with vm=0 | `FMMACC_MX`  | 16 rows `Zvvx[n]ofp*` (microscaled OFP8/OFP4 inputs)                                                                                                                   | planned |
+| `vfwimmacc.vv`, `vfqimmacc.vv`, `vf8wimmacc.vv`        | `MMACC_MX`   | 14 rows `Zvvx[n]i8*`, `Zvvx[n]i4*`                                                                                                                                     | planned |
+| `vmtl.v`, `vmts.v`                                     | `VLT`, `VST` | none; EFFEW 8 to 64                                                                                                                                                    | done    |
+| `vmttl.v`, `vmtts.v`                                   | `VLT`, `VST` | none; EFFEW 8 to 64                                                                                                                                                    | done    |
 
 Notes:
 
@@ -271,14 +272,8 @@ fmmacc_config = InstructionTypeConfig(
     places A and B.
   - [Spec] `EMUL_C` = VLEN/(SEW·λ²) can be 16 (spec:381-391). Only a base aligned to 16 fits every VLEN.
   - Integer rows allow A = B. FP rows keep A and B apart, so that an edge value in A meets the background of B.
-  - [Open: user decision] May the `vd` group overlap the `vs1` or `vs2` groups?
-    - [Spec] The specification is silent. The MACC exception lists (spec:5782-5792) name only alignment, `vstart`, VL,
-      `EMUL_C`, reserved rows and, for vm=0, overlap with `v0`.
-    - [Sail] No overlap check. `execute_ime_int_mmacc` and `execute_ime_fp_mmacc` check only alignment. The GEMM loops
-      compute in place, so with an overlap later C elements see A or B values that earlier C writes changed.
-    - Under §0.1, overlap is allowed with Sail's result. That conflicts with the earlier project statement that `vd`
-      cannot overlap `vs1` or `vs2`. The tests keep the non-overlap constraint until the user decides (§10). No
-      testplan has a `cmp_vd_vs1` or `cmp_vd_vs2` column for MACC.
+  - [Spec] `vd` must not overlap `vs1` or `vs2`, regardless of VL (spec `5bcd3946`). An overlap raises an
+    illegal-instruction exception. `cp_ime_vd_overlap` in `ExceptionsZvvm` tests it.
 - **Setup.**
   - Load C as two m8 groups: `vsetvli x0, x0, e<SEW>, m8` and two `vle<SEW>.v` loads, the second at `+8·vlenb`.
   - Load A and B with `vle<SEW>.v` at LMUL and VL = VLMAX.
@@ -300,8 +295,7 @@ fmmacc_config = InstructionTypeConfig(
   - [Spec] `vd`, `vs1` and `vs2` must not overlap v0 (spec:5013, 5461). The C window is therefore based at `v16`.
   - `bs` selects block size 32 or 16. The row's `x` or `xn` prefix chooses it.
 - A new `cp_scale` coverpoint loads E8M0 scale patterns into v0.
-- Blocked: the Sail fork does not implement vm=0 (`sail/model/extensions/IME/ime_mem_insts.sail`, "Microscaled vm=0 …
-  remain out of scope").
+- Sail `0ebfc810` implements vm=0. It applies block scales exactly, as spec `324c62b7` requires.
 
 ### 3.4 `VLT` (`vmtl.v`, `vmttl.v`) and `VST` (`vmts.v`, `vmtts.v`)
 
@@ -468,17 +462,17 @@ Sail tile-index bug that motivated them is fixed by `a545cc41`, so they are now 
 - Implementation: register the ramp with `TestData.register_vector_data(…, elements=[…])`; gate `mixed` bins on both λ
   macros.
 
-### 4.5 W>1 partial sum (open Sail and QEMU deviation)
+### 4.5 W>1 partial sum (QEMU deviation)
 
 - [Spec] For W>1, the W products of a sub-dot-product form a partial sum S. C is updated once per group with
   round_frm(C + S) (spec:1352-1412; `fp_group_sum` and `fp_gemm` at spec:4446-4490 and 4677-4716).
-- [Sail] `execute_ime_fp_gemm` adds each product into C on its own. No (G, psm, rnd) tuple describes the result. This
-  is finding 30. The SDK QEMU has the same deviation.
-- Draft issue, not filed: `reports/issues/sail-ime-wmmacc-partial-sum/ISSUE.md`, with the reproducer `fprnd.c`.
+- [Sail] Fixed. The old fork added each product into C on its own (finding 30). `ime_fp_group_sum` now sums the W
+  products exactly and rounds once.
+- [QEMU] The SDK QEMU still adds each product into C on its own. No (G, psm, rnd) tuple describes the result.
 - [Impl] `cp_fp_subdot` on the unscaled W>1 rows. In one sub-dot-product of C[0][0], W equal exact products add up to
   one ULP of C₀. All other products are zero. One bin per `frm` value.
 
-| (SEW, W)             | A, B per lane | C₀   | Specification result   | Sail and QEMU            |
+| (SEW, W)             | A, B per lane | C₀   | Specification and Sail | QEMU                     |
 | -------------------- | ------------- | ---- | ---------------------- | ------------------------ |
 | (32, 2) FP16 or BF16 | 2^-12, 2^-12  | 1.0  | `0x3f800001`, no flags | `0x3f800000`, NX         |
 | (64, 2) FP32         | 2^-26, 2^-27  | 1.0  | `0x3ff0000000000001`   | `0x3ff0000000000000`, NX |
@@ -487,9 +481,8 @@ Sail tile-index bug that motivated them is fixed by `a545cc41`, so they are now 
 - [Inferred] The specification result does not depend on any permitted choice. S is exact and representable, G does
   not matter because other sub-dot-products are zero, and C₀ + S is exact in every `frm`. [Uncertain] A psm=1
   reduction is expected to be exact on W equal powers of two.
-- Expected outcome: Sail writes the per-product result into the signature. QEMU passes these bins today because it
-  shares the deviation. A conforming DUT fails them until Sail is fixed. After the Sail fix, QEMU fails them until
-  QEMU is fixed. The bins stay in place.
+- Outcome: Sail writes the specification result into the signature. QEMU fails these bins until it is fixed. The
+  bins stay in place.
 
 ## 5. Value patterns
 
@@ -507,24 +500,29 @@ FP rows:
 
 - [Spec] The FP result depends on the (G, psm, rnd) profile. The profile is implementation-defined per (SEW, W, λ), and
   the implementation must publish it (spec:1376-1460). C ← round_frm(C + S) for each group sum S.
-- [Decision] The target uses G=1. Its `psm` and `rnd` are not disclosed. By §0.1, FP data must give the same result for
-  every permitted choice.
+- [UDB] The profile is disclosed per (SEW, W, λ) in `ZVVM_FP_{GROUPING,PSM,RND}_SEW<s>_W<w>`. UDB emits macros such
+  as `UDB_ZVVM_FP_RND_SEW32_W2_IDX0_FRM` and `UDB_ZVVM_FP_PSM_SEW32_W2_MASK`.
+- [Decision] Default data gives the same result for every permitted profile and needs no gate. Profile-dependent
+  data is generated for Sail's profile (G=1, psm=0, rnd=frm) and gated on it.
 - [Impl] `fp_exact_data` in `mmacc_type.py`:
   - A and B inputs are sparse integers in [−2, 2], packed W per storage element.
   - C holds half-integers k + 0.5 with |k| ≤ 128, so no C value is zero.
   - A dot product has at most λ·W·LMUL ≤ 64 terms at fp16, so every running sum stays below 512 in magnitude. Every
     value is then exact in fp16, bf16 (inputs), fp32 and fp64, in any order.
+  - A BF16 C has 8 significant bits. Its rows use inputs in [−1, 1] and |k| ≤ 31, so every sum stays below 96.
+- [Impl] `cp_fp_rnd`: the products of C[0][0] give a group sum S that is not exact in the C format, while C₀ + S is.
+  The rnd=frm and rnd=xct results then differ in every `frm`. Gated on rnd=frm and psm=0.
 - [Impl] FP edges (`fp_edge_data`): the edge sits in element 0 of its operand. An A edge meets B = +1.0 and an A
   background of 0. A B edge is symmetric. A C edge meets A = B = 0. Each affected C element then has one nonzero
   product, which equals the edge. Every implementation computes round_frm(C₀ + edge).
-- [Impl] BF16 inputs set `altfmt_A = altfmt_B = 1`.
+- [Impl] BF16 inputs set `altfmt_A = altfmt_B = 1`. A BF16 C sets `altfmt = 1` (`vtype[8]`).
 - Consequence: the random and edge data never round inside the sum. They do not see the W>1 per-product deviation;
   `cp_fp_subdot` targets it (§4.5). They also do not exercise `frm`.
 - [Planned] Rounding-sensitive data for `cp_csr_frm_v`: an exact product p and a C₀ chosen so that C₀ + p rounds,
   ties, overflows or underflows. The only rounding is then the final round_frm(C₀ + S). For W=1 the product must be
   exact, because an inexact W=1 product gives different results on QEMU (rnd=xct) and Sail (rnd=frm).
-- Waiting for a disclosure (§7): data whose result depends on the profile, for example inexact products, cancellation
-  across k, and accumulation order.
+- [Planned] More profile-dependent data, gated like `cp_fp_rnd`: inexact products, cancellation across k, and
+  accumulation order.
 
 ## 6. Expected values come from Sail
 
@@ -539,12 +537,12 @@ FP rows:
 - [Spec] Legal values: G a power of two with 1 ≤ G ≤ λ (spec:1352-1384). psm ∈ {0, 1} (spec:1386-1397). rnd ∈ {frm,
   rto, xct} (spec:1399-1412). One tuple per (SEW, W, λ) (spec:1449-1466).
 
-| Rows               | SDK QEMU `d856b96`                                                          | Sail                                                 | `ime-test-gen --fma`                                     |
-| ------------------ | --------------------------------------------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------- |
-| W=1, same format   | fused: G=1, psm=0, rnd=xct. Legal.                                          | `fp_mul` + `fp_add`: G=1, psm=0, rnd=frm. Legal.     | same as QEMU                                             |
-| W=1, mixed formats | `float32_muladd`, then conversion: two roundings. DUT finding.              | not implemented                                      | one rounding                                             |
-| W>1                | one fused add into C per product. Fits no tuple: DUT finding.               | one add per product. Fits no tuple: Sail bug (§4.5). | same as QEMU, except narrow inputs into f64 round to f32 |
-| Microscaled        | f32 scale, per-product rounding over a block, fused scale-add. DUT finding. | not implemented                                      | not generated                                            |
+| Rows               | SDK QEMU `d856b96`                                                          | Sail                                               | `ime-test-gen --fma`                                     |
+| ------------------ | --------------------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------- |
+| W=1, same format   | fused: G=1, psm=0, rnd=xct. Legal.                                          | `fp_mul` + `fp_add`: G=1, psm=0, rnd=frm. Legal.   | same as QEMU                                             |
+| W=1, mixed formats | `float32_muladd`, then conversion: two roundings. DUT finding.              | implemented; not tested by ACT yet                 | one rounding                                             |
+| W>1                | one fused add into C per product. Fits no tuple: DUT finding.               | exact group sum, one rounding: G=1, psm=0, rnd=frm | same as QEMU, except narrow inputs into f64 round to f32 |
+| Microscaled        | f32 scale, per-product rounding over a block, fused scale-add. DUT finding. | exact block scales; not tested by ACT yet          | not generated                                            |
 
 - On W=1 rows, QEMU and Sail differ when a product is inexact in the C format. Both are permitted, so the data of §5
   avoids such products.
@@ -553,20 +551,19 @@ FP rows:
 
 ## 7. What does not fit, and its handling
 
-| Item                                      | Problem                                                                                                                                                 | Handling                                                                                                                                                                                                                                            |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| VLEN > 1024                               | [ACT] `RVTEST_VLEN_MAX` is 1024. ime-test-gen CI runs up to VLEN 32768.                                                                                 | Keep the cap. `ime_lambdas` drops λ that need VLEN > 1024. Raising the cap is a separate change for all of ACT.                                                                                                                                     |
-| `LambdaProbe`, `known-issues.txt`         | ACT has no run-time skip and no verdict list.                                                                                                           | λ gating (§1.4). Per-DUT `exclude_extensions` in `config/<dut>/ci.yaml`.                                                                                                                                                                            |
-| C tile tail with `vta=1`                  | [Spec] The tail may hold any value (spec:2600-2624). The ACT macro accepts only "unchanged" or "all ones", and its tail is one-dimensional.             | MACC tests use `vta=0`. A `vta=1` bin with a partial VL needs a two-dimensional tail check.                                                                                                                                                         |
-| FP profile (G, psm, rnd)                  | Implementation-defined. G=1 is confirmed for the target; `psm` and `rnd` are not disclosed.                                                             | Data that does not depend on the choice (§5). [Planned] Overlay parameters `IME_FP_PSM` and `IME_FP_RND`, with gates such as `UDB_IME_FP_RND_frm`, after `UDB_VFREDUSUM_NODE_ROUNDING_BEHAVIOR_*`. Sail must read the same values from `sail.json`. |
-| OFP8, OFP4, BF16 output, microscaling     | The Sail fork does not implement them.                                                                                                                  | Rows are planned. Rows with BF16 or E5M2 output also require Zvfbfa.                                                                                                                                                                                |
-| `Zvvmttls` on QEMU                        | The SDK QEMU does not decode `vmttl.v` and `vmtts.v`.                                                                                                   | `qemu-ime-rv64` does not list `Zvvmttls`. The suite runs with Sail as DUT.                                                                                                                                                                          |
-| Sail W>1 FP accumulation                  | Sail adds each product into C on its own (§4.5).                                                                                                        | `cp_fp_subdot` bins follow the specification. Draft issue in `reports/issues/sail-ime-wmmacc-partial-sum/`.                                                                                                                                         |
-| Sail rejects MACC `EMUL_C`=16             | Sail raises an illegal-instruction exception for `EMUL_C`=16 (`ime_group_size_legal` in `ime_utils.sail`). The specification permits it (spec:381).     | Open: [sail-riscv#10](https://github.com/Openchip-Software/sail-riscv/issues/10). The bins stay. On `qemu-ime-rv64` (VLEN=256) every SEW=16 MACC file fails at the Sail signature build (4 `Zvvmm`, 1 `Zvvfmm`).                                    |
-| Sail accepts λ with `EMUL_C` < 1          | Sail accepts any λ ≤ VLEN/SEW (`ime_lambda_supported_value_for_vsew`, still in `a545cc41`). The specification forbids `EMUL_C` < 1 (spec:811-815).      | UDB λ lists follow the specification, so positive tests never use such a λ. `cp_ime_imm_lambda_unsupported` uses L64, which no VLEN ≤ 1024 supports.                                                                                                |
-| Tile and MACC VL not a multiple of λ·LMUL | Spec `main` makes it illegal for both. The ARC review draft makes every 0 ≤ VL ≤ VLMAX legal for tile loads and stores, and makes it reserved for MACC. | `cp_ime_vl_not_multiple` in `ExceptionsZvvm` follows spec `main` and expects a trap. Review these bins when the draft merges: tile bins become legal partial-line transfers; MACC bins become reserved.                                             |
-| `altfmt` for FP output                    | [Spec silent] IME uses the Zvfbfa `altfmt` bit (spec:692-697, 1202). [Sail] Sail has no Zvfbfa, and bit 8 of `vtype` is reserved there.                 | Spec silent; Sail behaviour: `altfmt=1` needs Zvfbfa. Rows with BF16 or E5M2 output list `Zvfbfa` in `ExtraExtensions`.                                                                                                                             |
-| RV32                                      | ime-test-gen and the SDK QEMU support only RV64.                                                                                                        | CSVs set `RV32=x`, and `ime_vtype_value` computes the fields per XLEN. No RV32 configuration exists, so RV32 has not run.                                                                                                                           |
+| Item                                      | Problem                                                                                                                                                      | Handling                                                                                                                                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| VLEN > 1024                               | [ACT] `RVTEST_VLEN_MAX` is 1024. ime-test-gen CI runs up to VLEN 32768.                                                                                      | Keep the cap. `ime_lambdas` drops λ that need VLEN > 1024. Raising the cap is a separate change for all of ACT.                                                                                         |
+| `LambdaProbe`, `known-issues.txt`         | ACT has no run-time skip and no verdict list.                                                                                                                | λ gating (§1.4). Per-DUT `exclude_extensions` in `config/<dut>/ci.yaml`.                                                                                                                                |
+| C tile tail with `vta=1`                  | [Spec] The tail may hold any value (spec:2600-2624). The ACT macro accepts only "unchanged" or "all ones", and its tail is one-dimensional.                  | MACC tests use `vta=0`. A `vta=1` bin with a partial VL needs a two-dimensional tail check.                                                                                                             |
+| FP profile (G, psm, rnd)                  | Implementation-defined per (SEW, W, λ). UDB discloses it in `ZVVM_FP_*` parameters.                                                                          | Data that does not depend on the choice (§5). Profile-dependent testcases (`cp_fp_rnd`) are generated for Sail's profile and gated on the `UDB_ZVVM_FP_*` macros.                                       |
+| OFP8, OFP4, microscaling                  | Sail `0ebfc810` implements them, except the OFP8-accumulator rows (pending branch `cgomez/ime-ofp8-acc`).                                                    | Rows are planned (HANDOFF §8). Tests for OFP8-accumulator rows are set aside (udb-0.9.0.md).                                                                                                            |
+| `Zvvmttls` on QEMU                        | The SDK QEMU does not decode `vmttl.v` and `vmtts.v`.                                                                                                        | `qemu-ime-rv64` does not list `Zvvmttls`. The suite runs with Sail as DUT.                                                                                                                              |
+| QEMU W>1 FP accumulation                  | QEMU adds each product into C on its own (§4.5).                                                                                                             | `cp_fp_subdot` bins follow the specification and fail on QEMU.                                                                                                                                          |
+| Sail accepts λ with `EMUL_C` < 1          | The old Sail accepted any λ ≤ VLEN/SEW. Not rechecked in `0ebfc810`. The specification forbids `EMUL_C` < 1 (spec:811-815).                                  | UDB λ lists follow the specification, so positive tests never use such a λ. `cp_ime_imm_lambda_unsupported` uses L64, which no VLEN ≤ 1024 supports.                                                    |
+| Tile and MACC VL not a multiple of λ·LMUL | Spec `main` makes it illegal for both. The ARC review draft makes every 0 ≤ VL ≤ VLMAX legal for tile loads and stores, and makes it reserved for MACC.      | `cp_ime_vl_not_multiple` in `ExceptionsZvvm` follows spec `main` and expects a trap. Review these bins when the draft merges: tile bins become legal partial-line transfers; MACC bins become reserved. |
+| `altfmt` for FP output                    | IME uses the Zvfbfa `altfmt` bit, `vtype[8]`. The spec lists only Zve32f as a dependency of `Zvvbf16mm`. Sail `0ebfc810` writes the bit when IME is enabled. | Rows do not require Zvfbfa. The SDK QEMU reserves the bit without `x-zvfbfa=true`, so its `Zvvbf16mm` tests fail (QEMU deviation).                                                                      |
+| RV32                                      | ime-test-gen and the SDK QEMU support only RV64.                                                                                                             | CSVs set `RV32=x`, and `ime_vtype_value` computes the fields per XLEN. No RV32 configuration exists, so RV32 has not run.                                                                               |
 
 `ExceptionsZvvm` (step 7, commit `98595c2a5`, `priv/extensions/ExceptionsZvvm.py`):
 
@@ -578,6 +575,7 @@ FP rows:
 | `cp_ime_lmul_fractional`        | all                         | LMUL = 1/2                                                             |
 | `cp_ime_vd_misaligned`          | all                         | MACC: `vd = v17` per λ with `EMUL_C` ≥ 2. Tile: odd group at LMUL = 2. |
 | `cp_ime_vs1_misaligned`, `_vs2` | MACC                        | odd group at LMUL = 2                                                  |
+| `cp_ime_vd_overlap`             | MACC                        | `vs1`/`vs2` at the base of C, `vs2` at the last register of C, VL = 0  |
 | `cp_ime_vm0`                    | `vmmacc.vv`, `vfmmacc.vv`   | vm = 0 on an instruction with no microscaled form                      |
 | `cp_ime_reserved_sew`           | `vqmmacc.vv`, `v8wmmacc.vv` | a reserved encoding-map SEW                                            |
 | `cp_ime_masked_vd_v0`           | `vmtl.v`, `vmttl.v`         | masked tile load into `v0`                                             |
@@ -587,7 +585,7 @@ Each trap case is guarded by its row's type extension, by ELEN and by the suppor
 
 ## 8. Testplans as implemented
 
-The CSVs are the source. Headers and representative rows at `98595c2a5`:
+The CSVs are the source. Headers and representative rows at `59666b161`:
 
 `testplans/Zvvmm.csv` (13 integer rows, then 4 `cp_custom_tile_macc` rows):
 
@@ -603,15 +601,16 @@ vmmacc.vv,MMACC,x,x,Zvvi32mm:Zvvmtls,,,x,,,,,,,,,,,,x
 `testplans/Zvvfmm.csv` (complete):
 
 ```csv
-Instruction,Type,RV32,RV64,ExtraExtensions,EFFEW8,EFFEW16,EFFEW32,EFFEW64,cp_asm_count,cp_vd,cp_vs1,cp_vs2,cr_lambda_lmul,cp_tile_vl,cp_vd_edges,cp_vs1_edges,cp_vs2_edges,cp_csr_frm,cp_csr_fflags,cp_fp_subdot
-vfmmacc.vv,FMMACC,x,x,Zvvfp16mm,,x,,,x,emul16,x,x,x,x,f,f,f,v,voun,
-vfmmacc.vv,FMMACC,x,x,Zvvfp32mm,,,x,,x,emul16,x,x,x,x,f,f,f,v,voun,
-vfmmacc.vv,FMMACC,x,x,Zvvfp64mm,,,,x,x,emul16,x,x,x,x,f,f,f,v,voun,
-vfwmmacc.vv,FMMACC,x,x,Zvvfp16fp32mm,,,x,,x,emul16,x,x,x,x,f,f_emulf2,f_emulf2,v,voun,x
-vfwmmacc.vv,FMMACC,x,x,Zvvbf16fp32mm,,,x,,x,emul16,x,x,x,x,f,f_bf16,f_bf16,v,voun,x
-vfwmmacc.vv,FMMACC,x,x,Zvvfp32fp64mm,,,,x,x,emul16,x,x,x,x,f,f_emulf2,f_emulf2,v,voun,x
-vfqmmacc.vv,FMMACC,x,x,Zvvfp16fp64mm,,,,x,x,emul16,x,x,x,x,f,f_emulf4,f_emulf4,v,voun,x
-vfqmmacc.vv,FMMACC,x,x,Zvvbf16fp64mm,,,,x,x,emul16,x,x,x,x,f,f_bf16,f_bf16,v,voun,x
+Instruction,Type,RV32,RV64,ExtraExtensions,EFFEW8,EFFEW16,EFFEW32,EFFEW64,cp_asm_count,cp_vd,cp_vs1,cp_vs2,cr_lambda_lmul,cp_tile_vl,cp_vd_edges,cp_vs1_edges,cp_vs2_edges,cp_csr_frm,cp_csr_fflags,cp_fp_subdot,cp_fp_rnd
+vfmmacc.vv,FMMACC,x,x,Zvvfp16mm,,x,,,x,emul16,x,x,x,x,f,f,f,v,voun,,x
+vfmmacc.vv,FMMACC,x,x,Zvvbf16mm,,x,,,x,emul16,x,x,x,x,f_bf16,f_bf16,f_bf16,v,voun,,x
+vfmmacc.vv,FMMACC,x,x,Zvvfp32mm,,,x,,x,emul16,x,x,x,x,f,f,f,v,voun,,x
+vfmmacc.vv,FMMACC,x,x,Zvvfp64mm,,,,x,x,emul16,x,x,x,x,f,f,f,v,voun,,x
+vfwmmacc.vv,FMMACC,x,x,Zvvfp16fp32mm,,,x,,x,emul16,x,x,x,x,f,f_emulf2,f_emulf2,v,voun,x,x
+vfwmmacc.vv,FMMACC,x,x,Zvvbf16fp32mm,,,x,,x,emul16,x,x,x,x,f,f_bf16,f_bf16,v,voun,x,x
+vfwmmacc.vv,FMMACC,x,x,Zvvfp32fp64mm,,,,x,x,emul16,x,x,x,x,f,f_emulf2,f_emulf2,v,voun,x,x
+vfqmmacc.vv,FMMACC,x,x,Zvvfp16fp64mm,,,,x,x,emul16,x,x,x,x,f,f_emulf4,f_emulf4,v,voun,x,x
+vfqmmacc.vv,FMMACC,x,x,Zvvbf16fp64mm,,,,x,x,emul16,x,x,x,x,f,f_bf16,f_bf16,v,voun,x,x
 ```
 
 `testplans/Zvvmtls.csv` (complete; no `ExtraExtensions` column):
@@ -685,46 +684,33 @@ Zvvmm32Zvvi32mm_vmmacc_vv_cg_cr_lambda_lmul_lambda_2_lmul_2_vl_vlmax:
 
 ## 9. Status
 
-| #   | Step                                                                                                                 | Status                                                             |
-| --- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| 0   | UDB overlay (65 `Zvv*` extensions, `SUPPORTED_LAMBDA_SEW*`); `.insn` macros; `config/ime/qemu-ime-rv64`              | done: `98595c2a5`, `8ada25d12`                                     |
-| 1   | Slice 1: `Zvvmm.csv` first row, `MMACC`, `cr_lambda_lmul`, `fixed_emul`, `load_ime_vtype`, λ gate; covergroupgen fix | done: `0bb9717a4`, `98595c2a5`                                     |
-| 2   | All 13 integer rows; `cp_vd_emul16`, `cp_vs1/2`, `cp_altfmt`, edges, `cp_tile_vl`                                    | done: `98595c2a5`. Open: `ramp` bin.                               |
-| 3   | `Zvvmtls.csv`: `VLT`, `VST`, `cp_ld`, `cp_imm_lambda`, `cr_tile_vtype_agnostic`                                      | done: `98595c2a5`                                                  |
-| 3a  | `cp_custom_tile_layout`, `cp_custom_tile_roundtrip` (§4.4)                                                           | open, optional; unblocked by Sail `a545cc41`                       |
-| 3b  | `cp_custom_tile_macc` and the four `Zvvi<n>mm:Zvvmtls` rows                                                          | done: `98595c2a5`                                                  |
-| 4   | `Zvvfmm.csv` (8 rows), `FMMACC`, exact FP data, FP edges, `cp_csr_frm_v`, `cp_csr_fflags`, `cp_fp_subdot`            | done: `98595c2a5`                                                  |
-| 4b  | Mixed FP16/BF16 rows, W=1 BF16, FP `cp_altfmt` bins; `vf8wmmacc.vv` rows; rounding-sensitive data for `cp_csr_frm_v` | open; `vf8wmmacc` available in Sail since `128a5b74`               |
-| 5   | `Zvvmttls.csv`, run-time natural LD, `cp_custom_tile_crossmode`                                                      | done: `98595c2a5`                                                  |
-| 6   | Coverage: IME decode, `vtype` fields, templates                                                                      | done: `98595c2a5`. Open: coverage simulation run.                  |
-| 7   | `ExceptionsZvvm` privileged suite                                                                                    | done: `98595c2a5`. Open: review VL bins when the ARC draft merges. |
-| 8   | FP profile parameters (`psm`, `rnd`) and tests that depend on them                                                   | open; needs the disclosure and a Sail change                       |
-| 9   | OFP8, OFP4, BF16 output, microscaling rows; `cp_scale`; `FMMACC_MX`, `MMACC_MX`                                      | open; needs the Sail implementation                                |
-| —   | PR to `act4`                                                                                                         | open; needs user approval to push                                  |
+| #   | Step                                                                                                                 | Status                                                                  |
+| --- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 0   | IME definitions (65 `Zvv*` extensions, `SUPPORTED_LAMBDA_SEW*`); `.insn` macros; `config/ime/qemu-ime-rv64`          | done: `98595c2a5`, `8ada25d12`; UDB instead of the overlay: `49b999ce9` |
+| 1   | Slice 1: `Zvvmm.csv` first row, `MMACC`, `cr_lambda_lmul`, `fixed_emul`, `load_ime_vtype`, λ gate; covergroupgen fix | done: `0bb9717a4`, `98595c2a5`                                          |
+| 2   | All 13 integer rows; `cp_vd_emul16`, `cp_vs1/2`, `cp_altfmt`, edges, `cp_tile_vl`                                    | done: `98595c2a5`. Open: `ramp` bin.                                    |
+| 3   | `Zvvmtls.csv`: `VLT`, `VST`, `cp_ld`, `cp_imm_lambda`, `cr_tile_vtype_agnostic`                                      | done: `98595c2a5`                                                       |
+| 3a  | `cp_custom_tile_layout`, `cp_custom_tile_roundtrip` (§4.4)                                                           | open, optional                                                          |
+| 3b  | `cp_custom_tile_macc` and the four `Zvvi<n>mm:Zvvmtls` rows                                                          | done: `98595c2a5`                                                       |
+| 4   | `Zvvfmm.csv`, `FMMACC`, exact FP data, FP edges, `cp_csr_frm_v`, `cp_csr_fflags`, `cp_fp_subdot`                     | done: `98595c2a5`                                                       |
+| 4b  | W=1 BF16 (`Zvvbf16mm`)                                                                                               | done: `59666b161`                                                       |
+| 4c  | Mixed FP16/BF16 rows, FP `cp_altfmt` bins; `vf8wmmacc.vv` rows; rounding-sensitive data for `cp_csr_frm_v`           | open                                                                    |
+| 5   | `Zvvmttls.csv`, run-time natural LD, `cp_custom_tile_crossmode`                                                      | done: `98595c2a5`                                                       |
+| 6   | Coverage: IME decode, `vtype` fields, templates                                                                      | done: `98595c2a5`. Open: `altfmt` filtering; simulation run.            |
+| 7   | `ExceptionsZvvm` privileged suite; `cp_ime_vd_overlap`                                                               | done: `98595c2a5`, `413966b5a`                                          |
+| 8   | FP profile disclosure and `cp_fp_rnd`                                                                                | done: `49b999ce9`, `aaa0c329c`                                          |
+| 9   | OFP8, OFP4, microscaling rows; `cp_scale`; `FMMACC_MX`, `MMACC_MX`                                                   | open: HANDOFF §8, steps 4.2 and 4.3                                     |
+| —   | PR to `act4`                                                                                                         | open; needs approval to push                                            |
 
-Verification on 2026-11-06, Sail `a545cc41` as reference:
-
-- `qemu-ime-rv64` (QEMU as DUT): I 51/51. `Zvvmm` SEW 8/32/64 pass (13 files). `Zvvfmm` SEW 32/64 pass (7 files).
-  `Zvvmtls` 8/8 pass.
-- The 5 SEW=16 files fail at the Sail signature build because of `EMUL_C`=16 (sail-riscv#10).
-- `cp_fp_subdot` passes on QEMU only because QEMU shares Sail's per-product accumulation (§4.5).
-- Sail as DUT and reference (scratch configuration): `Zvvmttls` 16/16 and `ExceptionsZvvm` 5/5 pass.
-- QEMU deviations, report findings 31 and 32: MACC with `vstart` ≠ 0 or VL not a multiple runs instead of trapping.
-  Tile loads and stores with `vill`, immediate L64, VL not a multiple, or masked `vd = v0` run instead of trapping; L64
-  gives a double trap.
-
-Other open items outside ACT code: file the W>1 partial-sum issue from the draft.
+Results and DUT deviations are in HANDOFF §7.
 
 ## 10. Open questions
 
-1. **User decision.** May the MACC `vd` group overlap `vs1` or `vs2`? The specification is silent. Sail computes
-   overlapping groups in place without a trap (§3.2). Under §0.1 that allows overlap, with Sail's result. The earlier
-   project statement forbids it. The tests keep the non-overlap constraint until this is decided. If overlap is
-   allowed, `cmp_vd_vs1` and `cmp_vd_vs2` bins can be added.
-2. Which `psm` and `rnd` does the target implementation use for each (SEW, W, λ)? If an entry uses `psm=1`, which
-   reduction algorithm does it disclose? The answer decides how much of TC-RND and TC-RM can run (§5, §7).
-3. Does the Sail fork support RV32 and W=1 BF16 rows? No RV32 configuration has been run.
-4. When the ARC review draft merges, the `ExceptionsZvvm` VL bins and the λ/KLEN naming must be updated (§7).
+1. Which FP profile does the target implementation disclose for each (SEW, W, λ)? If an entry uses `psm=1`, which
+   reduction algorithm does it disclose?
+2. Does the Sail fork support RV32? No RV32 configuration has been run.
+3. When the ARC review draft merges, the `ExceptionsZvvm` VL bins and the λ/KLEN naming must be updated (§7).
 
-Answered on 2026-10-27: λ selection per testcase (§1.4); source of truth (§0.1); Zvfbfa required for an FP output with
-`altfmt=1` (§7); W>1 partial sum must be formed before C is updated (§4.5); rounding grouping G=1 (§5).
+Answered: λ selection per testcase (§1.4, 2026-10-27); source of truth (§0.1, 2026-10-27); G=1 for the target
+(2026-10-27); W>1 partial sum formed before C is updated (§4.5); `vd` must not overlap `vs1`/`vs2` (spec `5bcd3946`);
+FP profile disclosure through UDB (§5); `altfmt` without Zvfbfa (§7, 2026-11-19).

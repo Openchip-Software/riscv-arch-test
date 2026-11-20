@@ -2,11 +2,11 @@
 
 # 06: ACT: the IME tests and a Sail CI job
 
-Repository: `riscv/riscv-arch-test`, target branch `act4`. Source: commit `98595c2a5` on
-`Openchip-Software/riscv-arch-test`, branch `port-ime-tests-to-act4` (local clone `~/repo/ime/riscv-arch-test`).
+Repository: `riscv/riscv-arch-test`, target branch `act4`. Source: the IME commits on
+`Openchip-Software/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0` (local clone `~/repo/ime/riscv-arch-test`).
 Reports and the handoff are in the docs worktree `~/repo/ime/riscv-arch-test-docs`, `reports/plans/HANDOFF.md`.
 
-State as of 2026-11-09. Blocked on a Sail fork release (package 01).
+State as of 2026-11-20. Blocked on a Sail fork release (package 01) and a UDB release with IME (package 03).
 
 ## Why
 
@@ -15,34 +15,26 @@ specification.
 
 ## Contents of the pull request
 
-- Everything in `98595c2a5`: the UDB overlay, the experimental-extension handling and `.insn` macros, the IME decode
-  in the coverage disassembler, and the suites `Zvvmm`, `Zvvfmm`, `Zvvmtls`, `Zvvmttls` and `ExceptionsZvvm`.
-- Not `config/ime` from `8ada25d12`. Its wrappers run the OpenChip SDK through apptainer, which upstream cannot use.
+- The IME commits, squashed: the experimental-extension handling and `.insn` macros, the IME decode in the coverage
+  disassembler, and the suites `Zvvmm`, `Zvvfmm`, `Zvvmtls`, `Zvvmttls` and `ExceptionsZvvm`. The UDB overlay of
+  `98595c2a5` is already removed (`49b999ce9`).
+- A `udb` gem bump to the release of package 03.
+- Not `config/ime`. Its wrappers run the OpenChip SDK through apptainer, which upstream cannot use.
 - Not the covergroupgen fix. It goes upstream separately (package 05).
-- If a UDB release with IME exists by then (package 03), drop the overlay mechanism and bump the `udb` gem instead.
 
 ## Tasks
 
 ### A. Update the tests for the new Sail release
 
-1. Update every IME `sail.json` for the release's config schema. Add `misa_implemented`, `hedeleg_zero_writable`,
-   and the trigger keys `supported_address_access_sizes` and `supported_data_access_sizes`. Add the 28 `Zvvx*` and
-   `Zvvxn*` extension entries with `supported: false`. If they are left true, reserved cells such as `vfwmmacc.vv` at
-   SEW=16 become legal, and the `cp_ime_reserved_sew` bins of `ExceptionsZvvm` change meaning.
-2. Regenerate and rerun every IME suite with the new Sail. Diff the signatures against the previous Sail
-   (`a545cc41`). Expected changes:
-   - `cp_fp_subdot` now gives C0 + 1 ULP with no flags, as the specification requires. For example, FP16 to FP64
-     with W=4 gives `0x4330000000000001`.
-   - Any `cp_csr_fflags` NX bin on `vfwmmacc.vv` or `vfqmmacc.vv` that came from per-product rounding.
-   - `Zvvfmm16` now builds. `Zvvmm16` builds only if package 01 fixed integer `EMUL_C`=16.
-   - Explain every other difference before accepting it.
-3. Review the `cp_ime_vl_not_multiple` bins for tile loads and stores in `ExceptionsZvvm`. After the ARC review, the
-   specification makes every 0 ≤ VL ≤ VLMAX legal for tile loads and stores (Sail issue #8). Check the specification
-   text. If VL is legal, change these cases from trap tests into legal-execution tests. Multiply-accumulate with VL
-   not a multiple of λ·LMUL stays reserved.
-4. Decide whether to bump the pinned specification commit from `6effbcae` to include the ARC review changes. Record
-   the decision in the commit message.
-5. AGENTS.md rule: if Sail still deviates from the specification in some case, do not generate that testcase. Keep
+1. Done on the branch: the `sail.json` files use the schema of `cleanup/ime-0.9.0`, and every IME suite passes with
+   Sail `0ebfc810` as DUT (`config/ime/sail-ime-rv64`). If the release differs from `0ebfc810`, rerun and explain
+   every signature difference.
+2. In `sail.json`, keep the family flags `Zvvmm` and `Zvvfmm` false and enable each declared type. A Sail family flag
+   enables every type of the family.
+3. If the ARC review draft has merged by then, review the `cp_ime_vl_not_multiple` bins for tile loads and stores in
+   `ExceptionsZvvm`. The draft makes every 0 ≤ VL ≤ VLMAX legal for them (Sail issue #8). Spec `58810918` still
+   requires a multiple of λ·LMUL, so the bins expect a trap today.
+4. AGENTS.md rule: if Sail still deviates from the specification in some case, do not generate that testcase. Keep
    its coverage bins, so coverage reports them as missing. Do not exclude a whole suite such as `Zvvmm16`.
 
 ### B. Configuration
@@ -51,7 +43,8 @@ specification.
    - `test_config.yaml` with `compiler_exe: riscv64-unknown-elf-gcc`, `objdump_exe: riscv64-unknown-elf-objdump` and
      `ref_model_exe: sail_riscv_sim`. ACT already passes `--enable-experimental-extensions` to Sail, so no wrapper is
      needed.
-   - The UDB config with the IME extensions, VLEN 256, `arch_overlay: ime` (unless dropped) and the λ lists.
+   - The UDB config with the IME extensions, VLEN 256, the λ lists and Sail's FP profile (G=1, psm=0, rnd=frm).
+     `config/ime/sail-ime-rv64` (VLEN 1024) is a working example.
    - `sail.json` from task A.1 with Zvvmttls enabled. Sail is the DUT here, so Zvvmttls can run.
    - `link.ld` and `rvmodel_macros.h` from `config/sail/sail-rv64-max`.
    - `run_cmd.txt`: `sail_riscv_sim {debug:--trace --trace-output __TRACEFILE__} --config config/sail/sail-rv64-experimental/sail.json`.
@@ -81,7 +74,7 @@ specification.
 2. Follow AGENTS.md "Before Committing": `mise run prek`, `make tests` with a clean generated diff, the narrowest
    regression, and documentation builds.
 3. Write a short pull request description. State the interim Sail fork dependency and link the upstream Sail
-   proposal (package 02) and UDB pull request (package 03).
+   proposal (package 02).
 
 ## Acceptance
 

@@ -2,42 +2,39 @@
 
 # 03: Upstream the IME definitions to riscv-unified-db
 
-Repository: `riscv/riscv-unified-db` (UDB). Source files: the ACT overlay at
-`framework/src/act/data/udb_overlays/ime/` on `Openchip-Software/riscv-arch-test`, branch `port-ime-tests-to-act4`
-(local clone `~/repo/ime/riscv-arch-test`).
+Repository: `riscv/riscv-unified-db` (UDB). Source: `Openchip-Software/riscv-unified-db`, branch `ime/0.9.0`, with
+the FP disclosure and IDL work on `ime/fp-mx` (`f0045fec`, PR #1 into `ime/0.9.0`). Local clone
+`~/repo/ime/riscv-unified-db`.
 
-State as of 2026-11-09. ACT pins the `udb` gem 0.1.18 (`framework/src/act/data/Gemfile`). ACT has bumped the UDB gem
-about once a month (2026-08-17, 2026-09-29, 2026-10-23).
+State as of 2026-11-20. ACT pins the `udb` gem 0.1.18 (`framework/src/act/data/Gemfile`), which has no IME. The ACT
+branch takes UDB from a worktree of `ime/fp-mx` through the Gemfile variable `UDB_LOCAL_PATH`. ACT has bumped the UDB
+gem about once a month.
 
 ## Why
 
-UDB 0.1.18 does not define the IME extensions, so the ACT branch adds an overlay mechanism to
-`framework/src/act/parse_udb_config.py`. Upstream ACT may not want a new mechanism for one extension. The precedent is
-Zibi, which UDB defines in `spec/std/isa/ext/Zibi.yaml`. If a UDB release defines IME before the ACT pull request
-merges, the ACT pull request can drop the overlay mechanism.
+Upstream ACT CI installs the released `udb` gem. The IME pull request (package 06) needs a release that defines IME.
+The precedent for an unratified extension is Zibi (`spec/std/isa/ext/Zibi.yaml`).
 
-## What the overlay contains
+## What the fork defines
 
-- 65 extension files under `ext/`: the family extensions Zvvmm, Zvvfmm, Zvvmtls and Zvvmttls, 31 computational
-  extensions and 30 microscaling extensions. Each computational extension requires its family extension, which
-  matches GCC 16.1.
-- 4 parameter files under `param/`: `SUPPORTED_LAMBDA_SEW8` to `SUPPORTED_LAMBDA_SEW64`. Each lists the λ values the
-  implementation supports for one accumulator width. A constraint rejects λ when VLEN/(SEW·λ²) is not in
-  {1, 2, 4, 8, 16}.
-- License: `BSD-3-Clause-Clear OR Apache-2.0`, so the files can move into UDB without relicensing.
+- 65 extensions at version 0.9.0, state `development`: the families Zvvmm, Zvvfmm, Zvvmtls and Zvvmttls, the
+  computational types and the microscaling types. Each type requires its family, as GCC does.
+- `SUPPORTED_LAMBDA_SEW8` … `SUPPORTED_LAMBDA_SEW64`: the λ values per accumulator width. A constraint rejects λ when
+  VLEN/(SEW·λ²) is not in {1, 2, 4, 8, 16}.
+- `ZVVM_FP_{GROUPING,PSM,RND}_SEW<s>_W<w>` and `ZVVM_FP_PSM1_ALGORITHM`: the FP profile disclosure.
+- IDL `operation()` for all Zvvm instructions, and Zvvm tests for the C++ ISS.
+- The spec pin `324c62b7`, merged on spec `main` as `58810918`.
 
 ## Tasks
 
-1. Check the UDB contribution guide and how UDB marks unratified extensions (look at Zibi's `state` and version
-   fields). Mark the IME extensions the same way.
-2. Move the 69 files into UDB's layout (`spec/std/isa/ext/`, `spec/std/isa/param/` or the current equivalents). Keep
-   the specification commit `6effbcae` in each file's description or reference fields.
-3. Run UDB's own validation and tests.
-4. Open the pull request. Answer review questions about λ parameter naming. ACT test headers use the names as
-   `params` (for example `SUPPORTED_LAMBDA_SEW32: 1`), so any rename must be reported to the ACT work.
-5. When a UDB gem release contains the definitions, report the version to the ACT work (packages 06 and 08).
+1. Merge `ime/fp-mx` into `ime/0.9.0`.
+2. Check the UDB contribution guide and how UDB marks unratified extensions. Open the upstream pull request, split
+   as the maintainers prefer.
+3. Answer review questions about parameter names. ACT uses the names in macros (`UDB_SUPPORTED_LAMBDA_SEW<n>_<λ>`,
+   `UDB_ZVVM_FP_RND_SEW<s>_W<w>_IDX<i>_<VALUE>`), so report every rename to the ACT work.
+4. When a `udb` gem release contains the definitions, report the version (packages 06 and 08).
 
 ## Acceptance
 
-- A released `udb` gem defines the 65 IME extensions and the four λ parameters.
-- The ACT configs in `config/ime` resolve against that release without the overlay.
+- A released `udb` gem defines the 65 IME extensions and the λ and FP disclosure parameters.
+- The ACT configs in `config/ime` validate against that release without `UDB_LOCAL_PATH`.

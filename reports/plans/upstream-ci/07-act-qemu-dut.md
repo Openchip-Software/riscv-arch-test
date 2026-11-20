@@ -3,11 +3,11 @@
 # 07: ACT: IME QEMU as an independent DUT in CI
 
 Repository: `riscv/riscv-arch-test`, target branch `act4`. Separate pull request, after package 06 merges.
-Reference config: `config/ime/qemu-ime-rv64` on `Openchip-Software/riscv-arch-test`, branch `port-ime-tests-to-act4`
+Reference config: `config/ime/qemu-ime-rv64` on `Openchip-Software/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`
 (local clone `~/repo/ime/riscv-arch-test`). That config uses the OpenChip SDK image; this package builds QEMU from
 source instead.
 
-State as of 2026-11-09. Blocked on package 04 (a pinned QEMU commit and the deviation issues).
+State as of 2026-11-20. Blocked on package 04 (a pinned QEMU commit and the deviation issues).
 
 ## Why
 
@@ -37,7 +37,9 @@ upstream maintainers may not want a vendor QEMU fork in their CI, and rejecting 
    not matter. Either set `ci_enabled: false` in `config/qemu-ime/ci.yaml` or list the config in `exclude_configs`, so
    the matrix does not also run it.
 5. Expected exclusions, unless package 04 fixes them first: `cp_fp_subdot` cases (QEMU rounds each product),
-   `ExceptionsZvvm` cases for vstart, VL multiple, vill, L64 and masked-v0, and Zvvmttls.
+   `ExceptionsZvvm` cases for vstart, VL multiple, vill, L64 and masked-v0, `Zvvbf16mm` (`vtype[8]` needs
+   `x-zvfbfa`), and Zvvmttls.
+6. The QEMU config discloses rnd=xct, so the `cp_fp_rnd` testcases (gated on rnd=frm) do not run on it.
 
 ## Acceptance
 
