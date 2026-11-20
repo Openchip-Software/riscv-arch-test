@@ -79,6 +79,26 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 - Results: Zvvfmm16 6/6 and Zvvfmm32 5/5 on `sail-ime-rv64`. On `qemu-ime-rv64` the FP16 and FP32 files fail at
   `cp_fp_subdot` (deviation 4), `Zvvofp4bf16mm` at its first testcase (deviation 5).
 
+## Step 4.3: microscaled FP inputs (`42f233275`)
+
+- Rows: `Zvvxofp8{fp16,bf16,fp32,fp64}mm`, `Zvvxofp4{fp16,bf16,fp32}mm` and their `Zvvxn*` forms, 14 in all, type
+  `FMMACC_MX`. A `Zvvx*` row runs with `vtype.bs = 0` (block size 32), a `Zvvxn*` row with `bs = 1` (block size 16).
+  Only `sail-ime-rv64` declares them. QEMU `d856b96` accepts vm=0 only with `x-zvvfmmmx=true`.
+- Sail `0ebfc810` (`ime_mx.sail`) implements every FP microscaled row except an OFP8 C. It rejects any operand on v0
+  and, for bs=1, W·LMUL > SEW.
+- v0 holds the scale pairs, so the C window is v16 and A and B are in v1–v15; at LMUL=8 both are v8.
+- Exact data: random scales have a combined exponent of −1, 0 or 1, so every value is a multiple of 0.5. An FP16 C
+  stays below 640.5. A BF16 C zeroes the odd A and B storage elements, which keeps at most 32 nonzero terms and the
+  sum below 96.
+- `cp_scale` per C format: NaN scale_A or scale_B in element 0, the pairs (2^−127, 2^127) and (2^127, 2^−127), and
+  combined exponents −26/−136/−152 (below FP16/BF16/FP32) and 16/128 (above FP16, BF16/FP32). For the last two, A is
+  zero except A[0][0] and B is constant, so each scaled partial sum is exact in C. FP64 has no such exponents.
+- The `Zvvxn` OFP4 rows use `cr_lambda_lmul_lte4` (W·LMUL ≤ SEW).
+- Coverage: vm=0 decode and disassembly (`, v0.scale`), `vtype.bs` in `get_csr_val`. Sample calls are gated on
+  `insn[25]` per row type, so unscaled and microscaled covergroups no longer sample each other's instructions.
+- Existing tests regenerate byte for byte. pyslang compiles Zvvfmm16/32/64. Results: Zvvfmm16 14/14, Zvvfmm32 9/9,
+  Zvvfmm64 7/7 on `sail-ime-rv64`.
+
 ## Decisions
 
 - **Family flags.** In UDB each type extension requires its family, and a family alone enables no type. In Sail a
@@ -94,7 +114,12 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
   say whether an E5M2 NaN can be signaling. Sail treats all E5M2 NaNs as quiet. The testcase for 0x7D (signaling
   under the IEEE convention) sets `fflags.NV` before the instruction, so C is the canonical NaN and NV is set either
   way.
-- **QEMU command line.** It stays as the SDK ships it. `x-zvfbfa=true` would hide QEMU deviation 5.
+- **QEMU command line.** It stays as the SDK ships it. `x-zvfbfa=true` would hide QEMU deviation 5. Without
+  `x-zvvfmmmx=true`, QEMU raises an illegal-instruction exception for every vm=0 MACC. The QEMU config therefore
+  declares no microscaled extension.
+- **Scales of edge tests.** Edge values, `cp_fp_subdot` and `cp_fp_rnd` run with unit scales (0x7F). Their results
+  then equal the unscaled results, and they test that the vm=0 path decodes inputs and forms partial sums the same
+  way.
 
 ## Spec delta 6effbcae → 58810918
 
@@ -119,4 +144,4 @@ pull request.
 | ----------------------------------- | --------------------------- | ------------------------------------------------------- |
 | `Zvvofp8mm`                         | `vfmmacc.vv` SEW=8          | no testplan row; not declared in the configs (step 4.2) |
 | `Zvvofp4ofp8mm`                     | `vfwmmacc.vv` SEW=8         | no testplan row; not declared in the configs (step 4.2) |
-| `Zvvxofp4ofp8mm`, `Zvvxnofp4ofp8mm` | `vfwmmacc.vv` SEW=8, `vm=0` | no testplan row yet                                     |
+| `Zvvxofp4ofp8mm`, `Zvvxnofp4ofp8mm` | `vfwmmacc.vv` SEW=8, `vm=0` | no testplan row; not declared in the configs (step 4.3) |
