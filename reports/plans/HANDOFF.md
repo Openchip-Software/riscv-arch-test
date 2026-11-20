@@ -22,7 +22,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/`).
 
 | What                    | Where                                                                            | Pin                                                               |
 | ----------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 11 commits on `act4` `7569d06d6` (section 5)                      |
+| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 12 commits on `act4` `7569d06d6` (section 5)                      |
 | ACT4, reports           | `~/repo/ime/riscv-arch-test-docs` (worktree), branch `docs/act-ime-reports`      |                                                                   |
 | UDB                     | Openchip-Software/riscv-unified-db `ime/fp-mx`, worktree `~/repo/ime/udb-act`    | `f0045fec`; will merge into `ime/0.9.0`                           |
 | Sail (reference)        | Openchip-Software/sail-riscv `cleanup/ime-0.9.0`, worktree `~/repo/ime/sail-act` | `0ebfc810`; binary in `~/repo/ime/sail-act/build-act/c_emulator/` |
@@ -93,16 +93,17 @@ Commits on `cgomez/ime-udb-0.9.0`, oldest first. The first three are `port-ime-t
 | `5494a1432` | `Zvvofp8{fp16,bf16,fp32,fp64}mm`: OFP8 inputs, E4M3 and E5M2 through `altfmt_A` and `altfmt_B`     |
 | `483225a9a` | `Zvvofp4{fp16,bf16,fp32}mm`: OFP4 (E2M1) inputs, every E2M1 encoding as an edge                    |
 | `42f233275` | `Zvvx[n]ofp8*`, `Zvvx[n]ofp4*` (FP16/BF16/FP32 C): microscaled FP MACC (vm=0), `cp_scale`          |
+| `89c7fdb33` | `Zvvx[n]i8*`, `Zvvx[n]i4*`: microscaled integer-input MACC (`vfwimmacc.vv` and the W=4, W=8 forms) |
 
 Suites. Each unprivileged suite expands per SEW (`Zvvmm8` … `Zvvmm64`).
 
-| Suite            | Testplan                            | Content                                                                                                                                                              |
-| ---------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Zvvmm`          | `testplans/Zvvmm.csv`               | 13 integer MACC rows (W=1, 2, 4, 8; Int4); 4 tile-MACC rows                                                                                                          |
-| `Zvvfmm`         | `testplans/Zvvfmm.csv`              | 16 FP MACC rows: FP16, BF16, FP32, FP64, FP16/BF16→FP32, FP32→FP64, FP16/BF16→FP64, OFP8→FP16/BF16/FP32/FP64, OFP4→FP16/BF16/FP32; 14 microscaled rows (`FMMACC_MX`) |
-| `Zvvmtls`        | `testplans/Zvvmtls.csv`             | `vmtl.v`, `vmts.v`                                                                                                                                                   |
-| `Zvvmttls`       | `testplans/Zvvmttls.csv`            | `vmttl.v`, `vmtts.v`; cross-mode pairs with `vmtl.v` and `vmts.v`                                                                                                    |
-| `ExceptionsZvvm` | `testplans/priv/ExceptionsZvvm.csv` | Illegal-instruction and `vstart` cases for MACC and tile instructions                                                                                                |
+| Suite            | Testplan                            | Content                                                                                                                                                                                        |
+| ---------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Zvvmm`          | `testplans/Zvvmm.csv`               | 13 integer MACC rows (W=1, 2, 4, 8; Int4); 4 tile-MACC rows                                                                                                                                    |
+| `Zvvfmm`         | `testplans/Zvvfmm.csv`              | 16 FP MACC rows: FP16, BF16, FP32, FP64, FP16/BF16→FP32, FP32→FP64, FP16/BF16→FP64, OFP8→FP16/BF16/FP32/FP64, OFP4→FP16/BF16/FP32; 28 microscaled rows (`FMMACC_MX`), 14 of them integer-input |
+| `Zvvmtls`        | `testplans/Zvvmtls.csv`             | `vmtl.v`, `vmts.v`                                                                                                                                                                             |
+| `Zvvmttls`       | `testplans/Zvvmttls.csv`            | `vmttl.v`, `vmtts.v`; cross-mode pairs with `vmtl.v` and `vmts.v`                                                                                                                              |
+| `ExceptionsZvvm` | `testplans/priv/ExceptionsZvvm.csv` | Illegal-instruction and `vstart` cases for MACC and tile instructions                                                                                                                          |
 
 Code in `generators/testgen/src/testgen/`:
 
@@ -169,11 +170,11 @@ Results with Sail `0ebfc810`, all suites at all SEWs:
 
 | Config          | Result                                                                                                   |
 | --------------- | -------------------------------------------------------------------------------------------------------- |
-| `sail-ime-rv64` | 63/63 files pass, Zvvmttls and ExceptionsZvvm included                                                   |
+| `sail-ime-rv64` | 77/77 files pass, Zvvmttls and ExceptionsZvvm included                                                   |
 | `qemu-ime-rv64` | Integer and tile suites pass. Fail: the 12 W>1 Zvvfmm files, ExceptionsZvvm 7/7, and `Zvvbf16mm` (below) |
 
-The 63 files on Sail: the earlier 42 plus 4 OFP8, 3 OFP4 and 14 microscaled files. Only the Zvvfmm suites were
-re-run (30/30) for these steps. On QEMU, the OFP8 and OFP4 files with an FP16, FP32 or FP64 C fail first at
+The 77 files on Sail: the earlier 42 plus 4 OFP8, 3 OFP4 and 28 microscaled files. Only the Zvvfmm suites were
+re-run (44/44) for these steps. On QEMU, the OFP8 and OFP4 files with an FP16, FP32 or FP64 C fail first at
 `cp_fp_subdot` (deviation 4). `Zvvofp8bf16mm` and `Zvvofp4bf16mm` fail at their first testcase (deviation 5). Every OFP edge,
 `cp_altfmt_ofp8` and `cr_lambda_lmul` testcase before `cp_fp_subdot` passes on QEMU.
 
@@ -213,7 +214,6 @@ Known limits:
 
 | Step                                                                                                           | Notes                                 |
 | -------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| 4.3 Microscaling, integer inputs: `Zvvx[n]i{4,8}*` (`vfwimmacc.vv`, `vfqimmacc.vv`, `vf8wimmacc.vv`)           | spec `324c62b7`; FP rows done         |
 | 4.3 Microscaling, illegal cases in ExceptionsZvvm: bs=1 with W·LMUL > SEW, an operand on v0, vm=0 `vfmmacc.vv` | spec `0a13020a`                       |
 | 5 UDB ISS cross-check: run every IME ELF through the UDB C++ ISS and triage each mismatch                      | diagnostic only, not committed to ACT |
 | Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                                 | section 7                             |

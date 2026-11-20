@@ -99,6 +99,18 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 - Existing tests regenerate byte for byte. pyslang compiles Zvvfmm16/32/64. Results: Zvvfmm16 14/14, Zvvfmm32 9/9,
   Zvvfmm64 7/7 on `sail-ime-rv64`.
 
+## Step 4.3: microscaled integer inputs (`89c7fdb33`)
+
+- Rows: `Zvvxi8{fp16,bf16,fp32,fp64}mm`, `Zvvxi4{fp16,bf16,fp32}mm` and their `Zvvxn*` forms, 14 in all, type
+  `FMMACC_MX`, on `vfwimmacc.vv`, `vfqimmacc.vv` and `vf8wimmacc.vv`. Only `sail-ime-rv64` declares them.
+- The spec sums each block of integer products exactly, applies the combined exponent and rounds once with frm. G,
+  psm and rnd do not apply, so the results are fully specified. Sail `ime_int_scaled_gemm` does the same.
+- Edges: the integer variants of the unscaled rows (`emulf2`, `emulf4`, `emulf8`). `cp_fp_subdot`: W products of 1
+  sum to one ULP of C0. `cp_scale` overflow: zero partial sum, since an integer sum of at least 1 would overflow C.
+  No `cp_fp_rnd` and no `cp_altfmt`: MXINT inputs are signed only.
+- Earlier tests regenerate byte for byte. pyslang compiles Zvvfmm16/32/64. Results: Zvvfmm16 22/22, Zvvfmm32 13/13,
+  Zvvfmm64 9/9 on `sail-ime-rv64`.
+
 ## Decisions
 
 - **Family flags.** In UDB each type extension requires its family, and a family alone enables no type. In Sail a
