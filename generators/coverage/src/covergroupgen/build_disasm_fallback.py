@@ -114,6 +114,23 @@ VCOMPRESS_VM_RELAX = [
     "VCOMPRESS_VM",
 ]
 
+# IME multiply-accumulates without a microscaled form: vm=0 is reserved. riscv-opcodes has no IME encodings, so the
+# patterns come from RISCV_decode_pkg.svh.
+IME_MACC_VM_RELAX = [
+    "VMMACC_VV",
+    "VFMMACC_VV",
+]
+
+# IME tile loads and stores: bit 28 is part of their opcode, not mew, and every encoding decodes
+IME_TILE_LS = {"VMTL_V", "VMTTL_V", "VMTS_V", "VMTTS_V"}
+
+PAT_DECODE = re.compile(r"localparam \[31:0\] (\S+)\s*=\s*32'b([01?]{32});")
+
+
+def decode_patterns(path: Path) -> dict[str, str]:
+    """Map each localparam name in a decode package to its 32-character casez pattern."""
+    return {m.group(1): m.group(2) for m in map(PAT_DECODE.search, path.read_text().splitlines()) if m}
+
 
 def emit() -> None:
     lines = []
@@ -155,6 +172,15 @@ def emit() -> None:
     for n in VCOMPRESS_VM_RELAX:
         add(n, VM)
 
+    lines.append("    // IME vmmacc.vv/vfmmacc.vv: relax vm bit (reserved when vm=0)")
+    ime = decode_patterns(DECODE_PKG)
+    for n in IME_MACC_VM_RELAX:
+        bits = list(ime[n])
+        bits[31 - 25] = "?"
+        s = "".join(bits)
+        pat = f"32'b{s[0:6]}_{s[6]}_{s[7:12]}_{s[12:17]}_{s[17:20]}_{s[20:25]}_{s[25:32]}"
+        lines.append(f'    {pat}: return "{name_to_mnem(n)}";')
+
     lines.append("    // vmv<nr>r.v: relax vs1 (simm); always returns vmv1r.v for the cg dispatch")
     add("VMV1R_V", VS1, mnem_override="vmv1r.v")
 
@@ -187,7 +213,7 @@ def emit() -> None:
             continue
         if name.startswith("VL") and "RE" in name:
             continue
-        if name in skip_names:
+        if name in skip_names or name in IME_TILE_LS:
             continue
         if bits[3] == "0":
             bits[3] = "1"
