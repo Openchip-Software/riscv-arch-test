@@ -12,7 +12,15 @@ from testgen.data.random import random_range
 from testgen.data.state import TestData, return_testcase_registers
 from testgen.data.test_chunk import TestChunk
 from testgen.formatters import format_single_testcase
-from testgen.formatters.types.mmacc_type import C_WINDOW_REGS, WIDENING, fp_bits, fp_input_format
+from testgen.formatters.types.mmacc_type import (
+    C_WINDOW_REGS,
+    WIDENING,
+    fp_bits,
+    fp_c_range,
+    fp_input_format,
+    fp_operand_format,
+    fp_output_format,
+)
 from testgen.instructions.vector_params import generate_random_vector_params
 
 FRM_NAMES = ["rne", "rtz", "rdn", "rup", "rmm"]
@@ -23,6 +31,14 @@ SUBDOT_VALUES = {
     (64, 2): (1.0, 2.0**-26, 2.0**-27),  # ULP(1.0) in fp64 = 2^-52
     (64, 4): (2.0**52, 0.5, 0.5),  # ULP(2^52) in fp64 = 1
 }
+PRECISION = {"fp16": 11, "bf16": 8, "fp32": 24, "fp64": 53}
+
+
+def subdot_values(sew: int, w: int, input_family: str, output_fmt: str) -> tuple[float, float, float]:
+    """(C0, A value, B value) of a row. OFP inputs use A = B = 1.0 and C0 = W * 2^(p-1), whose ULP is W."""
+    if input_family in ("ofp4", "ofp8"):
+        return 2.0 ** (PRECISION[output_fmt] - 1) * w, 1.0, 1.0
+    return SUBDOT_VALUES[(sew, w)]
 
 
 @add_coverpoint_generator("cp_fp_subdot")
@@ -36,8 +52,11 @@ def make_fp_subdot(instr_name: str, instr_type: str, coverpoint: str, test_data:
     assert test_data.config.sew is not None, "SEW must be set for vector tests"
     sew = test_data.config.sew
     w = WIDENING[instr_name]
-    c0, a_value, b_value = SUBDOT_VALUES[(sew, w)]
-    input_fmt = fp_input_format(test_data, sew, w)
+    input_family = fp_input_format(test_data, sew, w)
+    input_fmt = fp_operand_format(input_family, altfmt=False)
+    output_fmt = fp_output_format(test_data, sew)
+    c0, a_value, b_value = subdot_values(sew, w, input_family, output_fmt)
+    c_range = fp_c_range(output_fmt)
     lane_bits = sew // w
     lmul = 1
 
@@ -47,7 +66,9 @@ def make_fp_subdot(instr_name: str, instr_type: str, coverpoint: str, test_data:
         a = [sum(fp_bits(a_value, input_fmt) << (i * lane_bits) for i in range(w))] + [0] * (count - 1)
         b = [sum(fp_bits(b_value, input_fmt) << (i * lane_bits) for i in range(w))] + [0] * (count - 1)
         c_count = VLEN_MAX * C_WINDOW_REGS // sew
-        c = [fp_bits(c0, f"fp{sew}")] + [fp_bits(random_range(-128, 128) + 0.5, f"fp{sew}") for _ in range(c_count - 1)]
+        c = [fp_bits(c0, output_fmt)] + [
+            fp_bits(random_range(-c_range, c_range) + 0.5, output_fmt) for _ in range(c_count - 1)
+        ]
         labels = {}
         for reg, data in (("vs1", a), ("vs2", b), ("vd", c)):
             labels[f"{reg}_val_pointer"] = f"{reg}_subdot_{frm_name}"

@@ -22,3 +22,6 @@
 `ifdef ZVVFP64MM_SUPPORTED
     Zvvfmm64Zvvfp64mm_vfmmacc_vv_cg = new(); Zvvfmm64Zvvfp64mm_vfmmacc_vv_cg.set_inst_name("obj_Zvvfmm64Zvvfp64mm_vfmmacc_vv");
 `endif
+`ifdef ZVVOFP8FP64MM_SUPPORTED
+    Zvvfmm64Zvvofp8fp64mm_vf8wmmacc_vv_cg = new(); Zvvfmm64Zvvofp8fp64mm_vf8wmmacc_vv_cg.set_inst_name("obj_Zvvfmm64Zvvofp8fp64mm_vf8wmmacc_vv");
+`endif

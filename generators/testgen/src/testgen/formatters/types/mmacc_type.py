@@ -6,6 +6,7 @@
 # SPDX-License-Identifier: Apache-2.0
 ##################################
 
+import math
 import struct
 from dataclasses import replace
 
@@ -39,6 +40,8 @@ mmacc_config = InstructionTypeConfig(
 )
 
 C_WINDOW_REGS = 16
+# E5M2 0x7D: a signaling NaN under the IEEE convention
+NV_PRESET_EDGE = "_edge_e5m2_sNaN_payload1_"
 C_WINDOW_LMUL = 8
 C_WINDOW_SEGMENTS = 2
 
@@ -61,10 +64,23 @@ fmmacc_config = InstructionTypeConfig(
 # Widening factor W of each multiply-accumulate mnemonic
 WIDENING = {"vfmmacc.vv": 1, "vfwmmacc.vv": 2, "vfqmmacc.vv": 4, "vf8wmmacc.vv": 8}
 FP_PACK = {16: "<e", 32: "<f", 64: "<d"}
+# OCP OFP formats: (exponent bits, mantissa bits, bias)
+OFP_FORMATS = {"e4m3": (4, 3, 7), "e5m2": (5, 2, 15), "e2m1": (2, 1, 1)}
 
 
 def fp_bits(value: float, fmt: str) -> int:
-    """Encode an exactly representable value in fp16, bf16, fp32 or fp64."""
+    """Encode an exactly representable finite value in e2m1, e4m3, e5m2, fp16, bf16, fp32 or fp64."""
+    if fmt in OFP_FORMATS:
+        ebits, mbits, bias = OFP_FORMATS[fmt]
+        sign = 1 << (ebits + mbits) if math.copysign(1.0, value) < 0 else 0
+        if value == 0:
+            return sign
+        exponent = max(math.frexp(abs(value))[1] - 1, 1 - bias)
+        significand = abs(value) / 2.0 ** (exponent - mbits)
+        assert significand.is_integer(), f"{value} is not exact in {fmt}"
+        biased = exponent + bias if significand >= 2**mbits else 0
+        assert biased < 2**ebits, f"{value} is out of range for {fmt}"
+        return sign | (biased << mbits) | (int(significand) & (2**mbits - 1))
     if fmt == "bf16":
         return int.from_bytes(struct.pack("<f", value), "little") >> 16
     width = int(fmt[2:])
@@ -72,10 +88,25 @@ def fp_bits(value: float, fmt: str) -> int:
 
 
 def fp_input_format(test_data: TestData, sew: int, w: int) -> str:
-    """Return the input format of a row: bf16 when its type extension names bf16, else IEEE at SEW/W bits."""
+    """
+    Return the input format family of a row from its type extension: ofp4 for Zvvofp4*, ofp8 for Zvvofp8*, bf16 when
+    the extension names bf16 as input, else IEEE at SEW/W bits.
+    """
+    for ext in test_data.config.extra_extensions:
+        if ext.startswith(("Zvvofp4", "Zvvofp8")):
+            return ext[3:7]
     if any("bf16" in ext for ext in test_data.config.extra_extensions):
         return "bf16"
     return f"fp{sew // w}"
+
+
+def fp_operand_format(input_family: str, altfmt: bool) -> str:
+    """Return the format of one input operand. For OFP8, its altfmt_A or altfmt_B bit selects E5M2 over E4M3."""
+    if input_family == "ofp8":
+        return "e5m2" if altfmt else "e4m3"
+    if input_family == "ofp4":
+        return "e2m1"
+    return input_family
 
 
 def fp_output_format(test_data: TestData, sew: int) -> str:
@@ -106,10 +137,14 @@ def fp_exact_data(
     A and B inputs are sparse integers in [-2, 2], packed W per storage element. C holds half-integers k + 0.5 with
     |k| <= 128, so no C value is ever zero. A dot product has at most lambda*W*LMUL <= 64 terms at fp16 (VLEN_MAX
     limits lambda), so every running sum stays below 512 in magnitude, where fp16 still has a 0.25 resolution. Every
-    value is therefore exact in fp16, bf16 (inputs only), fp32 and fp64.
+    value is therefore exact in fp16, bf16 (inputs only), fp32 and fp64. Integers in [-2, 2] are exact in E4M3, E5M2
+    and E2M1.
 
     A BF16 C resolves 0.5 only below 128. For a BF16 C, the inputs are in [-1, 1] and |k| <= 31, so every running
     sum stays below 96 in magnitude.
+
+    A widening row with an FP16 or BF16 C has up to lambda*W*LMUL = 256 terms. Its storage elements then hold at
+    most one nonzero input, which keeps the nonzero terms of a dot product at lambda*LMUL <= 64 and the bounds above.
 
     With background set, every input element (or every C element) holds that value instead.
     """
@@ -117,18 +152,21 @@ def fp_exact_data(
     lane_bits = sew // w
     c_range = fp_c_range(output_fmt)
     input_range = 1 if output_fmt == "bf16" else 2
+    one_lane = w > 1 and output_fmt in ("fp16", "bf16")
     elements = []
     for _ in range(count):
         if reg == "vd":
             value = background if background is not None else random_range(-c_range, c_range) + 0.5
             elements.append(fp_bits(value, output_fmt))
         else:
-            lanes = [
-                background
-                if background is not None
-                else (random_range(-input_range, input_range) if random_range(0, 3) == 0 else 0)
-                for _ in range(w)
-            ]
+            if background is not None:
+                lanes = [background] * w
+            elif one_lane:
+                lanes = [0.0] * w
+                lane = random_range(0, w - 1)
+                lanes[lane] = random_range(-input_range, input_range) if random_range(0, 3) == 0 else 0
+            else:
+                lanes = [random_range(-input_range, input_range) if random_range(0, 3) == 0 else 0 for _ in range(w)]
             elements.append(sum(fp_bits(float(v), input_fmt) << (i * lane_bits) for i, v in enumerate(lanes)))
     label = f"{reg}_fp_ime_{test_data.test_count:03d}"
     test_data.register_vector_data(label, sew, elements=elements)
@@ -160,12 +198,19 @@ def format_fmmacc(
     assert params.sew is not None and params.lmul is not None, "sew and lmul must be provided for FMMACC"
     assert params.csr_frm_val is not None, "FMMACC tests run with a dynamic rounding mode"
     w = WIDENING[instr_str]
-    input_fmt = fp_input_format(test_data, params.sew, w)
+    input_family = fp_input_format(test_data, params.sew, w)
     output_fmt = fp_output_format(test_data, params.sew)
 
-    # BF16 inputs are selected by altfmt_A = altfmt_B = 1, a BF16 C by altfmt = 1
-    params.altfmt_a = params.altfmt_b = input_fmt == "bf16"
+    # BF16 inputs are selected by altfmt_A = altfmt_B = 1, a BF16 C by altfmt = 1. For OFP8 inputs, the coverpoint
+    # chooses altfmt_A and altfmt_B (E4M3 = 0, E5M2 = 1). OFP4 inputs require altfmt_A = altfmt_B = 0.
+    if input_family != "ofp8":
+        params.altfmt_a = params.altfmt_b = input_family == "bf16"
     params.altfmt = output_fmt == "bf16"
+    input_fmts = {
+        "vs1": fp_operand_format(input_family, params.altfmt_a),
+        "vs2": fp_operand_format(input_family, params.altfmt_b),
+        "vd": output_fmt,
+    }
     if params.vector_suite == "base":
         params.vl = "vlmax"
 
@@ -177,6 +222,7 @@ def format_fmmacc(
     edge_reg = next(
         (reg for reg in ("vs1", "vs2", "vd") if "_edge_" in (getattr(params, f"{reg}_val_pointer") or "")), None
     )
+    nv_preset = any(NV_PRESET_EDGE in (getattr(params, f"{reg}_val_pointer") or "") for reg in ("vs1", "vs2"))
     backgrounds: dict[str, float | None] = {"vs1": None, "vs2": None, "vd": None}
     if edge_reg == "vd":
         backgrounds["vs1"] = backgrounds["vs2"] = 0.0
@@ -185,6 +231,7 @@ def format_fmmacc(
     for reg, emul in (("vs1", params.lmul), ("vs2", params.lmul), ("vd", C_WINDOW_REGS)):
         if any(tag in (getattr(params, f"{reg}_val_pointer") or "") for tag in ("_subdot_", "_rnd_")):
             continue  # cp_fp_subdot and cp_fp_rnd build complete data
+        input_fmt = input_fmts[reg]
         if reg == edge_reg:
             label = fp_edge_data(
                 test_data, reg, getattr(params, f"{reg}_val_pointer"), params.sew, w, input_fmt, output_fmt, emul
@@ -198,6 +245,10 @@ def format_fmmacc(
 
     setup, test, check = format_mmacc(instr_str, test_data, params)
     handle_vector_fp(setup, check, params.csr_frm_val, test_data)
+    if nv_preset:
+        # The specification does not say whether an E5M2 NaN can be signaling. With NV already set, fflags and the
+        # canonical NaN result are the same either way.
+        setup[setup.index("fsflagsi 0b00000 # clear all fflags")] = "fsflagsi 0b10000 # set only NV"
     return setup, test, check
 
 

@@ -978,16 +978,16 @@
       "supported": false
     },
     "Zvvofp8bf16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvofp8fp16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvofp8fp32mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvofp8fp64mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvofp8mm": {
       "supported": false

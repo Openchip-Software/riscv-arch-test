@@ -185,6 +185,10 @@ implemented_extensions:
   - { name: Zvvfp32mm, version: "= 0.9.0" }
   - { name: Zvvfp32fp64mm, version: "= 0.9.0" }
   - { name: Zvvfp64mm, version: "= 0.9.0" }
+  - { name: Zvvofp8fp16mm, version: "= 0.9.0" }
+  - { name: Zvvofp8bf16mm, version: "= 0.9.0" }
+  - { name: Zvvofp8fp32mm, version: "= 0.9.0" }
+  - { name: Zvvofp8fp64mm, version: "= 0.9.0" }
 
 params:
   # Trap delegation: the writable medeleg and mideleg bits (sail.json base.medeleg and
@@ -855,21 +859,30 @@ params:
   SUPPORTED_LAMBDA_SEW64: [1, 2, 4]
   # Zvvm floating-point disclosure: the profile of the Sail IME fork, G=1, psm=0, rnd=frm (model/extensions/IME/ime_mx.sail).
   ZVVM_FP_GROUPING_SEW16_W1: [0, 1, 1, 1, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW16_W2: [0, 1, 1, 1, 0, 0, 0]
   ZVVM_FP_GROUPING_SEW32_W1: [0, 1, 1, 0, 0, 0, 0]
   ZVVM_FP_GROUPING_SEW32_W2: [0, 1, 1, 0, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW32_W4: [0, 1, 1, 0, 0, 0, 0]
   ZVVM_FP_GROUPING_SEW64_W1: [1, 1, 1, 0, 0, 0, 0]
   ZVVM_FP_GROUPING_SEW64_W2: [1, 1, 1, 0, 0, 0, 0]
   ZVVM_FP_GROUPING_SEW64_W4: [1, 1, 1, 0, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW64_W8: [1, 1, 1, 0, 0, 0, 0]
   ZVVM_FP_PSM1_ALGORITHM: none
   ZVVM_FP_PSM_SEW16_W1: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW16_W2: [false, false, false, false, false, false, false]
   ZVVM_FP_PSM_SEW32_W1: [false, false, false, false, false, false, false]
   ZVVM_FP_PSM_SEW32_W2: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW32_W4: [false, false, false, false, false, false, false]
   ZVVM_FP_PSM_SEW64_W1: [false, false, false, false, false, false, false]
   ZVVM_FP_PSM_SEW64_W2: [false, false, false, false, false, false, false]
   ZVVM_FP_PSM_SEW64_W4: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW64_W8: [false, false, false, false, false, false, false]
   ZVVM_FP_RND_SEW16_W1: [none, frm, frm, frm, none, none, none]
+  ZVVM_FP_RND_SEW16_W2: [none, frm, frm, frm, none, none, none]
   ZVVM_FP_RND_SEW32_W1: [none, frm, frm, none, none, none, none]
   ZVVM_FP_RND_SEW32_W2: [none, frm, frm, none, none, none, none]
+  ZVVM_FP_RND_SEW32_W4: [none, frm, frm, none, none, none, none]
   ZVVM_FP_RND_SEW64_W1: [frm, frm, frm, none, none, none, none]
   ZVVM_FP_RND_SEW64_W2: [frm, frm, frm, none, none, none, none]
   ZVVM_FP_RND_SEW64_W4: [frm, frm, frm, none, none, none, none]
+  ZVVM_FP_RND_SEW64_W8: [frm, frm, frm, none, none, none, none]

@@ -44,7 +44,9 @@ def make_vs_edges(instr_name: str, instr_type: str, coverpoint: str, test_data: 
 
     if coverpoint.startswith(f"cp_{register}_edges_"):
         suffix = coverpoint[len(f"cp_{register}_edges_") :]
-        if suffix.startswith("f"):
+        if suffix in VECTOR_EDGES.ofp_edges:
+            edges = VECTOR_EDGES.ofp_edges[suffix]
+        elif suffix.startswith("f"):
             edges = VECTOR_EDGES.vf_edges
         elif suffix.startswith("ls"):
             edges = VECTOR_EDGES.vls_edges
@@ -78,7 +80,10 @@ def make_vs_edges(instr_name: str, instr_type: str, coverpoint: str, test_data: 
     for edge in edges:
         label = make_and_register_edge_label(register, edge, suffix, test_data)
 
-        presets = {f"{register}_val_pointer": label}
+        presets: dict[str, str | bool] = {f"{register}_val_pointer": label}
+        if edge.startswith("e5m2_"):
+            # IME OFP8 inputs: altfmt_A = altfmt_B = 1 selects E5M2 for both A and B
+            presets["altfmt_a"] = presets["altfmt_b"] = True
 
         params = generate_random_vector_params(
             test_data,

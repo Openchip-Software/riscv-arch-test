@@ -19,6 +19,7 @@ from testgen.formatters.types.mmacc_type import (
     fp_bits,
     fp_c_range,
     fp_input_format,
+    fp_operand_format,
     fp_output_format,
 )
 from testgen.instructions.vector_params import generate_random_vector_params
@@ -34,18 +35,33 @@ WIDENING_VALUES = {
     (64, 4): (-(2.0**30), [(2.0**15, 2.0**15), (2.0**-24, 2.0**-24)]),  # S = 2^30 + 2^-48
 }
 
+# OFP8 inputs, (SEW, W) -> (A and B format, C0, products). E4M3 spans 2^-9 to 448. An FP64 C needs the E5M2 range,
+# 2^-16 to 57344. OFP4 products span only 2^-2 to 36, so no OFP4 row has a group sum that is inexact in its C format.
+OFP8_VALUES = {
+    (16, 2): ("e4m3", -1.0, [(1.0, 1.0), (2.0**-6, 2.0**-6)]),  # S = 1 + 2^-12
+    (32, 4): ("e4m3", -(2.0**16), [(2.0**8, 2.0**8), (2.0**-9, 2.0**-9)]),  # S = 2^16 + 2^-18
+    (64, 8): ("e5m2", -(2.0**30), [(2.0**15, 2.0**15), (2.0**-16, 2.0**-16)]),  # S = 2^30 + 2^-32
+}
 
-def rnd_values(sew: int, w: int, input_fmt: str, output_fmt: str) -> tuple[float, list[tuple[float, float]]] | None:
-    """C0 and the nonzero (A, B) products of C[0][0], or None when the row has no such data."""
+
+def rnd_values(
+    sew: int, w: int, input_family: str, output_fmt: str
+) -> tuple[str, float, list[tuple[float, float]]] | None:
+    """The A and B format, C0 and the nonzero (A, B) products of C[0][0], or None when the row has no such data."""
+    if input_family == "ofp8":
+        return OFP8_VALUES.get((sew, w))
+    if input_family == "ofp4":
+        return None
     if w > 1:
-        return WIDENING_VALUES.get((sew, w))
-    if input_fmt != output_fmt:
+        values = WIDENING_VALUES.get((sew, w))
+        return None if values is None else (input_family, *values)
+    if input_family != output_fmt:
         return None
     # W = 1: S = (1 + 2^-(p-1)) * (1 + 2^-(p-2)) = 1 + 3 * 2^-(p-1) + 2^-(2p-3). Rounded in the C format, S loses
     # 2^-(2p-3) in every rounding mode except rup, which rounds S up to 1 + 4 * 2^-(p-1). C0 + S is exact in the C
     # format.
-    p = PRECISION[input_fmt]
-    return -1.0, [(1.0 + 2.0 ** -(p - 1), 1.0 + 2.0 ** -(p - 2))]
+    p = PRECISION[input_family]
+    return input_family, -1.0, [(1.0 + 2.0 ** -(p - 1), 1.0 + 2.0 ** -(p - 2))]
 
 
 @add_coverpoint_generator("cp_fp_rnd")
@@ -60,12 +76,14 @@ def make_fp_rnd(instr_name: str, instr_type: str, coverpoint: str, test_data: Te
     assert test_data.config.sew is not None, "SEW must be set for vector tests"
     sew = test_data.config.sew
     w = WIDENING[instr_name]
-    input_fmt = fp_input_format(test_data, sew, w)
+    input_family = fp_input_format(test_data, sew, w)
     output_fmt = fp_output_format(test_data, sew)
-    values = rnd_values(sew, w, input_fmt, output_fmt)
+    values = rnd_values(sew, w, input_family, output_fmt)
     if values is None:
         return []
-    c0, products = values
+    input_fmt, c0, products = values
+    altfmt_ofp8 = input_fmt == "e5m2"
+    assert fp_operand_format(input_family, altfmt_ofp8) == input_fmt
     lane_bits = sew // w
     lmul = 1
 
@@ -106,6 +124,8 @@ def make_fp_rnd(instr_name: str, instr_type: str, coverpoint: str, test_data: Te
                 csr_frm_val=frm,
                 lambda_=lambda_value,
                 ime_guard=guard,
+                altfmt_a=altfmt_ofp8,
+                altfmt_b=altfmt_ofp8,
                 **labels,
             )
             desc = (

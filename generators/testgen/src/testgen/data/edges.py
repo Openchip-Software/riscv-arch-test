@@ -595,6 +595,64 @@ class VECTOR_EDGES:
         "sNaN_payload1": 0x7F81,  # signaling NaN with lsb set
     }
 
+    # OCP OFP8 E4M3: bias 7, no infinities, NaN only at S.1111.111
+    e4m3: ClassVar = {
+        "pos0": 0x00,
+        "neg0": 0x80,
+        "pos1": 0x38,
+        "neg1": 0xB8,
+        "posminnorm": 0x08,  # 2^-6
+        "posmaxnorm": 0x7E,  # 448
+        "negmaxnorm": 0xFE,  # -448
+        "pos0p5": 0x30,
+        "pos1p5": 0x3C,
+        "neg2": 0xC0,
+        "twoToEmax": 0x78,  # 2^8
+        "onePulp": 0x39,
+        "largestsubnorm": 0x07,
+        "negSubnormLeadingOne": 0x84,
+        "min_subnorm": 0x01,  # 2^-9
+        "posNaN": 0x7F,
+        "negNaN": 0xFF,
+    }
+
+    # OCP OFP8 E5M2: bias 15, IEEE-style infinities and NaNs
+    e5m2: ClassVar = {
+        "pos0": 0x00,
+        "neg0": 0x80,
+        "pos1": 0x3C,
+        "neg1": 0xBC,
+        "posminnorm": 0x04,  # 2^-14
+        "posmaxnorm": 0x7B,  # 57344
+        "negmaxnorm": 0xFB,  # -57344
+        "posinfinity": 0x7C,
+        "neginfinity": 0xFC,
+        "pos0p5": 0x38,
+        "pos1p5": 0x3E,
+        "neg2": 0xC0,
+        "twoToEmax": 0x78,  # 2^15
+        "onePulp": 0x3D,
+        "largestsubnorm": 0x03,
+        "negSubnormLeadingOne": 0x82,
+        "min_subnorm": 0x01,  # 2^-16
+        "canonicalQNaN": 0x7E,
+        "negNoncanonicalQNaN": 0xFF,
+        "sNaN_payload1": 0x7D,  # signaling NaN under the IEEE convention
+    }
+
+    # OCP OFP4 E2M1: bias 1, no infinities or NaNs. Every encoding is an edge.
+    e2m1: ClassVar = {
+        f"{sign}{magnitude}": (0x8 if sign == "neg" else 0) | code
+        for sign in ("pos", "neg")
+        for code, magnitude in enumerate(("0", "0p5", "1", "1p5", "2", "3", "4", "6"))
+    }
+
+    # Edge names of the IME OFP input variants. An OFP8 edge name starts with its format.
+    ofp_edges: ClassVar = {
+        "f_ofp8": tuple(f"e4m3_{name}" for name in e4m3) + tuple(f"e5m2_{name}" for name in e5m2),
+        "f_ofp4": tuple(f"e2m1_{name}" for name in e2m1),
+    }
+
     @staticmethod
     def load_store_edges(eew: int) -> tuple[int, int, int, int, int]:
         return (eew // -4, eew // -8, 0, eew // 8, eew // 4)
@@ -765,6 +823,11 @@ def get_vector_edge(edge: str, suffix: str, sew: int) -> int:
 
     if suffix == "f_bf16":
         return VECTOR_EDGES.bf16[edge]
+
+    if suffix in VECTOR_EDGES.ofp_edges:
+        # IME OFP8 or OFP4 inputs: the edge name is <format>_<name>
+        fmt, name = edge.split("_", 1)
+        return getattr(VECTOR_EDGES, fmt)[name]
 
     if suffix in ("f_emulf2", "f_emulf4"):
         # Narrow floating-point inputs packed into SEW storage elements (IME widening multiply-accumulate)

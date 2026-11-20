@@ -170,8 +170,8 @@ implemented_extensions:
   - { name: Zvvi32mm, version: "= 0.9.0" }
   - { name: Zvvi32i64mm, version: "= 0.9.0" }
   - { name: Zvvi64mm, version: "= 0.9.0" }
-  # Floating point: the rows that the Sail fork implements. Sail has no OFP4, OFP8,
-  # BF16-accumulator or microscaled (Zvvx*) rows.
+  # Floating point: the types covered by testplans/Zvvfmm.csv. The Sail fork raises an
+  # illegal-instruction exception for an OFP8 C (Zvvofp8mm, Zvvofp4ofp8mm), so they are not listed.
   - { name: Zvvfp16mm, version: "= 0.9.0" }
   - { name: Zvvbf16mm, version: "= 0.9.0" }
   - { name: Zvvfp16fp32mm, version: "= 0.9.0" }
@@ -181,6 +181,10 @@ implemented_extensions:
   - { name: Zvvfp32mm, version: "= 0.9.0" }
   - { name: Zvvfp32fp64mm, version: "= 0.9.0" }
   - { name: Zvvfp64mm, version: "= 0.9.0" }
+  - { name: Zvvofp8fp16mm, version: "= 0.9.0" }
+  - { name: Zvvofp8bf16mm, version: "= 0.9.0" }
+  - { name: Zvvofp8fp32mm, version: "= 0.9.0" }
+  - { name: Zvvofp8fp64mm, version: "= 0.9.0" }
 
 params:
   # Trap delegation: the writable medeleg and mideleg bits (sail.json base.medeleg and
@@ -822,21 +826,30 @@ params:
   # rounded with frm. For W=1 that is G=1, psm=0, rnd=xct. For W>1 QEMU also adds product by product,
   # which no disclosure describes; the values below repeat the W=1 profile.
   ZVVM_FP_GROUPING_SEW16_W1: [1, 1, 1, 0, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW16_W2: [1, 1, 1, 0, 0, 0, 0]
   ZVVM_FP_GROUPING_SEW32_W1: [1, 1, 0, 0, 0, 0, 0]
   ZVVM_FP_GROUPING_SEW32_W2: [1, 1, 0, 0, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW32_W4: [1, 1, 0, 0, 0, 0, 0]
   ZVVM_FP_GROUPING_SEW64_W1: [1, 1, 0, 0, 0, 0, 0]
   ZVVM_FP_GROUPING_SEW64_W2: [1, 1, 0, 0, 0, 0, 0]
   ZVVM_FP_GROUPING_SEW64_W4: [1, 1, 0, 0, 0, 0, 0]
+  ZVVM_FP_GROUPING_SEW64_W8: [1, 1, 0, 0, 0, 0, 0]
   ZVVM_FP_PSM1_ALGORITHM: none
   ZVVM_FP_PSM_SEW16_W1: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW16_W2: [false, false, false, false, false, false, false]
   ZVVM_FP_PSM_SEW32_W1: [false, false, false, false, false, false, false]
   ZVVM_FP_PSM_SEW32_W2: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW32_W4: [false, false, false, false, false, false, false]
   ZVVM_FP_PSM_SEW64_W1: [false, false, false, false, false, false, false]
   ZVVM_FP_PSM_SEW64_W2: [false, false, false, false, false, false, false]
   ZVVM_FP_PSM_SEW64_W4: [false, false, false, false, false, false, false]
+  ZVVM_FP_PSM_SEW64_W8: [false, false, false, false, false, false, false]
   ZVVM_FP_RND_SEW16_W1: [xct, xct, xct, none, none, none, none]
+  ZVVM_FP_RND_SEW16_W2: [xct, xct, xct, none, none, none, none]
   ZVVM_FP_RND_SEW32_W1: [xct, xct, none, none, none, none, none]
   ZVVM_FP_RND_SEW32_W2: [xct, xct, none, none, none, none, none]
+  ZVVM_FP_RND_SEW32_W4: [xct, xct, none, none, none, none, none]
   ZVVM_FP_RND_SEW64_W1: [xct, xct, none, none, none, none, none]
   ZVVM_FP_RND_SEW64_W2: [xct, xct, none, none, none, none, none]
   ZVVM_FP_RND_SEW64_W4: [xct, xct, none, none, none, none, none]
+  ZVVM_FP_RND_SEW64_W8: [xct, xct, none, none, none, none, none]

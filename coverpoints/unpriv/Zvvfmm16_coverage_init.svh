@@ -16,3 +16,9 @@
 `ifdef ZVVFP16MM_SUPPORTED
     Zvvfmm16Zvvfp16mm_vfmmacc_vv_cg = new(); Zvvfmm16Zvvfp16mm_vfmmacc_vv_cg.set_inst_name("obj_Zvvfmm16Zvvfp16mm_vfmmacc_vv");
 `endif
+`ifdef ZVVOFP8BF16MM_SUPPORTED
+    Zvvfmm16Zvvofp8bf16mm_vfwmmacc_vv_cg = new(); Zvvfmm16Zvvofp8bf16mm_vfwmmacc_vv_cg.set_inst_name("obj_Zvvfmm16Zvvofp8bf16mm_vfwmmacc_vv");
+`endif
+`ifdef ZVVOFP8FP16MM_SUPPORTED
+    Zvvfmm16Zvvofp8fp16mm_vfwmmacc_vv_cg = new(); Zvvfmm16Zvvofp8fp16mm_vfwmmacc_vv_cg.set_inst_name("obj_Zvvfmm16Zvvofp8fp16mm_vfwmmacc_vv");
+`endif

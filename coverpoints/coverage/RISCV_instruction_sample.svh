@@ -2078,6 +2078,11 @@
             ins.add_vm(3);
             ins.add_v0();
         end
+        "vf8wmmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
+        end
         "vfadd.vf"     : begin
             ins.add_vd(0);
             ins.add_vs2(1);
