@@ -49,6 +49,24 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 - Results: Zvvfmm16 passes 2/2 on `sail-ime-rv64`. On `qemu-ime-rv64`, `Zvvbf16mm` fails at its first testcase
   (HANDOFF, QEMU deviation 5).
 
+## Step 4.2: OFP8 inputs (`5494a1432`)
+
+- Rows from the spec encoding map: `vfwmmacc.vv` SEW=16 (`Zvvofp8fp16mm`, `Zvvofp8bf16mm`), `vfqmmacc.vv` SEW=32
+  (`Zvvofp8fp32mm`), `vf8wmmacc.vv` SEW=64 (`Zvvofp8fp64mm`). Sail `0ebfc810` (`ime_fp_base_row_ok`) and the SDK QEMU
+  (`trans_vfwmmacc_vv`, `trans_vfqwmmacc_vv`, `trans_vf8wmmacc_vv`; all enabled by `x-zvvm=true`) decode all four, so
+  both configs declare them. The `.insn` macros and `RISCV_decode_pkg.svh` already had `vf8wmmacc.vv`.
+- `altfmt_A` and `altfmt_B` select E4M3 or E5M2 per operand. New `cp_altfmt_ofp8` runs the four combinations. New
+  edge variant `f_ofp8`: E4M3 and E5M2 edges, each testcase with `altfmt_A = altfmt_B` set to the edge's format. The
+  templates `cp_vs{1,2}_edges_f_ofp8_sew{16,32,64}` have one coverpoint per format, filtered on its `altfmt` bit.
+- Exact data: K = λ·W·LMUL reaches 256 at SEW=16, W=4, so a widening row with an FP16 or BF16 C holds at most one
+  nonzero input per storage element (at most 64 nonzero terms per dot product).
+- `cp_fp_subdot`: A = B = 1.0 and C0 = W·2^(p−1). `cp_fp_rnd`: data for (16,2) and (32,4) in E4M3, and (64,8) in
+  E5M2. OFP4 products span too few bits to make the group sum inexact, so OFP4 rows will have no `cp_fp_rnd`.
+- Disclosures added: `ZVVM_FP_{GROUPING,PSM,RND}_SEW16_W2`, `_SEW32_W4`, `_SEW64_W8`, with each simulator's profile.
+- Existing tests regenerate byte for byte. Covergroup changes are additions only. pyslang compiles Zvvfmm16/32/64.
+- Results: Zvvfmm 13/13 on `sail-ime-rv64`. On `qemu-ime-rv64` all four OFP8 files fail: three at `cp_fp_subdot`
+  (QEMU deviation 4), `Zvvofp8bf16mm` at its first testcase (deviation 5).
+
 ## Decisions
 
 - **Family flags.** In UDB each type extension requires its family, and a family alone enables no type. In Sail a
@@ -60,6 +78,10 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 - **`altfmt` without Zvfbfa.** The spec lists Zve32f as the only dependency of `Zvvbf16mm`, and UDB agrees. Sail
   `0ebfc810` writes `vtype[8]` whenever IME is enabled. The rows therefore do not require Zvfbfa. This replaces the
   decision of 2026-10-27, taken with the old Sail, that BF16 and E5M2 outputs require Zvfbfa.
+- **E5M2 signaling NaN.** The spec says OFP8 special values follow "the rules of the operand formats" and does not
+  say whether an E5M2 NaN can be signaling. Sail treats all E5M2 NaNs as quiet. The testcase for 0x7D (signaling
+  under the IEEE convention) sets `fflags.NV` before the instruction, so C is the canonical NaN and NV is set either
+  way.
 - **QEMU command line.** It stays as the SDK ships it. `x-zvfbfa=true` would hide QEMU deviation 5.
 
 ## Spec delta 6effbcae → 58810918
@@ -81,8 +103,8 @@ Sail `0ebfc810` decodes the OFP8-accumulator rows and raises an illegal-instruct
 Sail branch `cgomez/ime-ofp8-acc` (`2cb7eefb`) implements them. Their tests are listed here and handled with that
 pull request.
 
-| Extension                           | Rows                        | Status              |
-| ----------------------------------- | --------------------------- | ------------------- |
-| `Zvvofp8mm`                         | `vfmmacc.vv` SEW=8          | no testplan row yet |
-| `Zvvofp4ofp8mm`                     | `vfwmmacc.vv` SEW=8         | no testplan row yet |
-| `Zvvxofp4ofp8mm`, `Zvvxnofp4ofp8mm` | `vfwmmacc.vv` SEW=8, `vm=0` | no testplan row yet |
+| Extension                           | Rows                        | Status                                                  |
+| ----------------------------------- | --------------------------- | ------------------------------------------------------- |
+| `Zvvofp8mm`                         | `vfmmacc.vv` SEW=8          | no testplan row; not declared in the configs (step 4.2) |
+| `Zvvofp4ofp8mm`                     | `vfwmmacc.vv` SEW=8         | no testplan row yet                                     |
+| `Zvvxofp4ofp8mm`, `Zvvxnofp4ofp8mm` | `vfwmmacc.vv` SEW=8, `vm=0` | no testplan row yet                                     |

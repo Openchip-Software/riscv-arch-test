@@ -22,7 +22,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/`).
 
 | What                    | Where                                                                            | Pin                                                               |
 | ----------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 8 commits on `act4` `7569d06d6` (section 5)                       |
+| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 9 commits on `act4` `7569d06d6` (section 5)                       |
 | ACT4, reports           | `~/repo/ime/riscv-arch-test-docs` (worktree), branch `docs/act-ime-reports`      |                                                                   |
 | UDB                     | Openchip-Software/riscv-unified-db `ime/fp-mx`, worktree `~/repo/ime/udb-act`    | `f0045fec`; will merge into `ime/0.9.0`                           |
 | Sail (reference)        | Openchip-Software/sail-riscv `cleanup/ime-0.9.0`, worktree `~/repo/ime/sail-act` | `0ebfc810`; binary in `~/repo/ime/sail-act/build-act/c_emulator/` |
@@ -90,16 +90,17 @@ Commits on `cgomez/ime-udb-0.9.0`, oldest first. The first three are `port-ime-t
 | `413966b5a` | `cp_ime_vd_overlap` in ExceptionsZvvm (spec `5bcd3946`)                                            |
 | `aaa0c329c` | `cp_fp_rnd`: rnd-dependent data, gated on the UDB FP disclosure                                    |
 | `59666b161` | `Zvvbf16mm`: BF16 accumulator through `vtype.altfmt`                                               |
+| `5494a1432` | `Zvvofp8{fp16,bf16,fp32,fp64}mm`: OFP8 inputs, E4M3 and E5M2 through `altfmt_A` and `altfmt_B`     |
 
 Suites. Each unprivileged suite expands per SEW (`Zvvmm8` … `Zvvmm64`).
 
-| Suite            | Testplan                            | Content                                                                           |
-| ---------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
-| `Zvvmm`          | `testplans/Zvvmm.csv`               | 13 integer MACC rows (W=1, 2, 4, 8; Int4); 4 tile-MACC rows                       |
-| `Zvvfmm`         | `testplans/Zvvfmm.csv`              | 9 FP MACC rows: FP16, BF16, FP32, FP64, FP16/BF16→FP32, FP32→FP64, FP16/BF16→FP64 |
-| `Zvvmtls`        | `testplans/Zvvmtls.csv`             | `vmtl.v`, `vmts.v`                                                                |
-| `Zvvmttls`       | `testplans/Zvvmttls.csv`            | `vmttl.v`, `vmtts.v`; cross-mode pairs with `vmtl.v` and `vmts.v`                 |
-| `ExceptionsZvvm` | `testplans/priv/ExceptionsZvvm.csv` | Illegal-instruction and `vstart` cases for MACC and tile instructions             |
+| Suite            | Testplan                            | Content                                                                                                      |
+| ---------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `Zvvmm`          | `testplans/Zvvmm.csv`               | 13 integer MACC rows (W=1, 2, 4, 8; Int4); 4 tile-MACC rows                                                  |
+| `Zvvfmm`         | `testplans/Zvvfmm.csv`              | 13 FP MACC rows: FP16, BF16, FP32, FP64, FP16/BF16→FP32, FP32→FP64, FP16/BF16→FP64, OFP8→FP16/BF16/FP32/FP64 |
+| `Zvvmtls`        | `testplans/Zvvmtls.csv`             | `vmtl.v`, `vmts.v`                                                                                           |
+| `Zvvmttls`       | `testplans/Zvvmttls.csv`            | `vmttl.v`, `vmtts.v`; cross-mode pairs with `vmtl.v` and `vmts.v`                                            |
+| `ExceptionsZvvm` | `testplans/priv/ExceptionsZvvm.csv` | Illegal-instruction and `vstart` cases for MACC and tile instructions                                        |
 
 Code in `generators/testgen/src/testgen/`:
 
@@ -110,9 +111,12 @@ Code in `generators/testgen/src/testgen/`:
   `imm_lambda`, `ld`.
 - `formatters/types/mmacc_type.py`: `MMACC` and `FMMACC`. C is a 16-register window at v0 or v16, loaded and checked
   as two m8 groups. FP data is exact in every order (small integers in A and B, half-integers in C), so the result
-  does not depend on the FP profile. The input and C formats come from the row's type extension.
+  does not depend on the FP profile. The input and C formats come from the row's type extension. For OFP8 rows,
+  `altfmt_A` and `altfmt_B` from the coverpoint select E4M3 or E5M2 per operand. A widening row with an FP16 or BF16
+  C puts at most one nonzero input in each storage element, so a dot product has at most 64 nonzero terms.
+- `data/edges.py`: E4M3, E5M2 and E2M1 edge tables. The `f_ofp8` and `f_ofp4` edge variants use them.
 - `formatters/types/tile_type.py`: `VLT` and `VST`.
-- `coverpoints/vector/`: `cr_lambda_lmul`, `cp_altfmt`, `cp_tile_vl`, `cp_tile.py`, `cp_custom_tile_macc`,
+- `coverpoints/vector/`: `cr_lambda_lmul`, `cp_altfmt` (variant `cp_altfmt_ofp8`), `cp_tile_vl`, `cp_tile.py`, `cp_custom_tile_macc`,
   `cp_custom_tile_crossmode`, `cp_fp_subdot`, `cp_fp_rnd`.
 - `priv/extensions/ExceptionsZvvm.py`: four generators. `vtype` is an assembler expression over `UDB_MXLEN`.
 
@@ -157,8 +161,12 @@ Results with Sail `0ebfc810`, all suites at all SEWs:
 
 | Config          | Result                                                                                                  |
 | --------------- | ------------------------------------------------------------------------------------------------------- |
-| `sail-ime-rv64` | 42/42 files pass, Zvvmttls and ExceptionsZvvm included                                                  |
-| `qemu-ime-rv64` | Integer and tile suites pass. Fail: the 5 W>1 Zvvfmm files, ExceptionsZvvm 7/7, and `Zvvbf16mm` (below) |
+| `sail-ime-rv64` | 46/46 files pass, Zvvmttls and ExceptionsZvvm included                                                  |
+| `qemu-ime-rv64` | Integer and tile suites pass. Fail: the 9 W>1 Zvvfmm files, ExceptionsZvvm 7/7, and `Zvvbf16mm` (below) |
+
+The 46 files on Sail: the earlier 42 plus 4 OFP8 files; the Zvvfmm suites were re-run (13/13) for this step. On QEMU,
+three OFP8 files fail first at `cp_fp_subdot` (deviation 4) and `Zvvofp8bf16mm` fails at its first testcase
+(deviation 5). Every OFP8 edge, `cp_altfmt_ofp8` and `cr_lambda_lmul` testcase before `cp_fp_subdot` passes on QEMU.
 
 QEMU deviations from the spec. An ELF stops at the first one, so later bins of a failing file are not measured.
 
@@ -179,7 +187,8 @@ Tests must not depend on it. See `reports/issues/ime-fp-internal-zero-sign/ISSUE
 
 Known limits:
 
-- Covergroups do not check `altfmt`, `altfmt_A` or `altfmt_B`. The `Zvvfp16mm` and `Zvvbf16mm` covergroups both
+- The OFP8 input edge coverpoints filter on `altfmt_A` or `altfmt_B`. Other covergroups do not check `altfmt`,
+  `altfmt_A` or `altfmt_B`. The `Zvvfp16mm` and `Zvvbf16mm` covergroups both
   sample every `vfmmacc.vv` at SEW=16. The FP16 and BF16 input rows at SEW=32 and 64 have the same problem.
 - ACT caps VLEN at 1024, so bins for λ ≥ 16 stay uncovered.
 - No RV32 configuration exists.
@@ -188,14 +197,14 @@ Known limits:
 
 ## 8. Next steps
 
-| Step                                                                                                         | Notes                                          |
-| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
-| 4.2 OFP8: `Zvvofp8mm`, `Zvvofp8{bf16,fp16,fp32,fp64}mm`. Then OFP4: `Zvvofp4{bf16,fp16,fp32,ofp8}mm`         | OFP8-accumulator rows go on the set-aside list |
-| 4.3 Microscaling `Zvvx*` (vm=0): `FMMACC_MX`, `MMACC_MX`, `cp_scale`, E8M0 edges, block-scale LMUL limits    | spec `0a13020a`, `324c62b7`                    |
-| 5 UDB ISS cross-check: run every IME ELF through the UDB C++ ISS and triage each mismatch                    | diagnostic only, not committed to ACT          |
-| Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                               | section 7                                      |
-| Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9                                      |
-| Upstream work packages; pull request to `act4`                                                               | needs approval to push                         |
+| Step                                                                                                         | Notes                                 |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| 4.2 OFP4: `Zvvofp4{bf16,fp16,fp32}mm` (OFP8 done in `5494a1432`; `Zvvofp4ofp8mm` is set aside)               | generator support is in place         |
+| 4.3 Microscaling `Zvvx*` (vm=0): `FMMACC_MX`, `MMACC_MX`, `cp_scale`, E8M0 edges, block-scale LMUL limits    | spec `0a13020a`, `324c62b7`           |
+| 5 UDB ISS cross-check: run every IME ELF through the UDB C++ ISS and triage each mismatch                    | diagnostic only, not committed to ACT |
+| Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                               | section 7                             |
+| Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9                             |
+| Upstream work packages; pull request to `act4`                                                               | needs approval to push                |
 
 For each new FP group:
 
@@ -218,3 +227,5 @@ When `ime/fp-mx` merges into `ime/0.9.0`, move the `udb-act` worktree to `ime/0.
    and Sail profiles.
 2. Does the Sail fork support RV32?
 3. When the spec ARC review draft merges, review the `ExceptionsZvvm` VL bins and the λ/KLEN naming.
+4. Can an E5M2 NaN be signaling? The spec defers OFP8 special values to "the rules of the operand formats". Sail
+   treats every E5M2 NaN as quiet. The 0x7D edge testcase presets `fflags.NV`, so it passes either way.
