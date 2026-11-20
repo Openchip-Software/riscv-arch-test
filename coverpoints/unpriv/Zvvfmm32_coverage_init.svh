@@ -19,6 +19,9 @@
 `ifdef ZVVFP32MM_SUPPORTED
     Zvvfmm32Zvvfp32mm_vfmmacc_vv_cg = new(); Zvvfmm32Zvvfp32mm_vfmmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvfp32mm_vfmmacc_vv");
 `endif
+`ifdef ZVVOFP4FP32MM_SUPPORTED
+    Zvvfmm32Zvvofp4fp32mm_vf8wmmacc_vv_cg = new(); Zvvfmm32Zvvofp4fp32mm_vf8wmmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvofp4fp32mm_vf8wmmacc_vv");
+`endif
 `ifdef ZVVOFP8FP32MM_SUPPORTED
     Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv_cg = new(); Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv");
 `endif

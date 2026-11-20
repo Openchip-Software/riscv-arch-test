@@ -12,3 +12,6 @@ vfwmmacc.vv,FMMACC,x,x,Zvvofp8fp16mm,,x,,,x,emul16,x,x,x,x,f,f_ofp8,f_ofp8,v,vou
 vfwmmacc.vv,FMMACC,x,x,Zvvofp8bf16mm,,x,,,x,emul16,x,x,x,x,f_bf16,f_ofp8,f_ofp8,v,voun,x,x,ofp8
 vfqmmacc.vv,FMMACC,x,x,Zvvofp8fp32mm,,,x,,x,emul16,x,x,x,x,f,f_ofp8,f_ofp8,v,voun,x,x,ofp8
 vf8wmmacc.vv,FMMACC,x,x,Zvvofp8fp64mm,,,,x,x,emul16,x,x,x,x,f,f_ofp8,f_ofp8,v,voun,x,x,ofp8
+vfqmmacc.vv,FMMACC,x,x,Zvvofp4fp16mm,,x,,,x,emul16,x,x,x,x,f,f_ofp4,f_ofp4,v,voun,x,,
+vfqmmacc.vv,FMMACC,x,x,Zvvofp4bf16mm,,x,,,x,emul16,x,x,x,x,f_bf16,f_ofp4,f_ofp4,v,voun,x,x,
+vf8wmmacc.vv,FMMACC,x,x,Zvvofp4fp32mm,,,x,,x,emul16,x,x,x,x,f,f_ofp4,f_ofp4,v,voun,x,,

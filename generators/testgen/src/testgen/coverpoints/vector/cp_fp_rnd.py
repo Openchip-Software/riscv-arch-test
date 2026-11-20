@@ -36,12 +36,16 @@ WIDENING_VALUES = {
 }
 
 # OFP8 inputs, (SEW, W) -> (A and B format, C0, products). E4M3 spans 2^-9 to 448. An FP64 C needs the E5M2 range,
-# 2^-16 to 57344. OFP4 products span only 2^-2 to 36, so no OFP4 row has a group sum that is inexact in its C format.
+# 2^-16 to 57344.
 OFP8_VALUES = {
     (16, 2): ("e4m3", -1.0, [(1.0, 1.0), (2.0**-6, 2.0**-6)]),  # S = 1 + 2^-12
     (32, 4): ("e4m3", -(2.0**16), [(2.0**8, 2.0**8), (2.0**-9, 2.0**-9)]),  # S = 2^16 + 2^-18
     (64, 8): ("e5m2", -(2.0**30), [(2.0**15, 2.0**15), (2.0**-16, 2.0**-16)]),  # S = 2^30 + 2^-32
 }
+
+# OFP4 inputs: E2M1 products are multiples of 2^-2 up to 36. A sum of W <= 8 of them is exact in FP16 and FP32, so
+# only a BF16 C (8 significant bits) has data. S = 3 * 36 + 2^-2 = 108.25 needs 9 significant bits.
+OFP4_BF16_VALUES = ("e2m1", -108.0, [(6.0, 6.0), (6.0, 6.0), (6.0, 6.0), (0.5, 0.5)])
 
 
 def rnd_values(
@@ -51,7 +55,7 @@ def rnd_values(
     if input_family == "ofp8":
         return OFP8_VALUES.get((sew, w))
     if input_family == "ofp4":
-        return None
+        return OFP4_BF16_VALUES if output_fmt == "bf16" else None
     if w > 1:
         values = WIDENING_VALUES.get((sew, w))
         return None if values is None else (input_family, *values)

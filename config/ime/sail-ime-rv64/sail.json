@@ -966,13 +966,13 @@
       "supported": true
     },
     "Zvvofp4bf16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvofp4fp16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvofp4fp32mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvofp4ofp8mm": {
       "supported": false
