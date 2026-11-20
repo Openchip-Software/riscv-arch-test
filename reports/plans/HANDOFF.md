@@ -22,7 +22,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/`).
 
 | What                    | Where                                                                            | Pin                                                               |
 | ----------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 12 commits on `act4` `7569d06d6` (section 5)                      |
+| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 13 commits on `act4` `7569d06d6` (section 5)                      |
 | ACT4, reports           | `~/repo/ime/riscv-arch-test-docs` (worktree), branch `docs/act-ime-reports`      |                                                                   |
 | UDB                     | Openchip-Software/riscv-unified-db `ime/fp-mx`, worktree `~/repo/ime/udb-act`    | `f0045fec`; will merge into `ime/0.9.0`                           |
 | Sail (reference)        | Openchip-Software/sail-riscv `cleanup/ime-0.9.0`, worktree `~/repo/ime/sail-act` | `0ebfc810`; binary in `~/repo/ime/sail-act/build-act/c_emulator/` |
@@ -94,6 +94,7 @@ Commits on `cgomez/ime-udb-0.9.0`, oldest first. The first three are `port-ime-t
 | `483225a9a` | `Zvvofp4{fp16,bf16,fp32}mm`: OFP4 (E2M1) inputs, every E2M1 encoding as an edge                    |
 | `42f233275` | `Zvvx[n]ofp8*`, `Zvvx[n]ofp4*` (FP16/BF16/FP32 C): microscaled FP MACC (vm=0), `cp_scale`          |
 | `89c7fdb33` | `Zvvx[n]i8*`, `Zvvx[n]i4*`: microscaled integer-input MACC (`vfwimmacc.vv` and the W=4, W=8 forms) |
+| `588fc52d6` | ExceptionsZvvm: microscaled illegal cases, an operand on v0 and bs=1 with W·LMUL > SEW             |
 
 Suites. Each unprivileged suite expands per SEW (`Zvvmm8` … `Zvvmm64`).
 
@@ -170,13 +171,14 @@ Results with Sail `0ebfc810`, all suites at all SEWs:
 
 | Config          | Result                                                                                                   |
 | --------------- | -------------------------------------------------------------------------------------------------------- |
-| `sail-ime-rv64` | 77/77 files pass, Zvvmttls and ExceptionsZvvm included                                                   |
+| `sail-ime-rv64` | 78/78 files pass, Zvvmttls and ExceptionsZvvm included                                                   |
 | `qemu-ime-rv64` | Integer and tile suites pass. Fail: the 12 W>1 Zvvfmm files, ExceptionsZvvm 7/7, and `Zvvbf16mm` (below) |
 
-The 77 files on Sail: the earlier 42 plus 4 OFP8, 3 OFP4 and 28 microscaled files. Only the Zvvfmm suites were
-re-run (44/44) for these steps. On QEMU, the OFP8 and OFP4 files with an FP16, FP32 or FP64 C fail first at
-`cp_fp_subdot` (deviation 4). `Zvvofp8bf16mm` and `Zvvofp4bf16mm` fail at their first testcase (deviation 5). Every OFP edge,
-`cp_altfmt_ofp8` and `cr_lambda_lmul` testcase before `cp_fp_subdot` passes on QEMU.
+The 78 files on Sail: the earlier 42 plus 4 OFP8, 3 OFP4 and 28 microscaled files, and an eighth ExceptionsZvvm file.
+Only the Zvvfmm suites were re-run (44/44) for these steps, and ExceptionsZvvm (8/8) for its microscaled illegal cases.
+On QEMU, the OFP8 and OFP4 files with an FP16, FP32 or FP64 C fail first at `cp_fp_subdot` (deviation 4).
+`Zvvofp8bf16mm` and `Zvvofp4bf16mm` fail at their first testcase (deviation 5). Every OFP edge, `cp_altfmt_ofp8` and
+`cr_lambda_lmul` testcase before `cp_fp_subdot` passes on QEMU.
 
 QEMU deviations from the spec. An ELF stops at the first one, so later bins of a failing file are not measured.
 
@@ -206,19 +208,22 @@ Known limits:
   cover the operand fields, which vm does not change.
 - The microscaled QEMU path is not run: QEMU needs `x-zvvfmmmx=true`, and the command line stays as shipped. That
   path also rounds the scale product to FP32 and then to the C format, which the spec forbids.
+- [Inferred from the code] `cp_ime_vm0` is never sampled. vm=0 `vmmacc.vv` and `vfmmacc.vv` match no entry in
+  `disassemble.svh` or `RISCV_disasm_fallback.svh`, so `inst_name` is "illegal" and no ExceptionsZvvm covergroup
+  samples them. The microscaled encodings decode, so the `cp_ime_mx_*` bins are sampled.
 - No RV32 configuration exists.
 - GCC names the W=4 instructions `vqwmmacc.vv`, `vfqwmmacc.vv` and `vfqwimmacc.vv`. The CSVs use the spec names. The
   `.insn` macros accept both.
 
 ## 8. Next steps
 
-| Step                                                                                                           | Notes                                 |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| 4.3 Microscaling, illegal cases in ExceptionsZvvm: bs=1 with W·LMUL > SEW, an operand on v0, vm=0 `vfmmacc.vv` | spec `0a13020a`                       |
-| 5 UDB ISS cross-check: run every IME ELF through the UDB C++ ISS and triage each mismatch                      | diagnostic only, not committed to ACT |
-| Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                                 | section 7                             |
-| Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data   | design §9                             |
-| Upstream work packages; pull request to `act4`                                                                 | needs approval to push                |
+| Step                                                                                                         | Notes                                 |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| Coverage: decode vm=0 `vmmacc.vv` and `vfmmacc.vv` so `cp_ime_vm0` can be sampled                            | section 7                             |
+| 5 UDB ISS cross-check: run every IME ELF through the UDB C++ ISS and triage each mismatch                    | diagnostic only, not committed to ACT |
+| Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                               | section 7                             |
+| Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9                             |
+| Upstream work packages; pull request to `act4`                                                               | needs approval to push                |
 
 For each new FP group:
 

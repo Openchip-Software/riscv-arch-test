@@ -111,6 +111,24 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 - Earlier tests regenerate byte for byte. pyslang compiles Zvvfmm16/32/64. Results: Zvvfmm16 22/22, Zvvfmm32 13/13,
   Zvvfmm64 9/9 on `sail-ime-rv64`.
 
+## Step 4.3: microscaled illegal cases in ExceptionsZvvm (`588fc52d6`)
+
+- Spec `58810918`: each microscaled MACC raises an illegal-instruction exception when `bs=1` and W·LMUL > SEW, and when
+  `vd`, `vs1` or `vs2` overlaps v0. Sail `ime_mx_operands_ok` checks the same two conditions.
+- `cp_ime_mx_v0_overlap`: `vd`, `vs1` or `vs2` at v0 (aligned groups overlap v0 only at v0), for every microscaled
+  instruction and C SEW with an FP16, FP32 or FP64 C. 30 testcases.
+- `cp_ime_mx_bs16_lmul_e16` and `_e32`: `bs=1` at LMUL=8, A and B both at v8. W·LMUL > SEW is reachable only for W=4 at
+  SEW 16 and W=8 at SEW 32: `vfqmmacc.vv`, `vf8wmmacc.vv`, `vfqimmacc.vv`, `vf8wimmacc.vv`. 4 testcases.
+- The MX cases take their SEWs from `MX_TYPE_EXTENSION`, not from the EFFEW columns. A bs=0 case is guarded on
+  `Zvvx*` or `Zvvxn*`, a bs=1 case on `Zvvxn*`. New testplan rows: `vf8wmmacc.vv`, `vfwimmacc.vv`, `vfqimmacc.vv`,
+  `vf8wimmacc.vv` (type `FMMACC_MX`, MX columns only).
+- Not tested: SEW·λ < 16 cannot occur, since every MX row has SEW ≥ 16. vm=0 on `vfmmacc.vv` is the existing
+  `cp_ime_vm0`.
+- The Sail trace shows every one of the 34 instructions trapping. Earlier testcase labels are unchanged. pyslang
+  compiles ExceptionsZvvm. Result: ExceptionsZvvm 8/8 on `sail-ime-rv64`. The Zvvfmm cases now fill two files.
+- `qemu-ime-rv64` declares no microscaled extension, so the MX cases are compiled out. ExceptionsZvvm still fails
+  7/7 there (no Zvvmttls file), first at `cp_ime_vstart` (deviation 1).
+
 ## Decisions
 
 - **Family flags.** In UDB each type extension requires its family, and a family alone enables no type. In Sail a
