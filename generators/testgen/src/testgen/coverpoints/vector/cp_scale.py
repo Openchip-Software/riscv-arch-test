@@ -38,13 +38,6 @@ OVERFLOW_EXPONENT = {"fp16": 16, "bf16": 128, "fp32": 128}
 OVERFLOW_INPUT = 0.5
 
 
-def input_bits(value: float, input_fmt: str) -> int:
-    """Encode an input value in an OFP format, or as a two's-complement integer for i4 and i8."""
-    if input_fmt in ("i4", "i8"):
-        return int(value) & ((1 << int(input_fmt[1:])) - 1)
-    return fp_bits(value, input_fmt)
-
-
 @add_coverpoint_generator("cp_scale")
 def make_scale(instr_name: str, instr_type: str, coverpoint: str, test_data: TestData) -> list[TestChunk]:
     """
@@ -99,7 +92,7 @@ def make_scale(instr_name: str, instr_type: str, coverpoint: str, test_data: Tes
         if value is not None:
             # A[0][0] = value and every other element of A is 0; every element of B is value
             count = VLEN_MAX // sew
-            lane = input_bits(value, input_fmt)
+            lane = fp_bits(value, input_fmt)
             a = [lane] + [0] * (count - 1)
             b = [sum(lane << (i * lane_bits) for i in range(w))] * count
             for reg, data in (("vs1", a), ("vs2", b)):

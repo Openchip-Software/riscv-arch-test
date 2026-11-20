@@ -78,8 +78,17 @@ fmmacc_mx_config = InstructionTypeConfig(
     ),
 )
 
-# Widening factor W of each multiply-accumulate mnemonic
-WIDENING = {"vfmmacc.vv": 1, "vfwmmacc.vv": 2, "vfqmmacc.vv": 4, "vf8wmmacc.vv": 8}
+# Widening factor W of each multiply-accumulate mnemonic. vfwimmacc.vv, vfqimmacc.vv and vf8wimmacc.vv take
+# integer inputs and a floating-point C; they exist only with vm=0.
+WIDENING = {
+    "vfmmacc.vv": 1,
+    "vfwmmacc.vv": 2,
+    "vfqmmacc.vv": 4,
+    "vf8wmmacc.vv": 8,
+    "vfwimmacc.vv": 2,
+    "vfqimmacc.vv": 4,
+    "vf8wimmacc.vv": 8,
+}
 # E8M0 block scales: bias 127, 0xFF is NaN. A paired-scale element holds scale_A in bits 7:0 and scale_B in bits 15:8.
 E8M0_BIAS = 127
 E8M0_NAN = 0xFF
@@ -93,7 +102,14 @@ OFP_FORMATS = {"e4m3": (4, 3, 7), "e5m2": (5, 2, 15), "e2m1": (2, 1, 1)}
 
 
 def fp_bits(value: float, fmt: str) -> int:
-    """Encode an exactly representable finite value in e2m1, e4m3, e5m2, fp16, bf16, fp32 or fp64."""
+    """
+    Encode an exactly representable finite value in e2m1, e4m3, e5m2, fp16, bf16, fp32 or fp64, or an integer value
+    in two's complement i4 or i8.
+    """
+    if fmt in ("i4", "i8"):
+        width = int(fmt[1:])
+        assert value.is_integer() and -(2 ** (width - 1)) <= value < 2 ** (width - 1), f"{value} is not an {fmt}"
+        return int(value) & ((1 << width) - 1)
     if fmt in OFP_FORMATS:
         ebits, mbits, bias = OFP_FORMATS[fmt]
         sign = 1 << (ebits + mbits) if math.copysign(1.0, value) < 0 else 0

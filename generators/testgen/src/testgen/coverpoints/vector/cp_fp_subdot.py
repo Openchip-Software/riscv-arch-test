@@ -36,8 +36,11 @@ PRECISION = {"fp16": 11, "bf16": 8, "fp32": 24, "fp64": 53}
 
 
 def subdot_values(sew: int, w: int, input_family: str, output_fmt: str) -> tuple[float, float, float]:
-    """(C0, A value, B value) of a row. OFP inputs use A = B = 1.0 and C0 = W * 2^(p-1), whose ULP is W."""
-    if input_family in ("ofp4", "ofp8"):
+    """
+    (C0, A value, B value) of a row. OFP and integer inputs use A = B = 1 and C0 = W * 2^(p-1), whose ULP is W. For
+    integer inputs, the specification sums the products of a microscaling block exactly before one rounding.
+    """
+    if input_family in ("ofp4", "ofp8", "i4", "i8"):
         return 2.0 ** (PRECISION[output_fmt] - 1) * w, 1.0, 1.0
     return SUBDOT_VALUES[(sew, w)]
 

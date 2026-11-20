@@ -207,6 +207,21 @@ implemented_extensions:
   - { name: Zvvxnofp4fp16mm, version: "= 0.9.0" }
   - { name: Zvvxnofp4bf16mm, version: "= 0.9.0" }
   - { name: Zvvxnofp4fp32mm, version: "= 0.9.0" }
+  # Microscaled integer-input types, floating-point C (vfwimmacc.vv, vfqimmacc.vv, vf8wimmacc.vv)
+  - { name: Zvvxi8fp16mm, version: "= 0.9.0" }
+  - { name: Zvvxi8bf16mm, version: "= 0.9.0" }
+  - { name: Zvvxi4fp16mm, version: "= 0.9.0" }
+  - { name: Zvvxi4bf16mm, version: "= 0.9.0" }
+  - { name: Zvvxi8fp32mm, version: "= 0.9.0" }
+  - { name: Zvvxi4fp32mm, version: "= 0.9.0" }
+  - { name: Zvvxi8fp64mm, version: "= 0.9.0" }
+  - { name: Zvvxni8fp16mm, version: "= 0.9.0" }
+  - { name: Zvvxni8bf16mm, version: "= 0.9.0" }
+  - { name: Zvvxni4fp16mm, version: "= 0.9.0" }
+  - { name: Zvvxni4bf16mm, version: "= 0.9.0" }
+  - { name: Zvvxni8fp32mm, version: "= 0.9.0" }
+  - { name: Zvvxni4fp32mm, version: "= 0.9.0" }
+  - { name: Zvvxni8fp64mm, version: "= 0.9.0" }
 
 params:
   # Trap delegation: the writable medeleg and mideleg bits (sail.json base.medeleg and

@@ -2078,6 +2078,12 @@
             ins.add_vm(3);
             ins.add_v0();
         end
+        "vf8wimmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
+            ins.add_v0();
+        end
         "vf8wmmacc.vv"     : begin
             ins.add_vd(0);
             ins.add_vs1(1);
@@ -2393,6 +2399,12 @@
             ins.add_vm(3);
             ins.add_v0();
         end
+        "vfqimmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
+            ins.add_v0();
+        end
         "vfqmmacc.vv"     : begin
             ins.add_vd(0);
             ins.add_vs1(1);
@@ -2603,6 +2615,12 @@
             ins.add_vd(0);
             ins.add_vs2(1);
             ins.add_vm(2);
+            ins.add_v0();
+        end
+        "vfwimmacc.vv"     : begin
+            ins.add_vd(0);
+            ins.add_vs1(1);
+            ins.add_vs2(2);
             ins.add_v0();
         end
         "vfwmacc.vf"     : begin

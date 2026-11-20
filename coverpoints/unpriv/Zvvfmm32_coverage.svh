@@ -1225,6 +1225,865 @@ covergroup Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv_cg with function sample(ins_t ins);
 endgroup
 // ---------------------
 `endif
+`ifdef ZVVXI4FP32MM_SUPPORTED
+covergroup Zvvfmm32Zvvxi4fp32mm_vf8wimmacc_vv_cg with function sample(ins_t ins);
+    option.per_instance = 0;
+    cp_asm_count : coverpoint ins.ins_str == "vf8wimmacc.vv"  iff (ins.trap == 0 )  {
+        // Number of times instruction is executed
+        bins count[]  = {1};
+    }
+
+    cp_csr_fflags_voun : coverpoint {
+        get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "fflags")[4:0],
+        get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, "fcsr", "fflags")[4:0]
+    } iff (ins.trap == 0 )  {
+        // Value of FCSR.fflags
+        wildcard bins NV   = {10'b0????_1????};
+        wildcard bins NV1  = {10'b1????_1????};
+        wildcard bins OF   = {10'b??0??_??1??};
+        wildcard bins OF1  = {10'b??1??_??1??};
+        wildcard bins UF   = {10'b???0?_???1?};
+        wildcard bins UF1  = {10'b???1?_???1?};
+        wildcard bins NX   = {10'b????0_????1};
+        wildcard bins NX1  = {10'b????1_????1};
+    }
+
+    cp_csr_frm_v : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "frm")  iff (ins.trap == 0 )  {
+        // Value of FCSR.frm for vector FP instructions, which do not specify dynamic rounding mode in opcode
+        bins rne  = {3'b000};
+        bins rtz  = {3'b001};
+        bins rdn  = {3'b010};
+        bins rup  = {3'b011};
+        bins rmm  = {3'b100};
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_fp_subdot
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_fp_subdot : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "frm")  iff (ins.trap == 0 )  {
+        // FCSR.frm for a widening multiply-accumulate whose W products add up to one ULP of C
+        bins ulp_rne = {3'b000};
+        bins ulp_rtz = {3'b001};
+        bins ulp_rdn = {3'b010};
+        bins ulp_rup = {3'b011};
+        bins ulp_rmm = {3'b100};
+    }
+
+    //// end cp_fp_subdot////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_mx_bs_32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_mx_bs_32 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "bs")  iff (ins.trap == 0 )  {
+        // VTYPE.bs = 0 selects the microscaling block size 32
+        bins bs_32 = {0};
+    }
+
+    //// end cp_mx_bs_32////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_scale_fp32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_scale_pair_fp32 : coverpoint ins.current.v0_val[15:0]  iff (ins.trap == 0 & ins.current.insn[25] == 1'b0)  {
+        // Paired E8M0 scales of element 0 of v0: scale_A of row 0 in bits 7:0, scale_B of column 0 in bits 15:8
+        wildcard bins nan_a = {16'b????????11111111};
+        wildcard bins nan_b = {16'b11111111????????};
+        bins min_max = {16'hFE00};  // scale_A = 2^-127, scale_B = 2^127
+        bins max_min = {16'h00FE};  // scale_A = 2^127, scale_B = 2^-127
+    }
+
+    cp_scale_combined_fp32 : coverpoint int'(ins.current.v0_val[7:0]) + int'(ins.current.v0_val[15:8]) - 254  iff (ins.trap == 0 & ins.current.insn[25] == 1'b0 & ins.current.v0_val[7:0] != 8'hFF & ins.current.v0_val[15:8] != 8'hFF)  {
+        // Combined exponent of the scales of element 0 of v0, outside the exponent range of an FP32 C
+        bins underflow = {[-254:-150]};  // below the smallest fp32 subnormal, 2^-149
+        bins overflow  = {[128:254]};  // above the largest fp32 exponent, 127
+    }
+
+    //// end cp_scale_fp32////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_tile_vl
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_tile_vl : coverpoint vl_check(ins.hart, ins.issue, ime_column_vl(ins.hart, ins.issue))  iff (ins.trap == 0 )  {
+        // VL in units of one C column (lambda*LMUL elements)
+        bins one_column = {vl_one   };
+        bins vlmax      = {vl_vlmax };
+        bins legal      = {vl_legal };
+    }
+
+    //// end cp_tile_vl////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vd_edges_f_sew32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vd_edges_f_sew32 : coverpoint get_vr_element_zero(ins.hart, ins.issue, ins.current.vd_val_pre)[31:0]  iff (ins.trap == 0 )  {
+        // Standard precision coverpoints
+        bins pos0                   = {32'h00000000};
+        bins neg0                   = {32'h80000000};
+        bins pos1                   = {32'h3F800000};
+        bins neg1                   = {32'hBF800000};
+        bins posminnorm             = {32'h00800000};
+        bins negmaxnorm             = {32'hFF7FFFFF};
+        bins posinfinity            = {32'h7F800000};
+        bins neginfinity            = {32'hFF800000};
+        bins pos0p5                 = {32'h3F000000};
+        bins pos1p5                 = {32'h3FC00000};
+        bins neg2                   = {32'hC0000000};
+        bins pi                     = {32'h40490FDB};
+        bins twoToEmax              = {32'h7F000000};   // 2^127
+        bins onePulp                = {32'h3F800001};   // 1 + ULP
+        bins largestsubnorm         = {32'h007FFFFF};
+        bins negSubnormLeadingOne   = {32'h80400000};   // subnormal with MSB of fraction = 1
+        bins min_subnorm            = {32'h00000001};
+        bins canonicalQNaN          = {32'h7FC00000};   // quiet NaN, canonical payload
+        bins negNoncanonicalQNaN    = {[32'hFFC00001:32'hFFFFFFFF]}; // other quiet NaNs
+        bins sNaN_payload1          = {32'h7F800001};   // signaling NaN with payload 1
+    }
+
+    //// end cp_vd_edges_f_sew32        //////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vd_nv0_emul16
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vd_nv0_emul16 : coverpoint ins.get_vr_reg(ins.current.vd)  iff (ins.trap == 0 )  {
+        // VD register assignment for a C register window of 16 registers that does not contain v0
+        bins v16 = {v16};
+    }
+
+    //// end cp_vd_nv0_emul16////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vs1_edges_emulf8
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vs1_edges_emulf8 : coverpoint vs_edges_check(ins.hart, ins.issue, ins.current.vs1_val, "f8")  iff (ins.trap == 0 )  {
+        // Edges values of vs1 (emul = f8), assuming vl = 1
+        bins zero       = {vs_zero      };   //  = {(`SEW){1'b0}},
+        bins one        = {vs_one       };   //  = {(`SEW-1){1'b0}, {1'b1}},
+        bins two        = {vs_two       };   //  = {(`SEW-2){1'b0}, {2'b10}},
+        bins min        = {vs_min       };   //  = {{1'b1}, (`SEW-1){1'b0}},
+        bins minp1      = {vs_minp1     };   //  = {{1'b1}, (`SEW-2){1'b0}, {1'b1}},
+        bins max        = {vs_max       };   //  = {{1'b0}, (`SEW-1){1'b1}},
+        bins maxm1      = {vs_maxm1     };   //  = {{1'b0}, (`SEW-2){1'b1}, {1'b0}},
+        bins ones       = {vs_ones      };   //  = {(`SEW){1'b1}},
+        bins onesm1     = {vs_onesm1    };   //  = {(`SEW-1){1'b1}, {1'b0}},
+        bins walkodd    = {vs_walkodd   };   //  = {(`SEW/2){2'b10}},
+        bins walkeven   = {vs_walkeven  };   //  = {(`SEW/2){2'b01}},
+        bins random     = {vs_random    };   //  = {(SEW){random}}
+    }
+
+    //// end cp_vs1_edges_emulf8////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vs2_edges_emulf8
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vs2_edges_emulf8 : coverpoint vs_edges_check(ins.hart, ins.issue, ins.current.vs2_val, "f8")  iff (ins.trap == 0 )  {
+        // Edges values of vs2 (emul = f8), assuming vl = 1
+        bins zero       = {vs_zero      };   //  = {(`SEW){1'b0}},
+        bins one        = {vs_one       };   //  = {(`SEW-1){1'b0}, {1'b1}},
+        bins two        = {vs_two       };   //  = {(`SEW-2){1'b0}, {2'b10}},
+        bins min        = {vs_min       };   //  = {{1'b1}, (`SEW-1){1'b0}},
+        bins minp1      = {vs_minp1     };   //  = {{1'b1}, (`SEW-2){1'b0}, {1'b1}},
+        bins max        = {vs_max       };   //  = {{1'b0}, (`SEW-1){1'b1}},
+        bins maxm1      = {vs_maxm1     };   //  = {{1'b0}, (`SEW-2){1'b1}, {1'b0}},
+        bins ones       = {vs_ones      };   //  = {(`SEW){1'b1}},
+        bins onesm1     = {vs_onesm1    };   //  = {(`SEW-1){1'b1}, {1'b0}},
+        bins walkodd    = {vs_walkodd   };   //  = {(`SEW/2){2'b10}},
+        bins walkeven   = {vs_walkeven  };   //  = {(`SEW/2){2'b01}},
+        bins random     = {vs_random    };   //  = {(SEW){random}}
+    }
+
+    //// end cp_vs2_edges_emulf8////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cr_lambda_lmul
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_csr_vtype_lambda : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "lambda")  iff (ins.trap == 0 )  {
+        // Value of VTYPE.lambda, encoded as log2(lambda) + 1
+        bins one       = {1};
+        bins two       = {2};
+        bins four      = {3};
+        bins eight     = {4};
+        bins sixteen   = {5};
+        bins thirtytwo = {6};
+        bins sixtyfour = {7};
+    }
+
+    cp_csr_vtype_lmul_ime : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vlmul")  iff (ins.trap == 0 )  {
+        // Value of VTYPE.vlmul; IME instructions reserve fractional LMUL
+        bins one    = {0};
+        bins two    = {1};
+        bins four   = {2};
+        bins eight  = {3};
+    }
+
+    cp_csr_vl_vlmax : coverpoint vl_check(ins.hart, ins.issue)  iff (ins.trap == 0 )  {
+        // VL = VLMAX
+        bins vlmax = {vl_vlmax};
+    }
+
+    cr_lambda_lmul : cross cp_csr_vtype_lambda, cp_csr_vtype_lmul_ime, cp_csr_vl_vlmax  iff (ins.trap == 0 )  {
+        // Cross coverage of lambda and integer LMUL at VL = VLMAX
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////
+
+    //// end cr_lambda_lmul////////////////////////////////////////////////
+
+endgroup
+// ---------------------
+`endif
+`ifdef ZVVXI8FP32MM_SUPPORTED
+covergroup Zvvfmm32Zvvxi8fp32mm_vfqimmacc_vv_cg with function sample(ins_t ins);
+    option.per_instance = 0;
+    cp_asm_count : coverpoint ins.ins_str == "vfqimmacc.vv"  iff (ins.trap == 0 )  {
+        // Number of times instruction is executed
+        bins count[]  = {1};
+    }
+
+    cp_csr_fflags_voun : coverpoint {
+        get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "fflags")[4:0],
+        get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, "fcsr", "fflags")[4:0]
+    } iff (ins.trap == 0 )  {
+        // Value of FCSR.fflags
+        wildcard bins NV   = {10'b0????_1????};
+        wildcard bins NV1  = {10'b1????_1????};
+        wildcard bins OF   = {10'b??0??_??1??};
+        wildcard bins OF1  = {10'b??1??_??1??};
+        wildcard bins UF   = {10'b???0?_???1?};
+        wildcard bins UF1  = {10'b???1?_???1?};
+        wildcard bins NX   = {10'b????0_????1};
+        wildcard bins NX1  = {10'b????1_????1};
+    }
+
+    cp_csr_frm_v : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "frm")  iff (ins.trap == 0 )  {
+        // Value of FCSR.frm for vector FP instructions, which do not specify dynamic rounding mode in opcode
+        bins rne  = {3'b000};
+        bins rtz  = {3'b001};
+        bins rdn  = {3'b010};
+        bins rup  = {3'b011};
+        bins rmm  = {3'b100};
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_fp_subdot
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_fp_subdot : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "frm")  iff (ins.trap == 0 )  {
+        // FCSR.frm for a widening multiply-accumulate whose W products add up to one ULP of C
+        bins ulp_rne = {3'b000};
+        bins ulp_rtz = {3'b001};
+        bins ulp_rdn = {3'b010};
+        bins ulp_rup = {3'b011};
+        bins ulp_rmm = {3'b100};
+    }
+
+    //// end cp_fp_subdot////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_mx_bs_32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_mx_bs_32 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "bs")  iff (ins.trap == 0 )  {
+        // VTYPE.bs = 0 selects the microscaling block size 32
+        bins bs_32 = {0};
+    }
+
+    //// end cp_mx_bs_32////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_scale_fp32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_scale_pair_fp32 : coverpoint ins.current.v0_val[15:0]  iff (ins.trap == 0 & ins.current.insn[25] == 1'b0)  {
+        // Paired E8M0 scales of element 0 of v0: scale_A of row 0 in bits 7:0, scale_B of column 0 in bits 15:8
+        wildcard bins nan_a = {16'b????????11111111};
+        wildcard bins nan_b = {16'b11111111????????};
+        bins min_max = {16'hFE00};  // scale_A = 2^-127, scale_B = 2^127
+        bins max_min = {16'h00FE};  // scale_A = 2^127, scale_B = 2^-127
+    }
+
+    cp_scale_combined_fp32 : coverpoint int'(ins.current.v0_val[7:0]) + int'(ins.current.v0_val[15:8]) - 254  iff (ins.trap == 0 & ins.current.insn[25] == 1'b0 & ins.current.v0_val[7:0] != 8'hFF & ins.current.v0_val[15:8] != 8'hFF)  {
+        // Combined exponent of the scales of element 0 of v0, outside the exponent range of an FP32 C
+        bins underflow = {[-254:-150]};  // below the smallest fp32 subnormal, 2^-149
+        bins overflow  = {[128:254]};  // above the largest fp32 exponent, 127
+    }
+
+    //// end cp_scale_fp32////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_tile_vl
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_tile_vl : coverpoint vl_check(ins.hart, ins.issue, ime_column_vl(ins.hart, ins.issue))  iff (ins.trap == 0 )  {
+        // VL in units of one C column (lambda*LMUL elements)
+        bins one_column = {vl_one   };
+        bins vlmax      = {vl_vlmax };
+        bins legal      = {vl_legal };
+    }
+
+    //// end cp_tile_vl////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vd_edges_f_sew32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vd_edges_f_sew32 : coverpoint get_vr_element_zero(ins.hart, ins.issue, ins.current.vd_val_pre)[31:0]  iff (ins.trap == 0 )  {
+        // Standard precision coverpoints
+        bins pos0                   = {32'h00000000};
+        bins neg0                   = {32'h80000000};
+        bins pos1                   = {32'h3F800000};
+        bins neg1                   = {32'hBF800000};
+        bins posminnorm             = {32'h00800000};
+        bins negmaxnorm             = {32'hFF7FFFFF};
+        bins posinfinity            = {32'h7F800000};
+        bins neginfinity            = {32'hFF800000};
+        bins pos0p5                 = {32'h3F000000};
+        bins pos1p5                 = {32'h3FC00000};
+        bins neg2                   = {32'hC0000000};
+        bins pi                     = {32'h40490FDB};
+        bins twoToEmax              = {32'h7F000000};   // 2^127
+        bins onePulp                = {32'h3F800001};   // 1 + ULP
+        bins largestsubnorm         = {32'h007FFFFF};
+        bins negSubnormLeadingOne   = {32'h80400000};   // subnormal with MSB of fraction = 1
+        bins min_subnorm            = {32'h00000001};
+        bins canonicalQNaN          = {32'h7FC00000};   // quiet NaN, canonical payload
+        bins negNoncanonicalQNaN    = {[32'hFFC00001:32'hFFFFFFFF]}; // other quiet NaNs
+        bins sNaN_payload1          = {32'h7F800001};   // signaling NaN with payload 1
+    }
+
+    //// end cp_vd_edges_f_sew32        //////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vd_nv0_emul16
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vd_nv0_emul16 : coverpoint ins.get_vr_reg(ins.current.vd)  iff (ins.trap == 0 )  {
+        // VD register assignment for a C register window of 16 registers that does not contain v0
+        bins v16 = {v16};
+    }
+
+    //// end cp_vd_nv0_emul16////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vs1_edges_emulf4
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vs1_edges_emulf4 : coverpoint vs_edges_check(ins.hart, ins.issue, ins.current.vs1_val, "f4")  iff (ins.trap == 0 )  {
+        // Edges values of vs1 (emul = f4), assuming vl = 1
+        bins zero       = {vs_zero      };   //  = {(`SEW){1'b0}},
+        bins one        = {vs_one       };   //  = {(`SEW-1){1'b0}, {1'b1}},
+        bins two        = {vs_two       };   //  = {(`SEW-2){1'b0}, {2'b10}},
+        bins min        = {vs_min       };   //  = {{1'b1}, (`SEW-1){1'b0}},
+        bins minp1      = {vs_minp1     };   //  = {{1'b1}, (`SEW-2){1'b0}, {1'b1}},
+        bins max        = {vs_max       };   //  = {{1'b0}, (`SEW-1){1'b1}},
+        bins maxm1      = {vs_maxm1     };   //  = {{1'b0}, (`SEW-2){1'b1}, {1'b0}},
+        bins ones       = {vs_ones      };   //  = {(`SEW){1'b1}},
+        bins onesm1     = {vs_onesm1    };   //  = {(`SEW-1){1'b1}, {1'b0}},
+        bins walkodd    = {vs_walkodd   };   //  = {(`SEW/2){2'b10}},
+        bins walkeven   = {vs_walkeven  };   //  = {(`SEW/2){2'b01}},
+        bins random     = {vs_random    };   //  = {(SEW){random}}
+    }
+
+    //// end cp_vs1_edges_emulf4////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vs2_edges_emulf4
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vs2_edges_emulf4 : coverpoint vs_edges_check(ins.hart, ins.issue, ins.current.vs2_val, "f4")  iff (ins.trap == 0 )  {
+        // Edges values of vs2 (emul = f4), assuming vl = 1
+        bins zero       = {vs_zero      };   //  = {(`SEW){1'b0}},
+        bins one        = {vs_one       };   //  = {(`SEW-1){1'b0}, {1'b1}},
+        bins two        = {vs_two       };   //  = {(`SEW-2){1'b0}, {2'b10}},
+        bins min        = {vs_min       };   //  = {{1'b1}, (`SEW-1){1'b0}},
+        bins minp1      = {vs_minp1     };   //  = {{1'b1}, (`SEW-2){1'b0}, {1'b1}},
+        bins max        = {vs_max       };   //  = {{1'b0}, (`SEW-1){1'b1}},
+        bins maxm1      = {vs_maxm1     };   //  = {{1'b0}, (`SEW-2){1'b1}, {1'b0}},
+        bins ones       = {vs_ones      };   //  = {(`SEW){1'b1}},
+        bins onesm1     = {vs_onesm1    };   //  = {(`SEW-1){1'b1}, {1'b0}},
+        bins walkodd    = {vs_walkodd   };   //  = {(`SEW/2){2'b10}},
+        bins walkeven   = {vs_walkeven  };   //  = {(`SEW/2){2'b01}},
+        bins random     = {vs_random    };   //  = {(SEW){random}}
+    }
+
+    //// end cp_vs2_edges_emulf4////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cr_lambda_lmul
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_csr_vtype_lambda : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "lambda")  iff (ins.trap == 0 )  {
+        // Value of VTYPE.lambda, encoded as log2(lambda) + 1
+        bins one       = {1};
+        bins two       = {2};
+        bins four      = {3};
+        bins eight     = {4};
+        bins sixteen   = {5};
+        bins thirtytwo = {6};
+        bins sixtyfour = {7};
+    }
+
+    cp_csr_vtype_lmul_ime : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vlmul")  iff (ins.trap == 0 )  {
+        // Value of VTYPE.vlmul; IME instructions reserve fractional LMUL
+        bins one    = {0};
+        bins two    = {1};
+        bins four   = {2};
+        bins eight  = {3};
+    }
+
+    cp_csr_vl_vlmax : coverpoint vl_check(ins.hart, ins.issue)  iff (ins.trap == 0 )  {
+        // VL = VLMAX
+        bins vlmax = {vl_vlmax};
+    }
+
+    cr_lambda_lmul : cross cp_csr_vtype_lambda, cp_csr_vtype_lmul_ime, cp_csr_vl_vlmax  iff (ins.trap == 0 )  {
+        // Cross coverage of lambda and integer LMUL at VL = VLMAX
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////
+
+    //// end cr_lambda_lmul////////////////////////////////////////////////
+
+endgroup
+// ---------------------
+`endif
+`ifdef ZVVXNI4FP32MM_SUPPORTED
+covergroup Zvvfmm32Zvvxni4fp32mm_vf8wimmacc_vv_cg with function sample(ins_t ins);
+    option.per_instance = 0;
+    cp_asm_count : coverpoint ins.ins_str == "vf8wimmacc.vv"  iff (ins.trap == 0 )  {
+        // Number of times instruction is executed
+        bins count[]  = {1};
+    }
+
+    cp_csr_fflags_voun : coverpoint {
+        get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "fflags")[4:0],
+        get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, "fcsr", "fflags")[4:0]
+    } iff (ins.trap == 0 )  {
+        // Value of FCSR.fflags
+        wildcard bins NV   = {10'b0????_1????};
+        wildcard bins NV1  = {10'b1????_1????};
+        wildcard bins OF   = {10'b??0??_??1??};
+        wildcard bins OF1  = {10'b??1??_??1??};
+        wildcard bins UF   = {10'b???0?_???1?};
+        wildcard bins UF1  = {10'b???1?_???1?};
+        wildcard bins NX   = {10'b????0_????1};
+        wildcard bins NX1  = {10'b????1_????1};
+    }
+
+    cp_csr_frm_v : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "frm")  iff (ins.trap == 0 )  {
+        // Value of FCSR.frm for vector FP instructions, which do not specify dynamic rounding mode in opcode
+        bins rne  = {3'b000};
+        bins rtz  = {3'b001};
+        bins rdn  = {3'b010};
+        bins rup  = {3'b011};
+        bins rmm  = {3'b100};
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_fp_subdot
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_fp_subdot : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "frm")  iff (ins.trap == 0 )  {
+        // FCSR.frm for a widening multiply-accumulate whose W products add up to one ULP of C
+        bins ulp_rne = {3'b000};
+        bins ulp_rtz = {3'b001};
+        bins ulp_rdn = {3'b010};
+        bins ulp_rup = {3'b011};
+        bins ulp_rmm = {3'b100};
+    }
+
+    //// end cp_fp_subdot////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_mx_bs_16
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_mx_bs_16 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "bs")  iff (ins.trap == 0 )  {
+        // VTYPE.bs = 1 selects the microscaling block size 16
+        bins bs_16 = {1};
+    }
+
+    //// end cp_mx_bs_16////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_scale_fp32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_scale_pair_fp32 : coverpoint ins.current.v0_val[15:0]  iff (ins.trap == 0 & ins.current.insn[25] == 1'b0)  {
+        // Paired E8M0 scales of element 0 of v0: scale_A of row 0 in bits 7:0, scale_B of column 0 in bits 15:8
+        wildcard bins nan_a = {16'b????????11111111};
+        wildcard bins nan_b = {16'b11111111????????};
+        bins min_max = {16'hFE00};  // scale_A = 2^-127, scale_B = 2^127
+        bins max_min = {16'h00FE};  // scale_A = 2^127, scale_B = 2^-127
+    }
+
+    cp_scale_combined_fp32 : coverpoint int'(ins.current.v0_val[7:0]) + int'(ins.current.v0_val[15:8]) - 254  iff (ins.trap == 0 & ins.current.insn[25] == 1'b0 & ins.current.v0_val[7:0] != 8'hFF & ins.current.v0_val[15:8] != 8'hFF)  {
+        // Combined exponent of the scales of element 0 of v0, outside the exponent range of an FP32 C
+        bins underflow = {[-254:-150]};  // below the smallest fp32 subnormal, 2^-149
+        bins overflow  = {[128:254]};  // above the largest fp32 exponent, 127
+    }
+
+    //// end cp_scale_fp32////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_tile_vl
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_tile_vl : coverpoint vl_check(ins.hart, ins.issue, ime_column_vl(ins.hart, ins.issue))  iff (ins.trap == 0 )  {
+        // VL in units of one C column (lambda*LMUL elements)
+        bins one_column = {vl_one   };
+        bins vlmax      = {vl_vlmax };
+        bins legal      = {vl_legal };
+    }
+
+    //// end cp_tile_vl////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vd_edges_f_sew32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vd_edges_f_sew32 : coverpoint get_vr_element_zero(ins.hart, ins.issue, ins.current.vd_val_pre)[31:0]  iff (ins.trap == 0 )  {
+        // Standard precision coverpoints
+        bins pos0                   = {32'h00000000};
+        bins neg0                   = {32'h80000000};
+        bins pos1                   = {32'h3F800000};
+        bins neg1                   = {32'hBF800000};
+        bins posminnorm             = {32'h00800000};
+        bins negmaxnorm             = {32'hFF7FFFFF};
+        bins posinfinity            = {32'h7F800000};
+        bins neginfinity            = {32'hFF800000};
+        bins pos0p5                 = {32'h3F000000};
+        bins pos1p5                 = {32'h3FC00000};
+        bins neg2                   = {32'hC0000000};
+        bins pi                     = {32'h40490FDB};
+        bins twoToEmax              = {32'h7F000000};   // 2^127
+        bins onePulp                = {32'h3F800001};   // 1 + ULP
+        bins largestsubnorm         = {32'h007FFFFF};
+        bins negSubnormLeadingOne   = {32'h80400000};   // subnormal with MSB of fraction = 1
+        bins min_subnorm            = {32'h00000001};
+        bins canonicalQNaN          = {32'h7FC00000};   // quiet NaN, canonical payload
+        bins negNoncanonicalQNaN    = {[32'hFFC00001:32'hFFFFFFFF]}; // other quiet NaNs
+        bins sNaN_payload1          = {32'h7F800001};   // signaling NaN with payload 1
+    }
+
+    //// end cp_vd_edges_f_sew32        //////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vd_nv0_emul16
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vd_nv0_emul16 : coverpoint ins.get_vr_reg(ins.current.vd)  iff (ins.trap == 0 )  {
+        // VD register assignment for a C register window of 16 registers that does not contain v0
+        bins v16 = {v16};
+    }
+
+    //// end cp_vd_nv0_emul16////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vs1_edges_emulf8
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vs1_edges_emulf8 : coverpoint vs_edges_check(ins.hart, ins.issue, ins.current.vs1_val, "f8")  iff (ins.trap == 0 )  {
+        // Edges values of vs1 (emul = f8), assuming vl = 1
+        bins zero       = {vs_zero      };   //  = {(`SEW){1'b0}},
+        bins one        = {vs_one       };   //  = {(`SEW-1){1'b0}, {1'b1}},
+        bins two        = {vs_two       };   //  = {(`SEW-2){1'b0}, {2'b10}},
+        bins min        = {vs_min       };   //  = {{1'b1}, (`SEW-1){1'b0}},
+        bins minp1      = {vs_minp1     };   //  = {{1'b1}, (`SEW-2){1'b0}, {1'b1}},
+        bins max        = {vs_max       };   //  = {{1'b0}, (`SEW-1){1'b1}},
+        bins maxm1      = {vs_maxm1     };   //  = {{1'b0}, (`SEW-2){1'b1}, {1'b0}},
+        bins ones       = {vs_ones      };   //  = {(`SEW){1'b1}},
+        bins onesm1     = {vs_onesm1    };   //  = {(`SEW-1){1'b1}, {1'b0}},
+        bins walkodd    = {vs_walkodd   };   //  = {(`SEW/2){2'b10}},
+        bins walkeven   = {vs_walkeven  };   //  = {(`SEW/2){2'b01}},
+        bins random     = {vs_random    };   //  = {(SEW){random}}
+    }
+
+    //// end cp_vs1_edges_emulf8////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vs2_edges_emulf8
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vs2_edges_emulf8 : coverpoint vs_edges_check(ins.hart, ins.issue, ins.current.vs2_val, "f8")  iff (ins.trap == 0 )  {
+        // Edges values of vs2 (emul = f8), assuming vl = 1
+        bins zero       = {vs_zero      };   //  = {(`SEW){1'b0}},
+        bins one        = {vs_one       };   //  = {(`SEW-1){1'b0}, {1'b1}},
+        bins two        = {vs_two       };   //  = {(`SEW-2){1'b0}, {2'b10}},
+        bins min        = {vs_min       };   //  = {{1'b1}, (`SEW-1){1'b0}},
+        bins minp1      = {vs_minp1     };   //  = {{1'b1}, (`SEW-2){1'b0}, {1'b1}},
+        bins max        = {vs_max       };   //  = {{1'b0}, (`SEW-1){1'b1}},
+        bins maxm1      = {vs_maxm1     };   //  = {{1'b0}, (`SEW-2){1'b1}, {1'b0}},
+        bins ones       = {vs_ones      };   //  = {(`SEW){1'b1}},
+        bins onesm1     = {vs_onesm1    };   //  = {(`SEW-1){1'b1}, {1'b0}},
+        bins walkodd    = {vs_walkodd   };   //  = {(`SEW/2){2'b10}},
+        bins walkeven   = {vs_walkeven  };   //  = {(`SEW/2){2'b01}},
+        bins random     = {vs_random    };   //  = {(SEW){random}}
+    }
+
+    //// end cp_vs2_edges_emulf8////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cr_lambda_lmul_lte4
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_csr_vtype_lambda : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "lambda")  iff (ins.trap == 0 )  {
+        // Value of VTYPE.lambda, encoded as log2(lambda) + 1
+        bins one       = {1};
+        bins two       = {2};
+        bins four      = {3};
+        bins eight     = {4};
+        bins sixteen   = {5};
+        bins thirtytwo = {6};
+        bins sixtyfour = {7};
+    }
+
+    cp_csr_vtype_lmul_ime_lte4 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vlmul")  iff (ins.trap == 0 )  {
+        // Value of VTYPE.vlmul up to LMUL=4; block size 16 requires W*LMUL <= SEW
+        bins one    = {0};
+        bins two    = {1};
+        bins four   = {2};
+    }
+
+    cp_csr_vl_vlmax : coverpoint vl_check(ins.hart, ins.issue)  iff (ins.trap == 0 )  {
+        // VL = VLMAX
+        bins vlmax = {vl_vlmax};
+    }
+
+    cr_lambda_lmul_lte4 : cross cp_csr_vtype_lambda, cp_csr_vtype_lmul_ime_lte4, cp_csr_vl_vlmax  iff (ins.trap == 0 )  {
+        // Cross coverage of lambda and integer LMUL up to 4 at VL = VLMAX
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////
+
+    //// end cr_lambda_lmul_lte4////////////////////////////////////////////////
+
+endgroup
+// ---------------------
+`endif
+`ifdef ZVVXNI8FP32MM_SUPPORTED
+covergroup Zvvfmm32Zvvxni8fp32mm_vfqimmacc_vv_cg with function sample(ins_t ins);
+    option.per_instance = 0;
+    cp_asm_count : coverpoint ins.ins_str == "vfqimmacc.vv"  iff (ins.trap == 0 )  {
+        // Number of times instruction is executed
+        bins count[]  = {1};
+    }
+
+    cp_csr_fflags_voun : coverpoint {
+        get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "fflags")[4:0],
+        get_csr_val(ins.hart, ins.issue, `SAMPLE_AFTER, "fcsr", "fflags")[4:0]
+    } iff (ins.trap == 0 )  {
+        // Value of FCSR.fflags
+        wildcard bins NV   = {10'b0????_1????};
+        wildcard bins NV1  = {10'b1????_1????};
+        wildcard bins OF   = {10'b??0??_??1??};
+        wildcard bins OF1  = {10'b??1??_??1??};
+        wildcard bins UF   = {10'b???0?_???1?};
+        wildcard bins UF1  = {10'b???1?_???1?};
+        wildcard bins NX   = {10'b????0_????1};
+        wildcard bins NX1  = {10'b????1_????1};
+    }
+
+    cp_csr_frm_v : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "frm")  iff (ins.trap == 0 )  {
+        // Value of FCSR.frm for vector FP instructions, which do not specify dynamic rounding mode in opcode
+        bins rne  = {3'b000};
+        bins rtz  = {3'b001};
+        bins rdn  = {3'b010};
+        bins rup  = {3'b011};
+        bins rmm  = {3'b100};
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_fp_subdot
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_fp_subdot : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "fcsr", "frm")  iff (ins.trap == 0 )  {
+        // FCSR.frm for a widening multiply-accumulate whose W products add up to one ULP of C
+        bins ulp_rne = {3'b000};
+        bins ulp_rtz = {3'b001};
+        bins ulp_rdn = {3'b010};
+        bins ulp_rup = {3'b011};
+        bins ulp_rmm = {3'b100};
+    }
+
+    //// end cp_fp_subdot////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_mx_bs_16
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_mx_bs_16 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "bs")  iff (ins.trap == 0 )  {
+        // VTYPE.bs = 1 selects the microscaling block size 16
+        bins bs_16 = {1};
+    }
+
+    //// end cp_mx_bs_16////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_scale_fp32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_scale_pair_fp32 : coverpoint ins.current.v0_val[15:0]  iff (ins.trap == 0 & ins.current.insn[25] == 1'b0)  {
+        // Paired E8M0 scales of element 0 of v0: scale_A of row 0 in bits 7:0, scale_B of column 0 in bits 15:8
+        wildcard bins nan_a = {16'b????????11111111};
+        wildcard bins nan_b = {16'b11111111????????};
+        bins min_max = {16'hFE00};  // scale_A = 2^-127, scale_B = 2^127
+        bins max_min = {16'h00FE};  // scale_A = 2^127, scale_B = 2^-127
+    }
+
+    cp_scale_combined_fp32 : coverpoint int'(ins.current.v0_val[7:0]) + int'(ins.current.v0_val[15:8]) - 254  iff (ins.trap == 0 & ins.current.insn[25] == 1'b0 & ins.current.v0_val[7:0] != 8'hFF & ins.current.v0_val[15:8] != 8'hFF)  {
+        // Combined exponent of the scales of element 0 of v0, outside the exponent range of an FP32 C
+        bins underflow = {[-254:-150]};  // below the smallest fp32 subnormal, 2^-149
+        bins overflow  = {[128:254]};  // above the largest fp32 exponent, 127
+    }
+
+    //// end cp_scale_fp32////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_tile_vl
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_tile_vl : coverpoint vl_check(ins.hart, ins.issue, ime_column_vl(ins.hart, ins.issue))  iff (ins.trap == 0 )  {
+        // VL in units of one C column (lambda*LMUL elements)
+        bins one_column = {vl_one   };
+        bins vlmax      = {vl_vlmax };
+        bins legal      = {vl_legal };
+    }
+
+    //// end cp_tile_vl////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vd_edges_f_sew32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vd_edges_f_sew32 : coverpoint get_vr_element_zero(ins.hart, ins.issue, ins.current.vd_val_pre)[31:0]  iff (ins.trap == 0 )  {
+        // Standard precision coverpoints
+        bins pos0                   = {32'h00000000};
+        bins neg0                   = {32'h80000000};
+        bins pos1                   = {32'h3F800000};
+        bins neg1                   = {32'hBF800000};
+        bins posminnorm             = {32'h00800000};
+        bins negmaxnorm             = {32'hFF7FFFFF};
+        bins posinfinity            = {32'h7F800000};
+        bins neginfinity            = {32'hFF800000};
+        bins pos0p5                 = {32'h3F000000};
+        bins pos1p5                 = {32'h3FC00000};
+        bins neg2                   = {32'hC0000000};
+        bins pi                     = {32'h40490FDB};
+        bins twoToEmax              = {32'h7F000000};   // 2^127
+        bins onePulp                = {32'h3F800001};   // 1 + ULP
+        bins largestsubnorm         = {32'h007FFFFF};
+        bins negSubnormLeadingOne   = {32'h80400000};   // subnormal with MSB of fraction = 1
+        bins min_subnorm            = {32'h00000001};
+        bins canonicalQNaN          = {32'h7FC00000};   // quiet NaN, canonical payload
+        bins negNoncanonicalQNaN    = {[32'hFFC00001:32'hFFFFFFFF]}; // other quiet NaNs
+        bins sNaN_payload1          = {32'h7F800001};   // signaling NaN with payload 1
+    }
+
+    //// end cp_vd_edges_f_sew32        //////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vd_nv0_emul16
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vd_nv0_emul16 : coverpoint ins.get_vr_reg(ins.current.vd)  iff (ins.trap == 0 )  {
+        // VD register assignment for a C register window of 16 registers that does not contain v0
+        bins v16 = {v16};
+    }
+
+    //// end cp_vd_nv0_emul16////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vs1_edges_emulf4
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vs1_edges_emulf4 : coverpoint vs_edges_check(ins.hart, ins.issue, ins.current.vs1_val, "f4")  iff (ins.trap == 0 )  {
+        // Edges values of vs1 (emul = f4), assuming vl = 1
+        bins zero       = {vs_zero      };   //  = {(`SEW){1'b0}},
+        bins one        = {vs_one       };   //  = {(`SEW-1){1'b0}, {1'b1}},
+        bins two        = {vs_two       };   //  = {(`SEW-2){1'b0}, {2'b10}},
+        bins min        = {vs_min       };   //  = {{1'b1}, (`SEW-1){1'b0}},
+        bins minp1      = {vs_minp1     };   //  = {{1'b1}, (`SEW-2){1'b0}, {1'b1}},
+        bins max        = {vs_max       };   //  = {{1'b0}, (`SEW-1){1'b1}},
+        bins maxm1      = {vs_maxm1     };   //  = {{1'b0}, (`SEW-2){1'b1}, {1'b0}},
+        bins ones       = {vs_ones      };   //  = {(`SEW){1'b1}},
+        bins onesm1     = {vs_onesm1    };   //  = {(`SEW-1){1'b1}, {1'b0}},
+        bins walkodd    = {vs_walkodd   };   //  = {(`SEW/2){2'b10}},
+        bins walkeven   = {vs_walkeven  };   //  = {(`SEW/2){2'b01}},
+        bins random     = {vs_random    };   //  = {(SEW){random}}
+    }
+
+    //// end cp_vs1_edges_emulf4////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_vs2_edges_emulf4
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_vs2_edges_emulf4 : coverpoint vs_edges_check(ins.hart, ins.issue, ins.current.vs2_val, "f4")  iff (ins.trap == 0 )  {
+        // Edges values of vs2 (emul = f4), assuming vl = 1
+        bins zero       = {vs_zero      };   //  = {(`SEW){1'b0}},
+        bins one        = {vs_one       };   //  = {(`SEW-1){1'b0}, {1'b1}},
+        bins two        = {vs_two       };   //  = {(`SEW-2){1'b0}, {2'b10}},
+        bins min        = {vs_min       };   //  = {{1'b1}, (`SEW-1){1'b0}},
+        bins minp1      = {vs_minp1     };   //  = {{1'b1}, (`SEW-2){1'b0}, {1'b1}},
+        bins max        = {vs_max       };   //  = {{1'b0}, (`SEW-1){1'b1}},
+        bins maxm1      = {vs_maxm1     };   //  = {{1'b0}, (`SEW-2){1'b1}, {1'b0}},
+        bins ones       = {vs_ones      };   //  = {(`SEW){1'b1}},
+        bins onesm1     = {vs_onesm1    };   //  = {(`SEW-1){1'b1}, {1'b0}},
+        bins walkodd    = {vs_walkodd   };   //  = {(`SEW/2){2'b10}},
+        bins walkeven   = {vs_walkeven  };   //  = {(`SEW/2){2'b01}},
+        bins random     = {vs_random    };   //  = {(SEW){random}}
+    }
+
+    //// end cp_vs2_edges_emulf4////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cr_lambda_lmul
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_csr_vtype_lambda : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "lambda")  iff (ins.trap == 0 )  {
+        // Value of VTYPE.lambda, encoded as log2(lambda) + 1
+        bins one       = {1};
+        bins two       = {2};
+        bins four      = {3};
+        bins eight     = {4};
+        bins sixteen   = {5};
+        bins thirtytwo = {6};
+        bins sixtyfour = {7};
+    }
+
+    cp_csr_vtype_lmul_ime : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vlmul")  iff (ins.trap == 0 )  {
+        // Value of VTYPE.vlmul; IME instructions reserve fractional LMUL
+        bins one    = {0};
+        bins two    = {1};
+        bins four   = {2};
+        bins eight  = {3};
+    }
+
+    cp_csr_vl_vlmax : coverpoint vl_check(ins.hart, ins.issue)  iff (ins.trap == 0 )  {
+        // VL = VLMAX
+        bins vlmax = {vl_vlmax};
+    }
+
+    cr_lambda_lmul : cross cp_csr_vtype_lambda, cp_csr_vtype_lmul_ime, cp_csr_vl_vlmax  iff (ins.trap == 0 )  {
+        // Cross coverage of lambda and integer LMUL at VL = VLMAX
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////
+
+    //// end cr_lambda_lmul////////////////////////////////////////////////
+
+endgroup
+// ---------------------
+`endif
 `ifdef ZVVXNOFP4FP32MM_SUPPORTED
 covergroup Zvvfmm32Zvvxnofp4fp32mm_vf8wmmacc_vv_cg with function sample(ins_t ins);
     option.per_instance = 0;
@@ -2299,6 +3158,14 @@ function void zvvfmm32_sample(int hart, int issue, ins_t ins);
     if (get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "vsew") == 2 ||
         get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "vill") == 1) begin
         case (inst_name)
+        "vf8wimmacc.vv"     : begin
+`ifdef ZVVXI4FP32MM_SUPPORTED
+            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxi4fp32mm_vf8wimmacc_vv_cg.sample(ins); // vm=0: microscaled
+`endif
+`ifdef ZVVXNI4FP32MM_SUPPORTED
+            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxni4fp32mm_vf8wimmacc_vv_cg.sample(ins); // vm=0: microscaled
+`endif
+        end
         "vf8wmmacc.vv"     : begin
 `ifdef ZVVOFP4FP32MM_SUPPORTED
             if (ins.current.insn[25] == 1'b1) Zvvfmm32Zvvofp4fp32mm_vf8wmmacc_vv_cg.sample(ins); // vm=1: unscaled
@@ -2315,6 +3182,14 @@ function void zvvfmm32_sample(int hart, int issue, ins_t ins);
             if (ins.current.insn[25] == 1'b1) Zvvfmm32Zvvfp32mm_vfmmacc_vv_cg.sample(ins); // vm=1: unscaled
         end
 `endif
+        "vfqimmacc.vv"     : begin
+`ifdef ZVVXI8FP32MM_SUPPORTED
+            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxi8fp32mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
+`endif
+`ifdef ZVVXNI8FP32MM_SUPPORTED
+            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxni8fp32mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
+`endif
+        end
         "vfqmmacc.vv"     : begin
 `ifdef ZVVOFP8FP32MM_SUPPORTED
             if (ins.current.insn[25] == 1'b1) Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled

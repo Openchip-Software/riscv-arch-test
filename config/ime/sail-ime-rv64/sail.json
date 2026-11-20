@@ -993,46 +993,46 @@
       "supported": false
     },
     "Zvvxi4bf16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxi4fp16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxi4fp32mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxi8bf16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxi8fp16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxi8fp32mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxi8fp64mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxni4bf16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxni4fp16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxni4fp32mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxni8bf16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxni8fp16mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxni8fp32mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxni8fp64mm": {
-      "supported": false
+      "supported": true
     },
     "Zvvxnofp4bf16mm": {
       "supported": true

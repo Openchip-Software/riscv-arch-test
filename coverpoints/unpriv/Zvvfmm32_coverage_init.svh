@@ -25,6 +25,18 @@
 `ifdef ZVVOFP8FP32MM_SUPPORTED
     Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv_cg = new(); Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv");
 `endif
+`ifdef ZVVXI4FP32MM_SUPPORTED
+    Zvvfmm32Zvvxi4fp32mm_vf8wimmacc_vv_cg = new(); Zvvfmm32Zvvxi4fp32mm_vf8wimmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvxi4fp32mm_vf8wimmacc_vv");
+`endif
+`ifdef ZVVXI8FP32MM_SUPPORTED
+    Zvvfmm32Zvvxi8fp32mm_vfqimmacc_vv_cg = new(); Zvvfmm32Zvvxi8fp32mm_vfqimmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvxi8fp32mm_vfqimmacc_vv");
+`endif
+`ifdef ZVVXNI4FP32MM_SUPPORTED
+    Zvvfmm32Zvvxni4fp32mm_vf8wimmacc_vv_cg = new(); Zvvfmm32Zvvxni4fp32mm_vf8wimmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvxni4fp32mm_vf8wimmacc_vv");
+`endif
+`ifdef ZVVXNI8FP32MM_SUPPORTED
+    Zvvfmm32Zvvxni8fp32mm_vfqimmacc_vv_cg = new(); Zvvfmm32Zvvxni8fp32mm_vfqimmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvxni8fp32mm_vfqimmacc_vv");
+`endif
 `ifdef ZVVXNOFP4FP32MM_SUPPORTED
     Zvvfmm32Zvvxnofp4fp32mm_vf8wmmacc_vv_cg = new(); Zvvfmm32Zvvxnofp4fp32mm_vf8wmmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvxnofp4fp32mm_vf8wmmacc_vv");
 `endif

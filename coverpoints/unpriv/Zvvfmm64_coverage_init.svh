@@ -25,6 +25,12 @@
 `ifdef ZVVOFP8FP64MM_SUPPORTED
     Zvvfmm64Zvvofp8fp64mm_vf8wmmacc_vv_cg = new(); Zvvfmm64Zvvofp8fp64mm_vf8wmmacc_vv_cg.set_inst_name("obj_Zvvfmm64Zvvofp8fp64mm_vf8wmmacc_vv");
 `endif
+`ifdef ZVVXI8FP64MM_SUPPORTED
+    Zvvfmm64Zvvxi8fp64mm_vf8wimmacc_vv_cg = new(); Zvvfmm64Zvvxi8fp64mm_vf8wimmacc_vv_cg.set_inst_name("obj_Zvvfmm64Zvvxi8fp64mm_vf8wimmacc_vv");
+`endif
+`ifdef ZVVXNI8FP64MM_SUPPORTED
+    Zvvfmm64Zvvxni8fp64mm_vf8wimmacc_vv_cg = new(); Zvvfmm64Zvvxni8fp64mm_vf8wimmacc_vv_cg.set_inst_name("obj_Zvvfmm64Zvvxni8fp64mm_vf8wimmacc_vv");
+`endif
 `ifdef ZVVXNOFP8FP64MM_SUPPORTED
     Zvvfmm64Zvvxnofp8fp64mm_vf8wmmacc_vv_cg = new(); Zvvfmm64Zvvxnofp8fp64mm_vf8wmmacc_vv_cg.set_inst_name("obj_Zvvfmm64Zvvxnofp8fp64mm_vf8wmmacc_vv");
 `endif

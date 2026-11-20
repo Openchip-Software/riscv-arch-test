@@ -29,3 +29,17 @@ vf8wmmacc.vv,FMMACC_MX,x,x,Zvvxnofp8fp64mm,,,,x,x,nv0_emul16,,,x,x,f,f_ofp8,f_of
 vfqmmacc.vv,FMMACC_MX,x,x,Zvvxnofp4fp16mm,,x,,,x,nv0_emul16,,,lte4,x,f,f_ofp4,f_ofp4,v,voun,x,,,fp16,16
 vfqmmacc.vv,FMMACC_MX,x,x,Zvvxnofp4bf16mm,,x,,,x,nv0_emul16,,,lte4,x,f_bf16,f_ofp4,f_ofp4,v,voun,x,x,,bf16,16
 vf8wmmacc.vv,FMMACC_MX,x,x,Zvvxnofp4fp32mm,,,x,,x,nv0_emul16,,,lte4,x,f,f_ofp4,f_ofp4,v,voun,x,,,fp32,16
+vfwimmacc.vv,FMMACC_MX,x,x,Zvvxi8fp16mm,,x,,,x,nv0_emul16,,,x,x,f,emulf2,emulf2,v,voun,x,,,fp16,32
+vfwimmacc.vv,FMMACC_MX,x,x,Zvvxi8bf16mm,,x,,,x,nv0_emul16,,,x,x,f_bf16,emulf2,emulf2,v,voun,x,,,bf16,32
+vfqimmacc.vv,FMMACC_MX,x,x,Zvvxi4fp16mm,,x,,,x,nv0_emul16,,,x,x,f,emulf4,emulf4,v,voun,x,,,fp16,32
+vfqimmacc.vv,FMMACC_MX,x,x,Zvvxi4bf16mm,,x,,,x,nv0_emul16,,,x,x,f_bf16,emulf4,emulf4,v,voun,x,,,bf16,32
+vfqimmacc.vv,FMMACC_MX,x,x,Zvvxi8fp32mm,,,x,,x,nv0_emul16,,,x,x,f,emulf4,emulf4,v,voun,x,,,fp32,32
+vf8wimmacc.vv,FMMACC_MX,x,x,Zvvxi4fp32mm,,,x,,x,nv0_emul16,,,x,x,f,emulf8,emulf8,v,voun,x,,,fp32,32
+vf8wimmacc.vv,FMMACC_MX,x,x,Zvvxi8fp64mm,,,,x,x,nv0_emul16,,,x,x,f,emulf8,emulf8,v,voun,x,,,fp64,32
+vfwimmacc.vv,FMMACC_MX,x,x,Zvvxni8fp16mm,,x,,,x,nv0_emul16,,,x,x,f,emulf2,emulf2,v,voun,x,,,fp16,16
+vfwimmacc.vv,FMMACC_MX,x,x,Zvvxni8bf16mm,,x,,,x,nv0_emul16,,,x,x,f_bf16,emulf2,emulf2,v,voun,x,,,bf16,16
+vfqimmacc.vv,FMMACC_MX,x,x,Zvvxni4fp16mm,,x,,,x,nv0_emul16,,,lte4,x,f,emulf4,emulf4,v,voun,x,,,fp16,16
+vfqimmacc.vv,FMMACC_MX,x,x,Zvvxni4bf16mm,,x,,,x,nv0_emul16,,,lte4,x,f_bf16,emulf4,emulf4,v,voun,x,,,bf16,16
+vfqimmacc.vv,FMMACC_MX,x,x,Zvvxni8fp32mm,,,x,,x,nv0_emul16,,,x,x,f,emulf4,emulf4,v,voun,x,,,fp32,16
+vf8wimmacc.vv,FMMACC_MX,x,x,Zvvxni4fp32mm,,,x,,x,nv0_emul16,,,lte4,x,f,emulf8,emulf8,v,voun,x,,,fp32,16
+vf8wimmacc.vv,FMMACC_MX,x,x,Zvvxni8fp64mm,,,,x,x,nv0_emul16,,,x,x,f,emulf8,emulf8,v,voun,x,,,fp64,16
