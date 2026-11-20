@@ -44,6 +44,8 @@ C_WINDOW_REGS = 16
 NV_PRESET_EDGE = "_edge_e5m2_sNaN_payload1_"
 C_WINDOW_LMUL = 8
 C_WINDOW_SEGMENTS = 2
+# Labels of data built by cp_fp_subdot, cp_fp_rnd and cp_scale carry these tags. The formatter keeps that data.
+DEDICATED_DATA_TAGS = ("_subdot_", "_rnd_", "_scale_")
 
 
 # Floating-point multiply-accumulate. A, B and C hold small integers and half-integers, so every product, partial
@@ -61,8 +63,30 @@ fmmacc_config = InstructionTypeConfig(
     ),
 )
 
+# Microscaled floating-point multiply-accumulate (vm=0). v0 holds the paired E8M0 block scales, and no operand may
+# overlap it. The C window is then v16-v31, and A and B are in v1-v15. At LMUL=8 both are v8. The specification lets
+# A and B overlap. A and B with edge values or other dedicated data stay in separate registers.
+fmmacc_mx_config = InstructionTypeConfig(
+    required_params={"vd", "vs1", "vs2"},
+    instruction_class=["vector_fp"],
+    vector_data=VectorTypeConfig(
+        overlap_constraints={("vd", "vs1"), ("vd", "vs2"), ("v0", "vd"), ("v0", "vs1"), ("v0", "vs2")},
+        fixed_emul={"vd": 16},
+        maskable=False,
+        require_zero_vstart=True,
+        edge_no_overlap={("vs1", "vs2")},
+    ),
+)
+
 # Widening factor W of each multiply-accumulate mnemonic
 WIDENING = {"vfmmacc.vv": 1, "vfwmmacc.vv": 2, "vfqmmacc.vv": 4, "vf8wmmacc.vv": 8}
+# E8M0 block scales: bias 127, 0xFF is NaN. A paired-scale element holds scale_A in bits 7:0 and scale_B in bits 15:8.
+E8M0_BIAS = 127
+E8M0_NAN = 0xFF
+SCALE_PAIR_BITS = 16
+# Random scales: scale_A is 2^0 or 2^1 and scale_B is 2^-1 or 2^0, so the combined exponent is -1, 0 or 1
+RANDOM_SCALES_A = (E8M0_BIAS, E8M0_BIAS + 1)
+RANDOM_SCALES_B = (E8M0_BIAS - 1, E8M0_BIAS)
 FP_PACK = {16: "<e", 32: "<f", 64: "<d"}
 # OCP OFP formats: (exponent bits, mantissa bits, bias)
 OFP_FORMATS = {"e4m3": (4, 3, 7), "e5m2": (5, 2, 15), "e2m1": (2, 1, 1)}
@@ -87,15 +111,36 @@ def fp_bits(value: float, fmt: str) -> int:
     return int.from_bytes(struct.pack(FP_PACK[width], value), "little")
 
 
+def ime_type_extensions(test_data: TestData) -> list[str]:
+    """
+    Return the type extensions of a row. A microscaling extension Zvvx<type> or Zvvxn<type> is returned as the
+    unscaled extension Zvv<type> with the same input and C formats.
+    """
+    extensions = []
+    for ext in test_data.config.extra_extensions:
+        prefix = next((prefix for prefix in ("Zvvxn", "Zvvx") if ext.startswith(prefix)), None)
+        extensions.append("Zvv" + ext.removeprefix(prefix) if prefix else ext)
+    return extensions
+
+
+def mx_block_size_16(test_data: TestData) -> bool:
+    """Return True for a Zvvxn* row, which tests block size 16 (vtype.bs = 1). Zvvx* rows test block size 32."""
+    return any(ext.startswith("Zvvxn") for ext in test_data.config.extra_extensions)
+
+
 def fp_input_format(test_data: TestData, sew: int, w: int) -> str:
     """
-    Return the input format family of a row from its type extension: ofp4 for Zvvofp4*, ofp8 for Zvvofp8*, bf16 when
-    the extension names bf16 as input, else IEEE at SEW/W bits.
+    Return the input format family of a row from its type extension: ofp4 for Zvvofp4*, ofp8 for Zvvofp8*, i4 or i8
+    for the integer inputs of Zvvxi4* and Zvvxi8*, bf16 when the extension names bf16 as input, else IEEE at SEW/W
+    bits.
     """
-    for ext in test_data.config.extra_extensions:
+    extensions = ime_type_extensions(test_data)
+    for ext in extensions:
         if ext.startswith(("Zvvofp4", "Zvvofp8")):
             return ext[3:7]
-    if any("bf16" in ext for ext in test_data.config.extra_extensions):
+        if ext.startswith(("Zvvi4", "Zvvi8")):
+            return ext[3:5]
+    if any("bf16" in ext for ext in extensions):
         return "bf16"
     return f"fp{sew // w}"
 
@@ -111,7 +156,7 @@ def fp_operand_format(input_family: str, altfmt: bool) -> str:
 
 def fp_output_format(test_data: TestData, sew: int) -> str:
     """Return the C format of a row: bf16 when its type extension ends in bf16mm (Zvv<in>bf16mm), else fp<SEW>."""
-    if any(ext.endswith("bf16mm") for ext in test_data.config.extra_extensions):
+    if any(ext.endswith("bf16mm") for ext in ime_type_extensions(test_data)):
         return "bf16"
     return f"fp{sew}"
 
@@ -130,6 +175,7 @@ def fp_exact_data(
     output_fmt: str,
     emul: float,
     background: float | None = None,
+    mx: bool = False,
 ) -> str:
     """
     Register a label of SEW-wide storage elements that fills emul registers at VLEN_MAX with exact FP data.
@@ -147,6 +193,12 @@ def fp_exact_data(
     most one nonzero input, which keeps the nonzero terms of a dot product at lambda*LMUL <= 64 and the bounds above.
 
     With background set, every input element (or every C element) holds that value instead.
+
+    With mx set (microscaled rows), the random block scales multiply each partial sum by 2^-1, 2^0 or 2^1, so every
+    value is a multiple of 0.5. An FP16 C sum stays below 64*4*2 + 128.5 < 1024, where fp16 resolves 0.5. For a BF16
+    C, the odd storage elements of A and B are zero. Register r of A holds row i in the storage elements
+    r*M*lambda + i*lambda + t, 0 <= t < lambda, and M is even. A row then has at most lambda*LMUL/2 nonzero storage
+    elements for lambda >= 2, and LMUL for lambda = 1. A BF16 C sum stays below 32*2 + 31.5 < 128.
     """
     count = int(VLEN_MAX * emul) // sew
     lane_bits = sew // w
@@ -154,13 +206,15 @@ def fp_exact_data(
     input_range = 1 if output_fmt == "bf16" else 2
     one_lane = w > 1 and output_fmt in ("fp16", "bf16")
     elements = []
-    for _ in range(count):
+    for index in range(count):
         if reg == "vd":
             value = background if background is not None else random_range(-c_range, c_range) + 0.5
             elements.append(fp_bits(value, output_fmt))
         else:
             if background is not None:
                 lanes = [background] * w
+            elif mx and output_fmt == "bf16" and index % 2:
+                lanes = [0] * w
             elif one_lane:
                 lanes = [0.0] * w
                 lane = random_range(0, w - 1)
@@ -191,9 +245,54 @@ def fp_edge_data(
     return edge_label_full
 
 
+def mx_scale_data(
+    test_data: TestData,
+    scale_a: int | None = None,
+    scale_b: int | None = None,
+    first: tuple[int, int] | None = None,
+    label: str | None = None,
+) -> str:
+    """
+    Register a label of paired E8M0 scales that fills v0 at VLEN_MAX. Every scale_A is scale_a and every scale_B is
+    scale_b. A scale left as None is a random choice of RANDOM_SCALES_A or RANDOM_SCALES_B for each element. first
+    replaces the (scale_A, scale_B) pair of element 0: row 0 of A and column 0 of B^T in block 0. label defaults to
+    a name from the test count.
+    """
+    pairs = [
+        (
+            scale_a if scale_a is not None else RANDOM_SCALES_A[random_range(0, 1)],
+            scale_b if scale_b is not None else RANDOM_SCALES_B[random_range(0, 1)],
+        )
+        for _ in range(VLEN_MAX // SCALE_PAIR_BITS)
+    ]
+    if first is not None:
+        pairs[0] = first
+    label = label or f"v0_scale_ime_{test_data.test_count:03d}"
+    test_data.register_vector_data(label, SCALE_PAIR_BITS, elements=[a | (b << 8) for a, b in pairs])
+    return label
+
+
 @add_instruction_formatter("FMMACC", fmmacc_config)
 def format_fmmacc(
     instr_str: str, test_data: TestData, params: InstructionParams
+) -> tuple[list[str], list[str], list[str]]:
+    return format_fp_mmacc(instr_str, test_data, params, mx=False)
+
+
+@add_instruction_formatter("FMMACC_MX", fmmacc_mx_config)
+def format_fmmacc_mx(
+    instr_str: str, test_data: TestData, params: InstructionParams
+) -> tuple[list[str], list[str], list[str]]:
+    """
+    Microscaled multiply-accumulate (vm=0) with block size 32 for a Zvvx* row and 16 for a Zvvxn* row. Random data
+    gets random block scales (see fp_exact_data). Edge values and the data of cp_fp_subdot and cp_fp_rnd get unit
+    scales, so their results are the unscaled results. cp_scale builds its own scales.
+    """
+    return format_fp_mmacc(instr_str, test_data, params, mx=True)
+
+
+def format_fp_mmacc(
+    instr_str: str, test_data: TestData, params: InstructionParams, *, mx: bool
 ) -> tuple[list[str], list[str], list[str]]:
     assert params.sew is not None and params.lmul is not None, "sew and lmul must be provided for FMMACC"
     assert params.csr_frm_val is not None, "FMMACC tests run with a dynamic rounding mode"
@@ -223,14 +322,23 @@ def format_fmmacc(
         (reg for reg in ("vs1", "vs2", "vd") if "_edge_" in (getattr(params, f"{reg}_val_pointer") or "")), None
     )
     nv_preset = any(NV_PRESET_EDGE in (getattr(params, f"{reg}_val_pointer") or "") for reg in ("vs1", "vs2"))
+    dedicated = edge_reg is not None or any(
+        tag in (getattr(params, f"{reg}_val_pointer") or "") for reg in ("vs1", "vs2") for tag in DEDICATED_DATA_TAGS
+    )
+    if mx:
+        assert not (dedicated and params.vs1 == params.vs2), "A and B with dedicated data need separate registers"
+        params.bs = mx_block_size_16(test_data)
+        if params.scale_val_pointer is None:
+            unit = None if not dedicated else E8M0_BIAS
+            params.scale_val_pointer = mx_scale_data(test_data, scale_a=unit, scale_b=unit)
     backgrounds: dict[str, float | None] = {"vs1": None, "vs2": None, "vd": None}
     if edge_reg == "vd":
         backgrounds["vs1"] = backgrounds["vs2"] = 0.0
     elif edge_reg is not None:
         backgrounds["vs2" if edge_reg == "vs1" else "vs1"] = 1.0
     for reg, emul in (("vs1", params.lmul), ("vs2", params.lmul), ("vd", C_WINDOW_REGS)):
-        if any(tag in (getattr(params, f"{reg}_val_pointer") or "") for tag in ("_subdot_", "_rnd_")):
-            continue  # cp_fp_subdot and cp_fp_rnd build complete data
+        if any(tag in (getattr(params, f"{reg}_val_pointer") or "") for tag in DEDICATED_DATA_TAGS):
+            continue  # cp_fp_subdot, cp_fp_rnd and cp_scale build complete data
         input_fmt = input_fmts[reg]
         if reg == edge_reg:
             label = fp_edge_data(
@@ -238,12 +346,14 @@ def format_fmmacc(
             )
         else:
             label = fp_exact_data(
-                test_data, reg, params.sew, w, input_fmt, output_fmt, emul, background=backgrounds[reg]
+                test_data, reg, params.sew, w, input_fmt, output_fmt, emul, background=backgrounds[reg], mx=mx
             )
         setattr(params, f"{reg}_val_pointer", label)
+    if params.vs1 == params.vs2:
+        params.vs2_val_pointer = params.vs1_val_pointer  # A and B share one register and its data
     params.vector_suite = "length"
 
-    setup, test, check = format_mmacc(instr_str, test_data, params)
+    setup, test, check = mmacc_code(instr_str, test_data, params, scale_label=params.scale_val_pointer)
     handle_vector_fp(setup, check, params.csr_frm_val, test_data)
     if nv_preset:
         # The specification does not say whether an E5M2 NaN can be signaling. With NV already set, fflags and the
@@ -256,6 +366,16 @@ def format_fmmacc(
 def format_mmacc(
     instr_str: str, test_data: TestData, params: InstructionParams
 ) -> tuple[list[str], list[str], list[str]]:
+    return mmacc_code(instr_str, test_data, params)
+
+
+def mmacc_code(
+    instr_str: str, test_data: TestData, params: InstructionParams, *, scale_label: str | None = None
+) -> tuple[list[str], list[str], list[str]]:
+    """
+    Load A, B and the C window, run the multiply-accumulate and check the C window. With scale_label, v0 holds those
+    block scales and the instruction has vm=0.
+    """
     assert params.vs1 is not None and params.vs1_val_pointer is not None, "vs1 must be provided for MMACC"
     assert params.vs2 is not None and params.vs2_val_pointer is not None, "vs2 must be provided for MMACC"
     assert params.vd is not None and params.vd_val_pointer is not None, "vd must be provided for MMACC"
@@ -277,12 +397,11 @@ def format_mmacc(
     # A preset vd reserves only its first register, so reserve the whole window before temporaries are taken
     test_data.vec_regs.allocate_operand("vd", params.vd, C_WINDOW_REGS, suppress_overlap=True)
 
+    labels = [params.vs1_val_pointer, params.vs2_val_pointer, params.vd_val_pointer]
+    if scale_label is not None:
+        labels.append(scale_label)
     test_data.test_chunk.vector_labels.extend(
-        [
-            (params.vs1_val_pointer, *test_data.vector_labels[params.vs1_val_pointer]),
-            (params.vs2_val_pointer, *test_data.vector_labels[params.vs2_val_pointer]),
-            (params.vd_val_pointer, *test_data.vector_labels[params.vd_val_pointer]),
-        ]
+        (label, *test_data.vector_labels[label]) for label in dict.fromkeys(labels)
     )
 
     stride_reg = test_data.int_regs.get_register(exclude_regs=[0])
@@ -302,9 +421,19 @@ def format_mmacc(
     # A and B are loaded at VLMAX whatever the test VL is. load_ime_vtype sets the test VL.
     load_code, _ = load_vec_regs([VectorLoad(reg="vs1"), VectorLoad(reg="vs2")], replace(params, vl="vlmax"), test_data)
     setup.extend(load_code)
+    if scale_label is not None:
+        setup.extend(
+            [
+                "# v0: paired E8M0 block scales, scale_A in bits 7:0 and scale_B in bits 15:8 of each element",
+                f"vsetvli x{params.temp_reg}, x0, e{SCALE_PAIR_BITS}, m1, tu, mu",
+                f"LA (x{params.temp_reg}, {scale_label})",
+                f"vle{SCALE_PAIR_BITS}.v v0, (x{params.temp_reg})",
+            ]
+        )
     setup.extend(load_ime_vtype(params, test_data))
 
-    test = [f"{instr_str} v{params.vd}, v{params.vs1}, v{params.vs2}"]
+    scale_operand = ", v0.scale" if scale_label is not None else ""
+    test = [f"{instr_str} v{params.vd}, v{params.vs1}, v{params.vs2}{scale_operand}"]
 
     # Free A and B so that the signature check has room for its temporaries
     test_data.vec_regs.deallocate_operand("vs2")

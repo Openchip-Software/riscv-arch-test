@@ -95,6 +95,8 @@ class InstructionParams:
     altfmt_a: bool = False  # IME vtype.altfmt_A; for integer MACC, 1 makes A unsigned
     altfmt_b: bool = False  # IME vtype.altfmt_B; for integer MACC, 1 makes B unsigned
     altfmt: bool = False  # vtype.altfmt (Zvfbfa position, bit 8); for IME FP MACC, 1 selects a BF16 C at SEW=16
+    bs: bool = False  # IME vtype.bs; 1 selects the microscaling block size 16 instead of 32
+    scale_val_pointer: str | None = None  # IME microscaling: label of the paired E8M0 block scales loaded into v0
     imm_lambda: int | None = None  # IME tile load/store immediate lambda (L1 ... L64); None uses vtype.lambda
     ld: Literal["x0", "zero", "tight", "padded", "double"] | None = None  # IME tile leading dimension, see tile_type
 

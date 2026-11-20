@@ -1502,6 +1502,13 @@ function string disassemble (logic [31:0] instrRaw);
     VFWMMACC_VV:  $sformat(decoded, "vfwmmacc.vv %s, %s, %s",     vd, vs1, vs2);
     VFQMMACC_VV:  $sformat(decoded, "vfqmmacc.vv %s, %s, %s",     vd, vs1, vs2);
     VF8WMMACC_VV: $sformat(decoded, "vf8wmmacc.vv %s, %s, %s",    vd, vs1, vs2);
+    // Integrated Matrix Extension: microscaled multiply-accumulate (vm=0, block scales in v0)
+    VFWMMACC_VV_SCALE:  $sformat(decoded, "vfwmmacc.vv %s, %s, %s, v0.scale",  vd, vs1, vs2);
+    VFQMMACC_VV_SCALE:  $sformat(decoded, "vfqmmacc.vv %s, %s, %s, v0.scale",  vd, vs1, vs2);
+    VF8WMMACC_VV_SCALE: $sformat(decoded, "vf8wmmacc.vv %s, %s, %s, v0.scale", vd, vs1, vs2);
+    VFWIMMACC_VV:       $sformat(decoded, "vfwimmacc.vv %s, %s, %s, v0.scale", vd, vs1, vs2);
+    VFQIMMACC_VV:       $sformat(decoded, "vfqimmacc.vv %s, %s, %s, v0.scale", vd, vs1, vs2);
+    VF8WIMMACC_VV:      $sformat(decoded, "vf8wimmacc.vv %s, %s, %s, v0.scale", vd, vs1, vs2);
 
     default: decoded = "illegal";
   endcase

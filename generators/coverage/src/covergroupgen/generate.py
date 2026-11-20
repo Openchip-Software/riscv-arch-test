@@ -288,6 +288,11 @@ def _write_if_changed(path: Path, content: str) -> None:
 Testplan = dict[tuple[str, str], list[str]]
 
 
+# Instruction types that decode their operands like another type. A microscaled multiply-accumulate (vm=0) has the
+# operands of the unscaled one; both sample v0.
+SAMPLE_TYPE_ALIASES = {"FMMACC_MX": "FMMACC"}
+
+
 def _parse_testplan_groups(csv_path: Path) -> dict[tuple[str, ...], Testplan]:
     """Parse a testplan CSV into (instruction, type) -> coverpoints, grouped by ExtraExtensions entry.
 
@@ -312,7 +317,7 @@ def _parse_testplan_groups(csv_path: Path) -> dict[tuple[str, ...], Testplan]:
                     continue
                 if key == "Type":
                     # TODO: Expand the list of aliased types to avoid duplicate sample function templates
-                    sample_type = value.removesuffix("_RD_NX0")
+                    sample_type = SAMPLE_TYPE_ALIASES.get(value, value.removesuffix("_RD_NX0"))
                     cps.append(f"sample_{sample_type}")
                 else:
                     # For special entries, append the value as a suffix
@@ -735,8 +740,18 @@ def _gen_covergroup_samples(
     extras: dict[tuple[str, ...], Testplan],
     vector_sample: bool = False,
 ) -> str:
-    """Generate covergroup sample function calls for matching instructions and ExtraExtensions rows."""
+    """
+    Generate covergroup sample function calls for matching instructions and ExtraExtensions rows. ExtraExtensions
+    rows of one instruction share one case arm, also when their types differ. A row of type T samples through the
+    covergroup_case_sample_T template when it exists, which can restrict the encodings that the row samples.
+    """
+
+    def case_sample(row_arch: str, instr: str, instr_type: str) -> str:
+        name = f"covergroup_case_sample_{instr_type}"
+        return customize_template(templates, name if name in templates else "covergroup_case_sample", row_arch, instr)
+
     lines: list[str] = []
+    done: set[str] = set()
     for key in sorted(set(instr_keys).union(*extras.values())):
         instr = key[0]
         extra_rows = [extension for extension, group in sorted(extras.items()) if key in group]
@@ -745,10 +760,15 @@ def _gen_covergroup_samples(
             continue
 
         if extra_rows:
+            if instr in done:
+                continue
+            done.add(instr)
             base_calls = [customize_template(templates, "covergroup_case_sample", arch, instr)] if key in tp else []
             extra_calls = {
-                ext: customize_template(templates, "covergroup_case_sample", _extra_name(arch, ext), instr)
-                for ext in extra_rows
+                ext: case_sample(_extra_name(arch, ext), instr, row_type)
+                for ext, group in sorted(extras.items())
+                for row_instr, row_type in group
+                if row_instr == instr
             }
             if not base_calls and len(extra_calls) == 1:
                 ((ext, call),) = extra_calls.items()
@@ -791,10 +811,12 @@ def _gen_instruction_samples(
 ) -> str:
     """Generate instruction sample case entries (the decode switch body)."""
     lines: list[str] = []
+    done: set[str] = set()
     for instr, _instr_type in instr_keys:
         cps = tp[(instr, _instr_type)]
-        if not _matches_xlen(cps, has_rv32, has_rv64):
-            continue
+        if not _matches_xlen(cps, has_rv32, has_rv64) or instr in done:
+            continue  # One case arm per instruction, also when testplan rows give it several types
+        done.add(instr)
         lines.extend(customize_template(templates, cp, arch, instr) for cp in cps if cp.startswith("sample_"))
     return "".join(lines)
 

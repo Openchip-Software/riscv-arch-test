@@ -18,17 +18,19 @@ IME_LMULS = [1, 2, 4, 8]
 @add_coverpoint_generator("cr_lambda_lmul")
 def make_lambda_lmul(instr_name: str, instr_type: str, coverpoint: str, test_data: TestData) -> list[TestChunk]:
     """
-    Generate IME tests crossing lambda with every integer LMUL at VL=VLMAX.
+    Generate IME tests crossing lambda with every integer LMUL at VL=VLMAX. The cr_lambda_lmul_lte<n> variant stops
+    at LMUL=n, for microscaled rows with block size 16, which require W*LMUL <= SEW.
 
     A lambda is legal only when VLEN/(SEW*lambda^2) is at least 1, so lambdas that no VLEN up to VLEN_MAX allows
     are not generated. Each testcase is guarded by UDB_SUPPORTED_LAMBDA_SEW<SEW>_<lambda> in its formatter.
     """
     assert test_data.config.sew is not None, "SEW must be set for vector tests"
     sew = test_data.config.sew
+    max_lmul = int(coverpoint.removeprefix("cr_lambda_lmul_lte")) if coverpoint != "cr_lambda_lmul" else IME_LMULS[-1]
 
     test_chunks = []
     for lambda_value in ime_lambdas(sew):
-        for lmul in IME_LMULS:
+        for lmul in (lmul for lmul in IME_LMULS if lmul <= max_lmul):
             params = generate_random_vector_params(
                 test_data,
                 instr_name,

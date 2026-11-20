@@ -56,6 +56,8 @@ class VectorTypeConfig:
         index_register: Register used to store index variables (e.g. vs1 for vrgatherei16)
         require_zero_vstart: Nonzero vstart will trap with an illegal instruction exception
         fixed_emul: Registers whose EMUL does not depend on LMUL (e.g. {"vd": 16} for the IME C register window)
+        edge_no_overlap: Pairs of vector registers that cannot overlap when the operands hold edge values or other
+            dedicated data, in addition to overlap_constraints
     """
 
     overlap_constraints: set[tuple[str, str]] = field(default_factory=set)
@@ -69,6 +71,7 @@ class VectorTypeConfig:
     index_register: str | None = None
     require_zero_vstart: bool = False
     fixed_emul: dict[str, int] = field(default_factory=dict)
+    edge_no_overlap: set[tuple[str, str]] = field(default_factory=set)
 
 
 @dataclass

@@ -188,6 +188,8 @@ implemented_extensions:
   - { name: Zvvofp4fp16mm, version: "= 0.9.0" }
   - { name: Zvvofp4bf16mm, version: "= 0.9.0" }
   - { name: Zvvofp4fp32mm, version: "= 0.9.0" }
+  # Microscaled (vm=0) types (Zvvx*, Zvvxn*) are not listed. QEMU accepts vm=0 only with x-zvvfmmmx=true,
+  # which run_cmd.txt does not set.
 
 params:
   # Trap delegation: the writable medeleg and mideleg bits (sail.json base.medeleg and

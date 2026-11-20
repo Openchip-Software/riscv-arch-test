@@ -25,3 +25,15 @@
 `ifdef ZVVOFP8FP32MM_SUPPORTED
     Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv_cg = new(); Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv");
 `endif
+`ifdef ZVVXNOFP4FP32MM_SUPPORTED
+    Zvvfmm32Zvvxnofp4fp32mm_vf8wmmacc_vv_cg = new(); Zvvfmm32Zvvxnofp4fp32mm_vf8wmmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvxnofp4fp32mm_vf8wmmacc_vv");
+`endif
+`ifdef ZVVXNOFP8FP32MM_SUPPORTED
+    Zvvfmm32Zvvxnofp8fp32mm_vfqmmacc_vv_cg = new(); Zvvfmm32Zvvxnofp8fp32mm_vfqmmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvxnofp8fp32mm_vfqmmacc_vv");
+`endif
+`ifdef ZVVXOFP4FP32MM_SUPPORTED
+    Zvvfmm32Zvvxofp4fp32mm_vf8wmmacc_vv_cg = new(); Zvvfmm32Zvvxofp4fp32mm_vf8wmmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvxofp4fp32mm_vf8wmmacc_vv");
+`endif
+`ifdef ZVVXOFP8FP32MM_SUPPORTED
+    Zvvfmm32Zvvxofp8fp32mm_vfqmmacc_vv_cg = new(); Zvvfmm32Zvvxofp8fp32mm_vfqmmacc_vv_cg.set_inst_name("obj_Zvvfmm32Zvvxofp8fp32mm_vfqmmacc_vv");
+`endif

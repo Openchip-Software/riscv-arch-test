@@ -2,4 +2,5 @@
             ins.add_vd(0);
             ins.add_vs1(1);
             ins.add_vs2(2);
+            ins.add_v0();
         end

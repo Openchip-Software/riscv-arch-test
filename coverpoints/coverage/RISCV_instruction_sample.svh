@@ -2082,6 +2082,7 @@
             ins.add_vd(0);
             ins.add_vs1(1);
             ins.add_vs2(2);
+            ins.add_v0();
         end
         "vfadd.vf"     : begin
             ins.add_vd(0);
@@ -2226,6 +2227,7 @@
             ins.add_vd(0);
             ins.add_vs1(1);
             ins.add_vs2(2);
+            ins.add_v0();
         end
         "vfmsac.vf"     : begin
             ins.add_vd(0);
@@ -2395,6 +2397,7 @@
             ins.add_vd(0);
             ins.add_vs1(1);
             ins.add_vs2(2);
+            ins.add_v0();
         end
         "vfrdiv.vf"     : begin
             ins.add_vd(0);
@@ -2634,6 +2637,7 @@
             ins.add_vd(0);
             ins.add_vs1(1);
             ins.add_vs2(2);
+            ins.add_v0();
         end
         "vfwmsac.vf"     : begin
             ins.add_vd(0);

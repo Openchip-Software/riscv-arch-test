@@ -154,6 +154,10 @@ def make_vd(instr_name: str, instr_type: str, coverpoint: str, test_data: TestDa
             upper_limit = int(suffix[len("lte") :]) + 1
         elif suffix == "nv0":
             lower_limit = 1
+        elif suffix.startswith("nv0_emul"):
+            # A register group of emul registers that does not contain v0
+            emul = int(suffix[len("nv0_emul") :])
+            lower_limit = emul
         elif suffix.startswith("emul"):
             emul = int(suffix[len("emul") :])
         elif suffix.startswith("egs"):

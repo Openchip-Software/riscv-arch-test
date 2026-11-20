@@ -12,6 +12,7 @@ from testgen.data.random import random_range
 from testgen.data.state import TestData, return_testcase_registers
 from testgen.data.test_chunk import TestChunk
 from testgen.formatters import format_single_testcase
+from testgen.formatters.registry import get_instruction_type_config
 from testgen.formatters.types.mmacc_type import (
     C_WINDOW_REGS,
     WIDENING,
@@ -59,6 +60,9 @@ def make_fp_subdot(instr_name: str, instr_type: str, coverpoint: str, test_data:
     c_range = fp_c_range(output_fmt)
     lane_bits = sew // w
     lmul = 1
+    vector_data = get_instruction_type_config(instr_type).vector_data
+    assert vector_data is not None, "IME multiply-accumulates are vector instructions"
+    edge_no_overlap = vector_data.edge_no_overlap
 
     test_chunks = []
     for frm, frm_name in enumerate(FRM_NAMES):
@@ -84,6 +88,7 @@ def make_fp_subdot(instr_name: str, instr_type: str, coverpoint: str, test_data:
             ta=False,
             ma=False,
             csr_frm_val=frm,
+            additional_no_overlap=edge_no_overlap,
             **labels,
         )
         desc = f"cp_fp_subdot (Test W products adding up to one ULP of C0, frm = {frm_name})"

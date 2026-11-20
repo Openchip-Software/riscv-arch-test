@@ -41,6 +41,7 @@ def make_vs_edges(instr_name: str, instr_type: str, coverpoint: str, test_data: 
     type_config = get_instruction_type_config(instr_type)
     assert type_config.vector_data is not None, "Vector data must be provided for all vector instruction types"
     additional_no_overlap = {("vs3", "vs2")} if "store" in type_config.instruction_class else set()
+    additional_no_overlap |= type_config.vector_data.edge_no_overlap
 
     if coverpoint.startswith(f"cp_{register}_edges_"):
         suffix = coverpoint[len(f"cp_{register}_edges_") :]

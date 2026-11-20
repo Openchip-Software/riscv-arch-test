@@ -13,6 +13,7 @@ from testgen.data.random import random_range
 from testgen.data.state import TestData, return_testcase_registers
 from testgen.data.test_chunk import TestChunk
 from testgen.formatters import format_single_testcase
+from testgen.formatters.registry import get_instruction_type_config
 from testgen.formatters.types.mmacc_type import (
     C_WINDOW_REGS,
     WIDENING,
@@ -90,6 +91,9 @@ def make_fp_rnd(instr_name: str, instr_type: str, coverpoint: str, test_data: Te
     assert fp_operand_format(input_family, altfmt_ofp8) == input_fmt
     lane_bits = sew // w
     lmul = 1
+    vector_data = get_instruction_type_config(instr_type).vector_data
+    assert vector_data is not None, "IME multiply-accumulates are vector instructions"
+    edge_no_overlap = vector_data.edge_no_overlap
 
     test_chunks = []
     for lambda_value in ime_lambdas(sew):
@@ -130,6 +134,7 @@ def make_fp_rnd(instr_name: str, instr_type: str, coverpoint: str, test_data: Te
                 ime_guard=guard,
                 altfmt_a=altfmt_ofp8,
                 altfmt_b=altfmt_ofp8,
+                additional_no_overlap=edge_no_overlap,
                 **labels,
             )
             desc = (

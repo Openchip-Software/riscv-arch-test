@@ -718,9 +718,9 @@ def ime_extend_label(test_data: TestData, label: str, reg: str, sew: int, emul: 
 def ime_vtype_value(params: InstructionParams, lambda_value: int, xlen: int) -> int | str:
     """
     Compute a vtype value with the IME fields. vsetvli cannot set them, so IME tests write vtype with vsetvl.
-    lambda[2:0] is at bits XLEN-2:XLEN-4 and holds log2(lambda) + 1. altfmt_A is at bit XLEN-6 and altfmt_B at
-    bit XLEN-7. altfmt is at bit 8. bs stays 0. Privileged tests serve both XLENs (xlen = 0); they get an assembler expression over
-    UDB_MXLEN instead of a number.
+    lambda[2:0] is at bits XLEN-2:XLEN-4 and holds log2(lambda) + 1. bs is at bit XLEN-5, altfmt_A at bit XLEN-6
+    and altfmt_B at bit XLEN-7. altfmt is at bit 8. Privileged tests serve both XLENs (xlen = 0); they get an
+    assembler expression over UDB_MXLEN instead of a number.
     """
     assert params.sew is not None, "sew must be set for IME instructions"
     assert params.lmul is not None and params.lmul >= 1, "IME instructions require an integer LMUL"
@@ -729,7 +729,7 @@ def ime_vtype_value(params: InstructionParams, lambda_value: int, xlen: int) -> 
     vsew = int(math.log2(params.sew)) - 3
     vlmul = int(math.log2(params.lmul))
     low = (int(params.altfmt) << 8) | (int(bool(params.ma)) << 7) | (int(bool(params.ta)) << 6) | (vsew << 3) | vlmul
-    high = [(lambda_field, 4), (int(params.altfmt_a), 6), (int(params.altfmt_b), 7)]
+    high = [(lambda_field, 4), (int(params.bs), 5), (int(params.altfmt_a), 6), (int(params.altfmt_b), 7)]
     if xlen == 0:
         terms = [f"({value} << (UDB_MXLEN - {offset}))" for value, offset in high if value]
         return f"({' | '.join([*terms, f'{low:#x}'])})"
@@ -767,7 +767,8 @@ def load_ime_vtype(
     lmul = int(params.lmul)
     vtype_reg, column_reg = test_data.int_regs.get_registers(2, exclude_regs=[0])
     fields = (
-        f"altfmt_A={int(params.altfmt_a)}, altfmt_B={int(params.altfmt_b)}, {'altfmt=1, ' if params.altfmt else ''}"
+        f"{'bs=1, ' if params.bs else ''}altfmt_A={int(params.altfmt_a)}, altfmt_B={int(params.altfmt_b)}, "
+        f"{'altfmt=1, ' if params.altfmt else ''}"
         f"vma={int(bool(params.ma))}, vta={int(bool(params.ta))}, vsew=e{params.sew}, vlmul=m{lmul}, "
         f"VL={'unchanged' if keep_vl else vl}"
     )
