@@ -61,11 +61,23 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 - Exact data: K = λ·W·LMUL reaches 256 at SEW=16, W=4, so a widening row with an FP16 or BF16 C holds at most one
   nonzero input per storage element (at most 64 nonzero terms per dot product).
 - `cp_fp_subdot`: A = B = 1.0 and C0 = W·2^(p−1). `cp_fp_rnd`: data for (16,2) and (32,4) in E4M3, and (64,8) in
-  E5M2. OFP4 products span too few bits to make the group sum inexact, so OFP4 rows will have no `cp_fp_rnd`.
+  E5M2.
 - Disclosures added: `ZVVM_FP_{GROUPING,PSM,RND}_SEW16_W2`, `_SEW32_W4`, `_SEW64_W8`, with each simulator's profile.
 - Existing tests regenerate byte for byte. Covergroup changes are additions only. pyslang compiles Zvvfmm16/32/64.
 - Results: Zvvfmm 13/13 on `sail-ime-rv64`. On `qemu-ime-rv64` all four OFP8 files fail: three at `cp_fp_subdot`
   (QEMU deviation 4), `Zvvofp8bf16mm` at its first testcase (deviation 5).
+
+## Step 4.2: OFP4 inputs (`483225a9a`)
+
+- Rows: `vfqmmacc.vv` SEW=16 (`Zvvofp4fp16mm`, `Zvvofp4bf16mm`) and `vf8wmmacc.vv` SEW=32 (`Zvvofp4fp32mm`). Sail and
+  the SDK QEMU decode all three. Both configs declare them and disclose `SEW16_W4` and `SEW32_W8`.
+- Edge variant `f_ofp4`: all 16 E2M1 encodings. No `cp_altfmt`: `altfmt_A = 1` or `altfmt_B = 1` is reserved for
+  4-bit inputs.
+- `cp_fp_rnd`: E2M1 products are multiples of 2^−2 up to 36, so a group sum of W ≤ 8 products is exact in FP16 and
+  FP32. Only `Zvvofp4bf16mm` has data: S = 3·36 + 2^−2 = 108.25 needs 9 significant bits, and BF16 has 8.
+- Existing tests regenerate byte for byte. Covergroup changes are additions only. pyslang compiles Zvvfmm16/32.
+- Results: Zvvfmm16 6/6 and Zvvfmm32 5/5 on `sail-ime-rv64`. On `qemu-ime-rv64` the FP16 and FP32 files fail at
+  `cp_fp_subdot` (deviation 4), `Zvvofp4bf16mm` at its first testcase (deviation 5).
 
 ## Decisions
 
@@ -106,5 +118,5 @@ pull request.
 | Extension                           | Rows                        | Status                                                  |
 | ----------------------------------- | --------------------------- | ------------------------------------------------------- |
 | `Zvvofp8mm`                         | `vfmmacc.vv` SEW=8          | no testplan row; not declared in the configs (step 4.2) |
-| `Zvvofp4ofp8mm`                     | `vfwmmacc.vv` SEW=8         | no testplan row yet                                     |
+| `Zvvofp4ofp8mm`                     | `vfwmmacc.vv` SEW=8         | no testplan row; not declared in the configs (step 4.2) |
 | `Zvvxofp4ofp8mm`, `Zvvxnofp4ofp8mm` | `vfwmmacc.vv` SEW=8, `vm=0` | no testplan row yet                                     |
