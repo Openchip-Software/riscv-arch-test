@@ -11,8 +11,12 @@
 //
 ////////////////////////////////////////////////////////////////////////////////////////////////
     ExceptionsZvvm_v8wmmacc_vv_cg = new(); ExceptionsZvvm_v8wmmacc_vv_cg.set_inst_name("obj_ExceptionsZvvm_v8wmmacc_vv");
+    ExceptionsZvvm_vf8wimmacc_vv_cg = new(); ExceptionsZvvm_vf8wimmacc_vv_cg.set_inst_name("obj_ExceptionsZvvm_vf8wimmacc_vv");
+    ExceptionsZvvm_vf8wmmacc_vv_cg = new(); ExceptionsZvvm_vf8wmmacc_vv_cg.set_inst_name("obj_ExceptionsZvvm_vf8wmmacc_vv");
     ExceptionsZvvm_vfmmacc_vv_cg = new(); ExceptionsZvvm_vfmmacc_vv_cg.set_inst_name("obj_ExceptionsZvvm_vfmmacc_vv");
+    ExceptionsZvvm_vfqimmacc_vv_cg = new(); ExceptionsZvvm_vfqimmacc_vv_cg.set_inst_name("obj_ExceptionsZvvm_vfqimmacc_vv");
     ExceptionsZvvm_vfqmmacc_vv_cg = new(); ExceptionsZvvm_vfqmmacc_vv_cg.set_inst_name("obj_ExceptionsZvvm_vfqmmacc_vv");
+    ExceptionsZvvm_vfwimmacc_vv_cg = new(); ExceptionsZvvm_vfwimmacc_vv_cg.set_inst_name("obj_ExceptionsZvvm_vfwimmacc_vv");
     ExceptionsZvvm_vfwmmacc_vv_cg = new(); ExceptionsZvvm_vfwmmacc_vv_cg.set_inst_name("obj_ExceptionsZvvm_vfwmmacc_vv");
     ExceptionsZvvm_vmmacc_vv_cg = new(); ExceptionsZvvm_vmmacc_vv_cg.set_inst_name("obj_ExceptionsZvvm_vmmacc_vv");
     ExceptionsZvvm_vmtl_v_cg = new(); ExceptionsZvvm_vmtl_v_cg.set_inst_name("obj_ExceptionsZvvm_vmtl_v");

@@ -23,6 +23,7 @@ from testgen.data.params import InstructionParams
 from testgen.data.state import TestData, return_testcase_registers
 from testgen.data.test_chunk import TestChunk
 from testgen.formatters.registry import format_instruction
+from testgen.formatters.types.mmacc_type import WIDENING
 from testgen.formatters.types.tile_type import TRANSPOSING, tile_data_label
 from testgen.instructions.vector_params import generate_random_vector_params
 from testgen.io.testplans import TestPlanData, read_testplan
@@ -58,6 +59,24 @@ MACC_TYPE_EXTENSION = {
 # funct6 and funct3 of the multiply-accumulates without a microscaled form, for the vm=0 encoding
 MACC_VM0_ENCODING = {"vmmacc.vv": (0x38, 0), "vfmmacc.vv": (0x14, 1)}
 
+# Type extension of each microscaled multiply-accumulate at each accumulator SEW, without its ZVVX or ZVVXN prefix.
+# The entries are the rows with an FP16, FP32 or FP64 C. Block size 32 (vtype.bs = 0) needs either prefix; block size
+# 16 (vtype.bs = 1) needs ZVVXN.
+MX_TYPE_EXTENSION = {
+    ("vfwmmacc.vv", 16): "OFP8FP16MM",
+    ("vfqmmacc.vv", 16): "OFP4FP16MM",
+    ("vfqmmacc.vv", 32): "OFP8FP32MM",
+    ("vf8wmmacc.vv", 32): "OFP4FP32MM",
+    ("vf8wmmacc.vv", 64): "OFP8FP64MM",
+    ("vfwimmacc.vv", 16): "I8FP16MM",
+    ("vfqimmacc.vv", 16): "I4FP16MM",
+    ("vfqimmacc.vv", 32): "I8FP32MM",
+    ("vf8wimmacc.vv", 32): "I4FP32MM",
+    ("vf8wimmacc.vv", 64): "I8FP64MM",
+}
+# Coverpoint names of the microscaled cases; cp_ime_mx_bs16_lmul carries an SEW suffix
+MX_COVERPOINTS = ("cp_ime_mx_bs16_lmul", "cp_ime_mx_v0_overlap")
+
 # Register groups of the trap cases: A and B at LMUL <= 8, C at v16
 A_REG, B_REG, C_REG, TILE_REG = 0, 8, 16, 8
 
@@ -76,14 +95,21 @@ class TrapCase:
         self.test_data = test_data
         self.row = row
         self.coverpoint = coverpoint
-        self.fp = row.instr_type == "FMMACC"
+        self.fp = row.instr_type in ("FMMACC", "FMMACC_MX")
         self.is_tile = row.instr_type in ("VLT", "VST")
+        # The microscaled cases guard on MX_TYPE_EXTENSION and encode vm = 0
+        self.mx = coverpoint.startswith(MX_COVERPOINTS)
 
-    def guard(self, sew: int, extra: list[str]) -> str:
+    def guard(self, sew: int, extra: list[str], bs: bool = False) -> str:
         """Preprocessor guard: type extension, ELEN and any extra condition."""
         terms = [f"(UDB_ELEN >= {sew})", *extra]
-        if not self.is_tile and (self.row.instr_name, sew) in MACC_TYPE_EXTENSION:
-            terms.insert(0, f"defined({MACC_TYPE_EXTENSION[(self.row.instr_name, sew)]}_SUPPORTED)")
+        key = (self.row.instr_name, sew)
+        if self.mx:
+            extensions = ["ZVVXN"] if bs else ["ZVVX", "ZVVXN"]
+            names = [f"defined({prefix}{MX_TYPE_EXTENSION[key]}_SUPPORTED)" for prefix in extensions]
+            terms.insert(0, names[0] if len(names) == 1 else f"({' || '.join(names)})")
+        elif not self.is_tile and key in MACC_TYPE_EXTENSION:
+            terms.insert(0, f"defined({MACC_TYPE_EXTENSION[key]}_SUPPORTED)")
         return "#if " + " && ".join(terms)
 
     def instruction(self, vd: int | None = None, vs1: int = A_REG, vs2: int = B_REG, addr_reg: int = 0) -> str:
@@ -91,7 +117,8 @@ class TrapCase:
         if self.is_tile:
             reg = TILE_REG if vd is None else vd
             return f"{self.row.instr_name} v{reg}, (x{addr_reg}), x0"
-        return f"{self.row.instr_name} v{C_REG if vd is None else vd}, v{vs1}, v{vs2}"
+        scale = ", v0.scale" if self.mx else ""
+        return f"{self.row.instr_name} v{C_REG if vd is None else vd}, v{vs1}, v{vs2}{scale}"
 
     def chunk(
         self,
@@ -104,11 +131,12 @@ class TrapCase:
         extra_guard: list[str] | None = None,
         lambda_value: int | None = None,
         record_vstart: bool = False,
+        bs: bool = False,
     ) -> TestChunk:
         """
         One trapping testcase: set a legal IME vtype at VL=VLMAX, then body(temp_reg, vtype_reg, addr_reg) breaks a
         rule and runs the instruction (its last line). A tile instruction gets a valid address in addr_reg in case it
-        does not trap. record_vstart records vstart after the trap and clears it.
+        does not trap. record_vstart records vstart after the trap and clears it. bs sets vtype.bs.
         """
         test_data = self.test_data
         tc = test_data.begin_test_chunk()
@@ -117,11 +145,11 @@ class TrapCase:
             f"{bin_name}_sew_{sew}", self.coverpoint, f"{test_data.config.testsuite}_{self.row.instr_name}_cg"
         )
         temp_reg, vtype_reg, addr_reg = test_data.int_regs.get_registers(3, exclude_regs=[0])
-        params = InstructionParams(sew=sew, lmul=lmul, lambda_=lambda_value, vl="vlmax", temp_reg=temp_reg)
+        params = InstructionParams(sew=sew, lmul=lmul, lambda_=lambda_value, vl="vlmax", temp_reg=temp_reg, bs=bs)
         lambdas = ime_lambdas(sew) if lambda_value is None else [lambda_value]
         pre, post = arch_lines(sew, self.fp)
         lines = [
-            self.guard(sew, [ime_lambda_condition(sew, lambdas), *(extra_guard or [])]),
+            self.guard(sew, [ime_lambda_condition(sew, lambdas), *(extra_guard or [])], bs),
             *pre,
             *load_ime_vtype(params, test_data, lambdas=lambdas),
         ]
@@ -152,7 +180,13 @@ def trap_cases(test_data: TestData, row: TestPlanData, coverpoint: str) -> list[
     reserved = [sew for sew in SEWS if sew not in row.sews_supported]
 
     instr = case.instruction
-    for sew in reserved if coverpoint == "cp_ime_reserved_sew" else row.sews_supported:
+    if coverpoint == "cp_ime_reserved_sew":
+        sews = reserved
+    elif case.mx:
+        sews = [sew for name, sew in MX_TYPE_EXTENSION if name == row.instr_name]
+    else:
+        sews = row.sews_supported
+    for sew in sews:
         match coverpoint:
             case "cp_vill":
                 chunks.append(
@@ -274,6 +308,38 @@ def trap_cases(test_data: TestData, row: TestPlanData, coverpoint: str) -> list[
                         ],
                     )
                 )
+            case "cp_ime_mx_bs16_lmul_e16" | "cp_ime_mx_bs16_lmul_e32":
+                # Block size 16 requires W*LMUL <= SEW. Only LMUL = 8 can break it, and only where 8*W > SEW. A and B
+                # share v8-v15, which is legal, and C starts at v16.
+                if 8 * WIDENING[row.instr_name] > sew:
+                    chunks.append(
+                        case.chunk(
+                            sew,
+                            "bs_16_lmul_8",
+                            f"vtype.bs = 1 at LMUL = 8, W*LMUL = {8 * WIDENING[row.instr_name]} > SEW",
+                            8,
+                            lambda t, v, a: [instr(vs1=B_REG, vs2=B_REG)],
+                            bs=True,
+                        )
+                    )
+            case "cp_ime_mx_v0_overlap":
+                # No operand group of a microscaled multiply-accumulate may overlap v0, which holds the scales. Register
+                # groups are aligned, so a group overlaps v0 when it starts at v0. The other operands stay off v0 and
+                # off the C group, which is at most 16 registers.
+                for bin_name, regs in (
+                    ("vd_v0", {"vd": 0, "vs1": C_REG, "vs2": C_REG + 8}),
+                    ("vs1_v0", {"vs1": 0}),
+                    ("vs2_v0", {"vs1": B_REG, "vs2": 0}),
+                ):
+                    chunks.append(
+                        case.chunk(
+                            sew,
+                            bin_name,
+                            f"{bin_name.removesuffix('_v0')} = v0 with vm = 0",
+                            1,
+                            lambda t, v, a, r=regs: [instr(**r)],
+                        )
+                    )
             case "cp_ime_reserved_sew":
                 chunks.append(
                     case.chunk(
@@ -390,8 +456,8 @@ def make_exceptions_zvvmm(test_data: TestData) -> list[TestChunk]:
     testcases_per_file=100,
 )
 def make_exceptions_zvvfmm(test_data: TestData) -> list[TestChunk]:
-    """Floating-point multiply-accumulate (Zvvfmm)."""
-    return exceptions_zvvm(test_data, lambda row: row.instr_type == "FMMACC")
+    """Floating-point and microscaled multiply-accumulate (Zvvfmm)."""
+    return exceptions_zvvm(test_data, lambda row: row.instr_type in ("FMMACC", "FMMACC_MX"))
 
 
 @add_priv_test_generator(

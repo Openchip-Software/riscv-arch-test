@@ -121,6 +121,62 @@ covergroup ExceptionsZvvm_v8wmmacc_vv_cg with function sample(ins_t ins);
 
 endgroup
 // ---------------------
+covergroup ExceptionsZvvm_vf8wimmacc_vv_cg with function sample(ins_t ins);
+    option.per_instance = 0;
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_mx_bs16_lmul_e32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_mx_bs16_lmul_e32 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vlmul")  iff (ins.current.insn[25] == 0 && get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "bs") == 1 && get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vsew") == 2)  {
+        // Microscaled with vtype.bs = 1 at SEW = 32 and LMUL = 8: W*LMUL = 64 > SEW
+        bins m8 = {3};
+    }
+
+    //// end cp_ime_mx_bs16_lmul_e32////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_mx_v0_overlap
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_mx_v0_overlap : coverpoint {ins.current.insn[11:7] == 0, ins.current.insn[19:15] == 0, ins.current.insn[24:20] == 0}  iff (ins.current.insn[25] == 0)  {
+        // Microscaled: the vd, vs1 or vs2 group starts at v0, which holds the block scales
+        bins vd_v0 = {3'b100};
+        bins vs1_v0 = {3'b010};
+        bins vs2_v0 = {3'b001};
+    }
+
+    //// end cp_ime_mx_v0_overlap////////////////////////////////////////////////
+
+endgroup
+// ---------------------
+covergroup ExceptionsZvvm_vf8wmmacc_vv_cg with function sample(ins_t ins);
+    option.per_instance = 0;
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_mx_bs16_lmul_e32
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_mx_bs16_lmul_e32 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vlmul")  iff (ins.current.insn[25] == 0 && get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "bs") == 1 && get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vsew") == 2)  {
+        // Microscaled with vtype.bs = 1 at SEW = 32 and LMUL = 8: W*LMUL = 64 > SEW
+        bins m8 = {3};
+    }
+
+    //// end cp_ime_mx_bs16_lmul_e32////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_mx_v0_overlap
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_mx_v0_overlap : coverpoint {ins.current.insn[11:7] == 0, ins.current.insn[19:15] == 0, ins.current.insn[24:20] == 0}  iff (ins.current.insn[25] == 0)  {
+        // Microscaled: the vd, vs1 or vs2 group starts at v0, which holds the block scales
+        bins vd_v0 = {3'b100};
+        bins vs1_v0 = {3'b010};
+        bins vs2_v0 = {3'b001};
+    }
+
+    //// end cp_ime_mx_v0_overlap////////////////////////////////////////////////
+
+endgroup
+// ---------------------
 covergroup ExceptionsZvvm_vfmmacc_vv_cg with function sample(ins_t ins);
     option.per_instance = 0;
     //////////////////////////////////////////////////////////////////////////////////
@@ -229,6 +285,34 @@ covergroup ExceptionsZvvm_vfmmacc_vv_cg with function sample(ins_t ins);
 
 endgroup
 // ---------------------
+covergroup ExceptionsZvvm_vfqimmacc_vv_cg with function sample(ins_t ins);
+    option.per_instance = 0;
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_mx_bs16_lmul_e16
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_mx_bs16_lmul_e16 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vlmul")  iff (ins.current.insn[25] == 0 && get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "bs") == 1 && get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vsew") == 1)  {
+        // Microscaled with vtype.bs = 1 at SEW = 16 and LMUL = 8: W*LMUL = 32 > SEW
+        bins m8 = {3};
+    }
+
+    //// end cp_ime_mx_bs16_lmul_e16////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_mx_v0_overlap
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_mx_v0_overlap : coverpoint {ins.current.insn[11:7] == 0, ins.current.insn[19:15] == 0, ins.current.insn[24:20] == 0}  iff (ins.current.insn[25] == 0)  {
+        // Microscaled: the vd, vs1 or vs2 group starts at v0, which holds the block scales
+        bins vd_v0 = {3'b100};
+        bins vs1_v0 = {3'b010};
+        bins vs2_v0 = {3'b001};
+    }
+
+    //// end cp_ime_mx_v0_overlap////////////////////////////////////////////////
+
+endgroup
+// ---------------------
 covergroup ExceptionsZvvm_vfqmmacc_vv_cg with function sample(ins_t ins);
     option.per_instance = 0;
     //////////////////////////////////////////////////////////////////////////////////
@@ -243,6 +327,30 @@ covergroup ExceptionsZvvm_vfqmmacc_vv_cg with function sample(ins_t ins);
     }
 
     //// end cp_ime_lmul_fractional////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_mx_bs16_lmul_e16
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_mx_bs16_lmul_e16 : coverpoint get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vlmul")  iff (ins.current.insn[25] == 0 && get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "bs") == 1 && get_csr_val(ins.hart, ins.issue, `SAMPLE_BEFORE, "vtype", "vsew") == 1)  {
+        // Microscaled with vtype.bs = 1 at SEW = 16 and LMUL = 8: W*LMUL = 32 > SEW
+        bins m8 = {3};
+    }
+
+    //// end cp_ime_mx_bs16_lmul_e16////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_mx_v0_overlap
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_mx_v0_overlap : coverpoint {ins.current.insn[11:7] == 0, ins.current.insn[19:15] == 0, ins.current.insn[24:20] == 0}  iff (ins.current.insn[25] == 0)  {
+        // Microscaled: the vd, vs1 or vs2 group starts at v0, which holds the block scales
+        bins vd_v0 = {3'b100};
+        bins vs1_v0 = {3'b010};
+        bins vs2_v0 = {3'b001};
+    }
+
+    //// end cp_ime_mx_v0_overlap////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////////////
     // cp_ime_vd_misaligned
@@ -326,6 +434,23 @@ covergroup ExceptionsZvvm_vfqmmacc_vv_cg with function sample(ins_t ins);
 
 endgroup
 // ---------------------
+covergroup ExceptionsZvvm_vfwimmacc_vv_cg with function sample(ins_t ins);
+    option.per_instance = 0;
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_mx_v0_overlap
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_mx_v0_overlap : coverpoint {ins.current.insn[11:7] == 0, ins.current.insn[19:15] == 0, ins.current.insn[24:20] == 0}  iff (ins.current.insn[25] == 0)  {
+        // Microscaled: the vd, vs1 or vs2 group starts at v0, which holds the block scales
+        bins vd_v0 = {3'b100};
+        bins vs1_v0 = {3'b010};
+        bins vs2_v0 = {3'b001};
+    }
+
+    //// end cp_ime_mx_v0_overlap////////////////////////////////////////////////
+
+endgroup
+// ---------------------
 covergroup ExceptionsZvvm_vfwmmacc_vv_cg with function sample(ins_t ins);
     option.per_instance = 0;
     //////////////////////////////////////////////////////////////////////////////////
@@ -340,6 +465,19 @@ covergroup ExceptionsZvvm_vfwmmacc_vv_cg with function sample(ins_t ins);
     }
 
     //// end cp_ime_lmul_fractional////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////////
+    // cp_ime_mx_v0_overlap
+    //////////////////////////////////////////////////////////////////////////////////
+
+    cp_ime_mx_v0_overlap : coverpoint {ins.current.insn[11:7] == 0, ins.current.insn[19:15] == 0, ins.current.insn[24:20] == 0}  iff (ins.current.insn[25] == 0)  {
+        // Microscaled: the vd, vs1 or vs2 group starts at v0, which holds the block scales
+        bins vd_v0 = {3'b100};
+        bins vs1_v0 = {3'b010};
+        bins vs2_v0 = {3'b001};
+    }
+
+    //// end cp_ime_mx_v0_overlap////////////////////////////////////////////////
 
     //////////////////////////////////////////////////////////////////////////////////
     // cp_ime_vd_misaligned
@@ -1054,11 +1192,23 @@ function void exceptionszvvm_sample(int hart, int issue, ins_t ins);
         "v8wmmacc.vv"     : begin
             ExceptionsZvvm_v8wmmacc_vv_cg.sample(ins);
         end
+        "vf8wimmacc.vv"     : begin
+            ExceptionsZvvm_vf8wimmacc_vv_cg.sample(ins);
+        end
+        "vf8wmmacc.vv"     : begin
+            ExceptionsZvvm_vf8wmmacc_vv_cg.sample(ins);
+        end
         "vfmmacc.vv"     : begin
             ExceptionsZvvm_vfmmacc_vv_cg.sample(ins);
         end
+        "vfqimmacc.vv"     : begin
+            ExceptionsZvvm_vfqimmacc_vv_cg.sample(ins);
+        end
         "vfqmmacc.vv"     : begin
             ExceptionsZvvm_vfqmmacc_vv_cg.sample(ins);
+        end
+        "vfwimmacc.vv"     : begin
+            ExceptionsZvvm_vfwimmacc_vv_cg.sample(ins);
         end
         "vfwmmacc.vv"     : begin
             ExceptionsZvvm_vfwmmacc_vv_cg.sample(ins);
