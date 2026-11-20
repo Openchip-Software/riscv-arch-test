@@ -129,6 +129,19 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 - `qemu-ime-rv64` declares no microscaled extension, so the MX cases are compiled out. ExceptionsZvvm still fails
   7/7 there (no Zvvmttls file), first at `cp_ime_vstart` (deviation 1).
 
+## Coverage: vm=0 `vmmacc.vv` and `vfmmacc.vv` (`a833181b0`)
+
+- Found in step 4.3: `cp_ime_vm0` was never sampled. The vm=0 encodings match nothing in `RISCV_decode_pkg.svh` or
+  `RISCV_disasm_fallback.svh`, so `inst_name` was "illegal" and no ExceptionsZvvm covergroup sampled them.
+- `build_disasm_fallback.py` now maps both encodings, with vm relaxed, to their mnemonics. The patterns come from
+  `RISCV_decode_pkg.svh`. The unpriv covergroups do not count the trapping instruction: every Zvvmm coverpoint requires
+  `ins.trap == 0`, and the Zvvfmm `vfmmacc.vv` sample calls require vm=1.
+- The generator's mew=1 loop skips the IME tile loads and stores, which would otherwise replace the mew=1 entries of
+  `vluxei64.v` and `vsuxei64.v`. Regenerating also adds the `vtle*` and `vtse*` entries from the riscv-opcodes update
+  `84e8ce98f`, last in the `casez`.
+- Check: the trapping words `0x50801857` and `0xe0800857` from the Sail trace match no decode entry and resolve to
+  `vfmmacc.vv` and `vmmacc.vv`. pyslang compiles ExceptionsZvvm. No simulator here measures the bins.
+
 ## Decisions
 
 - **Family flags.** In UDB each type extension requires its family, and a family alone enables no type. In Sail a

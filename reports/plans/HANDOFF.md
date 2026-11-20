@@ -22,7 +22,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/`).
 
 | What                    | Where                                                                            | Pin                                                               |
 | ----------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 13 commits on `act4` `7569d06d6` (section 5)                      |
+| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 14 commits on `act4` `7569d06d6` (section 5)                      |
 | ACT4, reports           | `~/repo/ime/riscv-arch-test-docs` (worktree), branch `docs/act-ime-reports`      |                                                                   |
 | UDB                     | Openchip-Software/riscv-unified-db `ime/fp-mx`, worktree `~/repo/ime/udb-act`    | `f0045fec`; will merge into `ime/0.9.0`                           |
 | Sail (reference)        | Openchip-Software/sail-riscv `cleanup/ime-0.9.0`, worktree `~/repo/ime/sail-act` | `0ebfc810`; binary in `~/repo/ime/sail-act/build-act/c_emulator/` |
@@ -95,6 +95,7 @@ Commits on `cgomez/ime-udb-0.9.0`, oldest first. The first three are `port-ime-t
 | `42f233275` | `Zvvx[n]ofp8*`, `Zvvx[n]ofp4*` (FP16/BF16/FP32 C): microscaled FP MACC (vm=0), `cp_scale`          |
 | `89c7fdb33` | `Zvvx[n]i8*`, `Zvvx[n]i4*`: microscaled integer-input MACC (`vfwimmacc.vv` and the W=4, W=8 forms) |
 | `588fc52d6` | ExceptionsZvvm: microscaled illegal cases, an operand on v0 and bs=1 with W·LMUL > SEW             |
+| `a833181b0` | Fallback disassembler: vm=0 `vmmacc.vv` and `vfmmacc.vv`, so `cp_ime_vm0` is sampled               |
 
 Suites. Each unprivileged suite expands per SEW (`Zvvmm8` … `Zvvmm64`).
 
@@ -208,9 +209,6 @@ Known limits:
   cover the operand fields, which vm does not change.
 - The microscaled QEMU path is not run: QEMU needs `x-zvvfmmmx=true`, and the command line stays as shipped. That
   path also rounds the scale product to FP32 and then to the C format, which the spec forbids.
-- [Inferred from the code] `cp_ime_vm0` is never sampled. vm=0 `vmmacc.vv` and `vfmmacc.vv` match no entry in
-  `disassemble.svh` or `RISCV_disasm_fallback.svh`, so `inst_name` is "illegal" and no ExceptionsZvvm covergroup
-  samples them. The microscaled encodings decode, so the `cp_ime_mx_*` bins are sampled.
 - No RV32 configuration exists.
 - GCC names the W=4 instructions `vqwmmacc.vv`, `vfqwmmacc.vv` and `vfqwimmacc.vv`. The CSVs use the spec names. The
   `.insn` macros accept both.
@@ -219,7 +217,6 @@ Known limits:
 
 | Step                                                                                                         | Notes                                 |
 | ------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| Coverage: decode vm=0 `vmmacc.vv` and `vfmmacc.vv` so `cp_ime_vm0` can be sampled                            | section 7                             |
 | 5 UDB ISS cross-check: run every IME ELF through the UDB C++ ISS and triage each mismatch                    | diagnostic only, not committed to ACT |
 | Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                               | section 7                             |
 | Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9                             |
