@@ -2,7 +2,8 @@
 
 # Bugs and issues found during the IME port to ACT4
 
-State as of 2026-11-21. Nothing here has been filed. Each draft names its target repository on its first line.
+State as of 2026-11-21. Nothing here has been filed upstream. Items 1–5 and 8 have pull requests on the Openchip fork for review:
+[#2](https://github.com/Openchip-Software/riscv-unified-db/pull/2) (1), [#3](https://github.com/Openchip-Software/riscv-unified-db/pull/3) (2), [#4](https://github.com/Openchip-Software/riscv-unified-db/pull/4) (3), [#5](https://github.com/Openchip-Software/riscv-unified-db/pull/5) (4, draft), [#6](https://github.com/Openchip-Software/riscv-unified-db/pull/6) (5), [#7](https://github.com/Openchip-Software/riscv-unified-db/pull/7) (8, stacked on #3). Each draft names its target repository on its first line.
 Before filing, check that no matching issue exists, and resolve every "Note before filing" in the draft.
 
 ## Drafts ready for review
