@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+# Sail with IME as the DUT, at VLEN 16384. The executables are wrappers in config/ime/bin. Put that directory on $PATH (see ../README.md).
+name: sail-ime-rv64-v16384
+compiler_exe: riscv64-openchip-linux-gnu-gcc
+objdump_exe: riscv64-openchip-linux-gnu-objdump
+ref_model_exe: sail_riscv_sim_ime
+udb_config: sail-ime-rv64-v16384.yaml
+linker_script: link.ld
+dut_include_dir: . # Directory containing DUT specific rvmodel_macros.h header
+# A Sail run of one IME test at VLEN 16384 takes several minutes
+ref_model_timeout: 3600

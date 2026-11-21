@@ -4,12 +4,13 @@ These configurations bring up IME (Zvvm\*) testing. The toolchain comes from the
 reference model is the Sail IME fork, Openchip-Software/sail-riscv branch `cleanup/ime-0.9.0`. The tests
 follow the IME specification at commit 58810918 (v0.9.0-on-main with exact E8M0 block scales).
 
-| Config          | DUT                                                                | VLEN | Reference model |
-| --------------- | ------------------------------------------------------------------ | ---- | --------------- |
-| `qemu-ime-rv64` | SDK `qemu-system-riscv64` 10.2.50, `-cpu max,vlen=256,x-zvvm=true` | 256  | Sail IME fork   |
-| `sail-ime-rv64` | Sail IME fork                                                      | 1024 | Sail IME fork   |
+| Config                 | DUT                                                                | VLEN  | Reference model |
+| ---------------------- | ------------------------------------------------------------------ | ----- | --------------- |
+| `qemu-ime-rv64`        | SDK `qemu-system-riscv64` 10.2.50, `-cpu max,vlen=256,x-zvvm=true` | 256   | Sail IME fork   |
+| `sail-ime-rv64`        | Sail IME fork                                                      | 1024  | Sail IME fork   |
+| `sail-ime-rv64-v16384` | Sail IME fork                                                      | 16384 | Sail IME fork   |
 
-## Common to both configurations
+## Common to all configurations
 
 - The Zvvm extensions, the `SUPPORTED_LAMBDA_SEW*` parameters and the `ZVVM_FP_*` disclosure parameters
   come from riscv-unified-db branch `ime/fp-mx` (Openchip-Software fork). No UDB release defines them yet,
@@ -52,6 +53,19 @@ Zvvmttls and the tests gated on rnd=frm.
   `SUPPORTED_LAMBDA_SEW16: [2, 4, 8]`, `SUPPORTED_LAMBDA_SEW32: [2, 4]` and `SUPPORTED_LAMBDA_SEW64: [1, 2, 4]`.
 - The floating-point disclosure is Sail's: G=1, psm=0, rnd=frm.
 - The stateen and `hedeleg` parameters follow `sail.json`.
+
+## `sail-ime-rv64-v16384`
+
+`sail-ime-rv64-v16384` is `sail-ime-rv64` with VLEN 16384, the largest VLEN that the IME tests support
+(`IME_VLEN_MAX` in testgen). It covers the lambda values 16 and 32, which no VLEN up to 1024 permits.
+
+- UDB `VLEN: 16384` with `Zvl2048b` to `Zvl16384b`, and `sail.json` `vlen_exp: 14`.
+- The lambda lists are `SUPPORTED_LAMBDA_SEW8: [16, 32]`, `SUPPORTED_LAMBDA_SEW16: [8, 16, 32]`,
+  `SUPPORTED_LAMBDA_SEW32: [8, 16]` and `SUPPORTED_LAMBDA_SEW64: [4, 8, 16]`. The `ZVVM_FP_*` disclosure has an entry
+  for each of these lambda values.
+- One Sail run of an IME test takes up to several minutes at this VLEN, so `test_config.yaml` sets
+  `ref_model_timeout: 3600`. Run the DUT with a longer per-test timeout as well, for example
+  `run_tests.py --timeout 3600`. Run it on a compute node.
 
 ## The IME in ACT
 

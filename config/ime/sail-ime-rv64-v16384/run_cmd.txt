@@ -1,0 +1,1 @@
+sail_riscv_sim_ime {debug:--trace --trace-output __TRACEFILE__} --config config/ime/sail-ime-rv64-v16384/sail.json
