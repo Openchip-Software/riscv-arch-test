@@ -75,7 +75,12 @@ Other facts:
    `udb-0.9.0.md` and this file, and commit there. Rebase both branches when `act4` moves.
 4. **Commits.** `mise run prek` passes first. `git commit -s`, no AI trailers. Subject imperative, at most 72
    characters. Body: what was wrong and what it is now. Do not push without approval.
-5. **OFP8 tests that Sail cannot run** go on the set-aside list in `udb-0.9.0.md`, with the test name, the extension
+5. **Scope** (decided 2026-11-21).
+   - QEMU is not a priority. The SDK QEMU may be outdated, and it is not a source of truth. Its results are recorded
+     but do not block any step, and QEMU failures are not investigated.
+   - RV32 is out of scope for now. The CSVs keep `RV32=x`, but no RV32 configuration is planned.
+   - ACT must test VLEN up to 16384 (section 8).
+6. **OFP8 tests that Sail cannot run** go on the set-aside list in `udb-0.9.0.md`, with the test name, the extension
    and the Sail error. Do not work around them on this branch.
 
 ## 5. Current implementation
@@ -186,7 +191,8 @@ On QEMU, the OFP8 and OFP4 files with an FP16, FP32 or FP64 C fail first at `cp_
 `Zvvofp8bf16mm` and `Zvvofp4bf16mm` fail at their first testcase (deviation 5). Every OFP edge, `cp_altfmt_ofp8` and
 `cr_lambda_lmul` testcase before `cp_fp_subdot` passes on QEMU.
 
-QEMU deviations from the spec. An ELF stops at the first one, so later bins of a failing file are not measured.
+QEMU deviations from the spec. QEMU is not a priority (rule 5); this list is for reference only. An ELF stops at the
+first one, so later bins of a failing file are not measured.
 
 1. MACC with `vstart` ≠ 0 or with VL not a multiple of λ·LMUL runs instead of trapping.
 2. Tile loads and stores with `vill`, immediate λ L64 (double trap), VL not a multiple, or masked `vd = v0` run
@@ -209,13 +215,13 @@ Known limits:
 
 - Mixed FP16 and BF16 inputs (`altfmt_A` ≠ `altfmt_B`) need both 16-bit extensions. No covergroup samples them
   until the mixed rows exist.
-- ACT caps VLEN at 1024, so bins for λ ≥ 16 stay uncovered.
+- ACT caps VLEN at 1024, so bins for λ ≥ 16 stay uncovered. The target is VLEN 16384 (section 8).
 - The microscaled covergroups sample only vm=0, but they do not check `vtype.bs`. `cp_mx_bs` records it. They have
   no `cp_vs1` or `cp_vs2`: with vm=0 the C window must be v16, so A and B can only be in v1–v15. The unscaled rows
   cover the operand fields, which vm does not change.
 - The microscaled QEMU path is not run: QEMU needs `x-zvvfmmmx=true`, and the command line stays as shipped. That
   path also rounds the scale product to FP32 and then to the C format, which the spec forbids.
-- No RV32 configuration exists.
+- No RV32 configuration exists. RV32 is out of scope for now (rule 5).
 - GCC names the W=4 instructions `vqwmmacc.vv`, `vfqwmmacc.vv` and `vfqwimmacc.vv`. The CSVs use the spec names. The
   `.insn` macros accept both.
 
@@ -223,14 +229,27 @@ Known limits:
 
 | Step                                                                                                         | Notes                  |
 | ------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| Test VLEN up to 16384 (below)                                                                                | rule 5                 |
 | Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9              |
 | Upstream work packages; pull request to `act4`                                                               | needs approval to push |
 | File the issue drafts in `reports/issues/INDEX.md`                                                           | needs approval         |
 
+VLEN 16384. Sail accepts `vlen_exp` up to 16, so VLEN 16384 is `vlen_exp: 14`. ACT limits VLEN in these places:
+
+- `generators/testgen/src/testgen/constants.py`: `VLEN_MAX = 1024`, used by `cp_masking_edges`, `cp_custom_vindex`
+  and `cp_custom_tile_macc`.
+- `cp_custom_tile_macc.py`: `UDB_VLENS = [128, 256, 512, 1024]`.
+- `generators/testgen/scripts/vector_testgen_common.py`: `maxVLEN = 1024`, used by the script-based vector generators
+  for data sizes and random VL.
+- `config/ime/sail-ime-rv64`: `VLEN: 1024`, `vlen_exp: 10`, and the λ lists for VLEN 1024.
+
+Raising the limits makes test data and signatures grow with VLEN. Check file sizes and run times before choosing
+between one larger limit and a per-config limit.
+
 For each new FP group:
 
 1. Add the extensions to `sail-ime-rv64` (UDB yaml and `sail.json`).
-2. Add them to `qemu-ime-rv64` only if QEMU decodes them. See `trans_vfmmacc_vv` and the `ext_zvvfmm*` flags in
+2. Optional, since QEMU is not a priority: add them to `qemu-ime-rv64` only if QEMU decodes them. See `trans_vfmmacc_vv` and the `ext_zvvfmm*` flags in
    `riscv-ime-qemu` `d856b96`.
 3. Extend `Zvvfmm.csv` and add the edge values of the new formats.
 4. Check the `.insn` macros and `RISCV_decode_pkg.svh`.
@@ -245,7 +264,7 @@ When `ime/fp-mx` merges into `ime/0.9.0`, move the `udb-act` worktree to `ime/0.
 
 1. Which FP profile does the target implementation disclose for each (SEW, W, λ)? The configs disclose only the QEMU
    and Sail profiles.
-2. Does the Sail fork support RV32?
+2. Does the Sail fork support RV32? Deferred: RV32 is out of scope for now.
 3. When the spec ARC review draft merges, review the `ExceptionsZvvm` VL bins and the λ/KLEN naming.
 4. Can an E5M2 NaN be signaling? The spec defers OFP8 special values to "the rules of the operand formats". Sail
    treats every E5M2 NaN as quiet. The 0x7D edge testcase presets `fflags.NV`, so it passes either way.

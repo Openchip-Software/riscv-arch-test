@@ -30,6 +30,8 @@ Before filing, check that no matching issue exists, and resolve every "Note befo
 Items 1 to 5 and 8 were checked against riscv-unified-db `main` @ `5d1ded1f` (2026-11-19).
 Items 6 and 7 were seen on the fork `ime/fp-mx` @ `f0045fec`, which merges `main` @ `176fc360`.
 Item 12 depends on the answer to item 16.
+Items 10 to 13 are low priority: QEMU is not a priority and may be outdated. Check them against current QEMU
+before filing.
 
 ## Found, fixed or not reported
 
