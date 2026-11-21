@@ -8,7 +8,7 @@ Read this file first. It is self-contained: what exists, how to run it, the rule
 - [ime-act-testplan-design.md](ime-act-testplan-design.md): the testplan design (option C).
 - [upstream-ci/](upstream-ci/README.md): work packages for upstream CI.
 
-State as of 2026-11-20.
+State as of 2026-11-21.
 
 ## 1. Goal
 
@@ -172,11 +172,12 @@ Results with Sail `0ebfc810`, all suites at all SEWs:
 
 | Config          | Result                                                                                                   |
 | --------------- | -------------------------------------------------------------------------------------------------------- |
-| `sail-ime-rv64` | 78/78 files pass, Zvvmttls and ExceptionsZvvm included                                                   |
+| `sail-ime-rv64` | 93/93 files pass at `a833181b0`, Zvvmttls and ExceptionsZvvm included                                    |
 | `qemu-ime-rv64` | Integer and tile suites pass. Fail: the 12 W>1 Zvvfmm files, ExceptionsZvvm 7/7, and `Zvvbf16mm` (below) |
 
 The 78 files on Sail: the earlier 42 plus 4 OFP8, 3 OFP4 and 28 microscaled files, and an eighth ExceptionsZvvm file.
 Only the Zvvfmm suites were re-run (44/44) for these steps, and ExceptionsZvvm (8/8) for its microscaled illegal cases.
+For step 5, every IME suite was re-run at `a833181b0`: 93/93 files pass on Sail.
 On QEMU, the OFP8 and OFP4 files with an FP16, FP32 or FP64 C fail first at `cp_fp_subdot` (deviation 4).
 `Zvvofp8bf16mm` and `Zvvofp4bf16mm` fail at their first testcase (deviation 5). Every OFP edge, `cp_altfmt_ofp8` and
 `cr_lambda_lmul` testcase before `cp_fp_subdot` passes on QEMU.
@@ -215,12 +216,12 @@ Known limits:
 
 ## 8. Next steps
 
-| Step                                                                                                         | Notes                                 |
-| ------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| 5 UDB ISS cross-check: run every IME ELF through the UDB C++ ISS and triage each mismatch                    | diagnostic only, not committed to ACT |
-| Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                               | section 7                             |
-| Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9                             |
-| Upstream work packages; pull request to `act4`                                                               | needs approval to push                |
+| Step                                                                                                         | Notes                     |
+| ------------------------------------------------------------------------------------------------------------ | ------------------------- |
+| 5 UDB ISS cross-check: blocked, UDB has no operation for 619 of 627 V instructions (udb-0.9.0.md, step 5)    | needs a decision on scope |
+| Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                               | section 7                 |
+| Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9                 |
+| Upstream work packages; pull request to `act4`                                                               | needs approval to push    |
 
 For each new FP group:
 

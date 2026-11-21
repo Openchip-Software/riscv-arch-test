@@ -142,6 +142,35 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 - Check: the trapping words `0x50801857` and `0xe0800857` from the Sail trace match no decode entry and resolve to
   `vfmmacc.vv` and `vmmacc.vv`. pyslang compiles ExceptionsZvvm. No simulator here measures the bins.
 
+## Step 5: UDB ISS cross-check (blocked)
+
+Diagnostic only. Nothing is committed to ACT or UDB.
+
+- Sail at `a833181b0`: all IME suites at all SEWs, 93/93 files pass (`act-udb-work/w-iss-sail`).
+- The ISS is built from the ACT UDB config (`udb-iss/cfgs/act-ime-rv64.yaml`, `udb-iss` at `f0045fec`). The
+  Nov 19 config (VLEN 1024, no H) segfaults at `hfence.gvma` in the boot code: the ACT boot code and trap handler
+  are built with `H_SUPPORTED`.
+- The ISS does not run the ACT boot code as built. Local patches in `udb-iss`, none committed:
+  - `cpp_hart_gen` emits `mnret`, `ARCH_ID_VALUE` and `IMP_ID_VALUE` reads when the config does not implement
+    Smrnmi, `marchid` or `mimpid`. The ISS config enables all three.
+  - The ISS does not accept the ACT config format: `$schema` and `{name, version}` extension entries.
+  - Reads of `UNDEFINED_LEGAL` CSR fields and of registers without a reset value abort the ISS. The templates reset
+    them to 0.
+  - A CSR write that legalizes to an undefined value aborts the ISS. The template keeps the old value. `pmpaddr`
+    keeps the low PHYS_ADDR_WIDTH−2 bits, as Sail does: the boot code writes all ones.
+  - `DenseMemory` has no bounds check, so the CLINT write in the boot code segfaults. Accesses outside RAM now read
+    as zero and ignore writes.
+  - UDB bug: `current_translation_mode` in `isa/globals.isa` returns `Reserved` for HS and U mode when `misa.H` is
+    1, so the first fetch in S mode loops on page faults. The patch takes the `vsatp` branch only in VS and VU.
+- With these patches the ISS runs the boot code and the tests. Result: 6/93 pass, all ExceptionsZvvm files with
+  scalar checks. The other 87 fail at their first vector check.
+- Cause: only 8 of the 627 V instructions in UDB have an `operation()`. `vid.v`, the slides, `vmv.v.*`, the
+  compares, the mask instructions, `vfirst.m`, `vcpop.m` and `vcompress.vm` do nothing on the ISS, and
+  `RVTEST_SIGUPD_V_LEN` uses them. A bare-metal probe (`act-udb-work/vprobe/vops.S`) confirms this against Sail.
+  Unit-stride loads and stores, `vmv.x.s` and `vadd.vv` work.
+- The IME results themselves were not compared. In the one case traced, `vmtl.v` at SEW 8 and λ 4, the ISS reads
+  the same bytes as Sail. The ISS tracer prints `xreg(n)` for vector registers, so its trace shows no vector values.
+
 ## Decisions
 
 - **Family flags.** In UDB each type extension requires its family, and a family alone enables no type. In Sail a
