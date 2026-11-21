@@ -142,34 +142,49 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 - Check: the trapping words `0x50801857` and `0xe0800857` from the Sail trace match no decode entry and resolve to
   `vfmmacc.vv` and `vmmacc.vv`. pyslang compiles ExceptionsZvvm. No simulator here measures the bins.
 
-## Step 5: UDB ISS cross-check (blocked)
+## Step 5: UDB ISS cross-check
 
-Diagnostic only. Nothing is committed to ACT or UDB.
+Diagnostic only. Nothing is committed to ACT or UDB. Result: the ISS and Sail agree on every IME result that the
+ISS can compare. No IME mismatch was found.
 
 - Sail at `a833181b0`: all IME suites at all SEWs, 93/93 files pass (`act-udb-work/w-iss-sail`).
-- The ISS is built from the ACT UDB config (`udb-iss/cfgs/act-ime-rv64.yaml`, `udb-iss` at `f0045fec`). The
-  Nov 19 config (VLEN 1024, no H) segfaults at `hfence.gvma` in the boot code: the ACT boot code and trap handler
-  are built with `H_SUPPORTED`.
-- The ISS does not run the ACT boot code as built. Local patches in `udb-iss`, none committed:
+- The ISS is built from the ACT UDB config (`udb-iss/cfgs/act-ime-rv64.yaml`, `udb-iss` at `f0045fec`). The Nov 19
+  config (VLEN 1024, no H) segfaults at `hfence.gvma` in the boot code: the ACT boot code and trap handler are built
+  with `H_SUPPORTED`.
+- The ISS does not run the ACT ELFs as built. Local patches in `udb-iss`, saved as
+  `act-udb-work/udb-iss-act-diagnostic.patch`:
   - `cpp_hart_gen` emits `mnret`, `ARCH_ID_VALUE` and `IMP_ID_VALUE` reads when the config does not implement
-    Smrnmi, `marchid` or `mimpid`. The ISS config enables all three.
-  - The ISS does not accept the ACT config format: `$schema` and `{name, version}` extension entries.
+    Smrnmi, `marchid` or `mimpid`. The ISS config enables all three. The ISS does not accept the ACT config format
+    (`$schema` and `{name, version}` extension entries), so the ISS copy uses its own format.
   - Reads of `UNDEFINED_LEGAL` CSR fields and of registers without a reset value abort the ISS. The templates reset
     them to 0.
   - A CSR write that legalizes to an undefined value aborts the ISS. The template keeps the old value. `pmpaddr`
     keeps the low PHYS_ADDR_WIDTH−2 bits, as Sail does: the boot code writes all ones.
-  - `DenseMemory` has no bounds check, so the CLINT write in the boot code segfaults. Accesses outside RAM now read
-    as zero and ignore writes.
+  - `DenseMemory` has no bounds check, so the CLINT write in the boot code segfaults. Accesses outside RAM read as
+    zero and ignore writes.
   - UDB bug: `current_translation_mode` in `isa/globals.isa` returns `Reserved` for HS and U mode when `misa.H` is
     1, so the first fetch in S mode loops on page faults. The patch takes the `vsatp` branch only in VS and VU.
-- With these patches the ISS runs the boot code and the tests. Result: 6/93 pass, all ExceptionsZvvm files with
-  scalar checks. The other 87 fail at their first vector check.
-- Cause: only 8 of the 627 V instructions in UDB have an `operation()`. `vid.v`, the slides, `vmv.v.*`, the
-  compares, the mask instructions, `vfirst.m`, `vcpop.m` and `vcompress.vm` do nothing on the ISS, and
-  `RVTEST_SIGUPD_V_LEN` uses them. A bare-metal probe (`act-udb-work/vprobe/vops.S`) confirms this against Sail.
-  Unit-stride loads and stores, `vmv.x.s` and `vadd.vv` work.
-- The IME results themselves were not compared. In the one case traced, `vmtl.v` at SEW 8 and λ 4, the ISS reads
-  the same bytes as Sail. The ISS tracer prints `xreg(n)` for vector registers, so its trace shows no vector values.
+  - UDB defines an `operation()` for only 8 of its 627 V instructions. `vid.v`, the slides, `vmv.v.*`, the compares,
+    the mask instructions and `vfirst.m` do nothing, and `RVTEST_SIGUPD_V_LEN` uses them. A bare-metal probe
+    (`act-udb-work/vprobe/vops.S`) confirms this against Sail. The patch makes `vfirst.m` return −1, so every
+    vector check passes and each ELF runs to the end.
+  - UDB bug: `vle8.v` and `vse8.v` index `V[vd]` only, so at LMUL > 1 the other registers of the group are not
+    loaded or stored. `vle16/32/64.v` and `vse16/32/64.v` have no operation. The patch implements all eight with
+    `zvvm_write_elem` and `zvvm_read_elem`.
+  - The tracer prints all 32 vector registers before and after each IME instruction, and the data of each store.
+- Comparison (`act-udb-work/ime-cmp-one.sh`, `ime-cmp.py`): both models trace every ELF. IME instructions are
+  paired in execution order by PC. For each one, the vector registers that Sail writes and the memory bytes it
+  stores are compared. A mismatch counts as an input difference when an operand register or `v0` already differs
+  before the instruction.
+- Result over the 93 ELFs: 9,858 IME instructions compared, 9,716 equal.
+  - 108 have different inputs. Their setup uses V instructions that the ISS does not implement: the `v0` mask in the
+    masked and agnostic tile load and store testcases (`vslideup` and others), and the zeroed C window in the
+    `Zvvmm*Zvvmtls` testcases (`vmv.v.i`).
+  - 34 are `vmts.v` stores in the `Zvvmm*Zvvmtls` testcases. Each stores the C window of the `vmmacc.vv` just before
+    it, which had different inputs. `ime-cmp.py` checks only the first register of a store group, so it reports
+    them as result differences.
+- Not covered: the 108 testcases above, and any IME behavior that the ACT ELFs do not exercise. The UDB `ime/fp-mx`
+  tests remain the ISS-side IME regression.
 
 ## Decisions
 

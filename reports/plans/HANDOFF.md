@@ -174,6 +174,7 @@ Results with Sail `0ebfc810`, all suites at all SEWs:
 | --------------- | -------------------------------------------------------------------------------------------------------- |
 | `sail-ime-rv64` | 93/93 files pass at `a833181b0`, Zvvmttls and ExceptionsZvvm included                                    |
 | `qemu-ime-rv64` | Integer and tile suites pass. Fail: the 12 W>1 Zvvfmm files, ExceptionsZvvm 7/7, and `Zvvbf16mm` (below) |
+| UDB C++ ISS     | 9,716 of 9,858 IME results equal Sail; the other 142 have different setup (udb-0.9.0.md, step 5)         |
 
 The 78 files on Sail: the earlier 42 plus 4 OFP8, 3 OFP4 and 28 microscaled files, and an eighth ExceptionsZvvm file.
 Only the Zvvfmm suites were re-run (44/44) for these steps, and ExceptionsZvvm (8/8) for its microscaled illegal cases.
@@ -216,12 +217,11 @@ Known limits:
 
 ## 8. Next steps
 
-| Step                                                                                                         | Notes                     |
-| ------------------------------------------------------------------------------------------------------------ | ------------------------- |
-| 5 UDB ISS cross-check: blocked, UDB has no operation for 619 of 627 V instructions (udb-0.9.0.md, step 5)    | needs a decision on scope |
-| Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                               | section 7                 |
-| Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9                 |
-| Upstream work packages; pull request to `act4`                                                               | needs approval to push    |
+| Step                                                                                                         | Notes                  |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                               | section 7              |
+| Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9              |
+| Upstream work packages; pull request to `act4`                                                               | needs approval to push |
 
 For each new FP group:
 
@@ -231,10 +231,10 @@ For each new FP group:
 3. Extend `Zvvfmm.csv` and add the edge values of the new formats.
 4. Check the `.insn` macros and `RISCV_decode_pkg.svh`.
 
-Phase 5 tools: `~/.cache/ime-cleanup/zt/iss-build.sh ~/repo/ime/udb-act rv64-ime-v256-grp iss` builds the ISS on a
-compute node (needs `gcc14.sif`). Run an ELF with `iss -m rv64-ime-v256-grp -c cfgs/rv64-ime-v256-grp.yaml <elf>`.
-First check that the ISS config matches the ACT config (VLEN, λ lists, FP profile) and that the ISS runs the ACT boot
-code. If the boot code needs features the ISS lacks, limit the run to Zvvmm and Zvvfmm.
+Step 5 tools are in `~/repo/ime/act-udb-work`: `iss-job.sh act-ime-rv64` builds the ISS on a compute node from
+`udb-iss` with `udb-iss-act-diagnostic.patch` applied, and `ime-cmp-one.sh <out> <elf>` compares one ELF with Sail.
+The patch is diagnostic only. Its two UDB bugs (S-mode translation with H, vector loads at LMUL > 1) are worth an
+upstream report.
 
 When `ime/fp-mx` merges into `ime/0.9.0`, move the `udb-act` worktree to `ime/0.9.0`. Nothing else changes.
 
