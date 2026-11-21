@@ -218,9 +218,9 @@ first one, so later bins of a failing file are not measured.
 1. MACC with `vstart` ≠ 0 or with VL not a multiple of λ·LMUL runs instead of trapping.
 2. Tile loads and stores with `vill`, immediate λ L64 (double trap), VL not a multiple, or masked `vd = v0` run
    instead of trapping.
-3. [Unverified] `vmttl.v` and `vmtts.v` were reported as not decoded. QEMU `d856b96` decodes both
-   (`trans_rvzvmtls.c.inc`, behind `ext_zvvmtls`), and the SDK binary contains their helpers. Run a Zvvmttls file on
-   QEMU before reporting anything.
+3. Not a deviation: `vmttl.v` and `vmtts.v` are decoded under `ext_zvvmtls`, and all 8 Zvvmttls files pass on
+   Openchip QEMU `ime/11.1.2` `331da18d28`. The confirmed QEMU bugs are filed on Openchip-Software/riscv-ime-qemu
+   (issues #4 to #10, PRs #11 to #15); see `reports/issues/INDEX.md`.
 4. W>1 FP MACC adds each product into C with its own rounding. The spec forms the group sum S first, so
    `cp_fp_subdot` fails.
 5. `vtype[8]` (`altfmt`) is reserved unless `x-zvfbfa=true`. `vsetvl` then sets `vill`, and a BF16-accumulator MACC
