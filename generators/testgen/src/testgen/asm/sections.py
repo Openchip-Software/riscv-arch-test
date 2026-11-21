@@ -12,6 +12,9 @@ from testgen.asm.helpers import to_hex
 from testgen.constants import VLEN_MAX
 from testgen.data.random import random_int
 
+# Runs of at least this many equal vector data values are written as one .rept block
+MIN_REPEAT_RUN = 16
+
 
 def generate_test_data_section(data_values: list[int], xlen: int, flen: int, vdsew: int) -> str:
     """
@@ -84,9 +87,18 @@ def generate_vector_data_section(vector_data_labels: list[tuple[str, list[int], 
             continue
 
         lines.append(f"{label}:")
-        for value in data:
-            hex_value = to_hex(value, eew)
-            lines.append(f"{directive} {hex_value}")
+        start = 0
+        while start < len(data):
+            end = start
+            while end < len(data) and data[end] == data[start]:
+                end += 1
+            hex_value = to_hex(data[start], eew)
+            if end - start >= MIN_REPEAT_RUN:
+                # .fill cannot hold values wider than 32 bits, so a run is a .rept block
+                lines.extend([f".rept {end - start}", f"{directive} {hex_value}", ".endr"])
+            else:
+                lines.extend(f"{directive} {hex_value}" for _ in range(end - start))
+            start = end
 
     return "\n".join(lines)
 
