@@ -242,6 +242,7 @@ def gen_compile_tasks(
                 extra_inputs=ref_model_inputs,
                 action=SubprocessAction(cmd=ref_model_cmd, stdout_file=sig_log_file),
                 intermediate=True,
+                timeout=config.ref_model_timeout,
             )
         )
 

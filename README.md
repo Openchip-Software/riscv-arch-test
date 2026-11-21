@@ -218,6 +218,7 @@ It should contain the following fields:
 - `dut_include_dir`: Directory containing `rvmodel_macros.h`; interpreted relative to framework config file (use `.` for same directory as config file)
 - `harts`: Optional; number of harts available for testing; defaults to `1`
 - `include_priv_tests`: Optional; defaults to `True`; if set to `False`, all tests that rely on privilege modes will be skipped
+- `ref_model_timeout`: Optional; seconds that one reference-model run may take; defaults to `300`
 
 See [test_config.yaml](./config/cores/cvw/cvw-rv64gc/test_config.yaml) for an example framework config file.
 

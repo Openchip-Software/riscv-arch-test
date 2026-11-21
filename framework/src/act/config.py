@@ -15,6 +15,7 @@ from pathlib import Path
 from pydantic import BaseModel, DirectoryPath, Field, FilePath, ValidationInfo, field_validator, model_validator
 from ruamel.yaml import YAML
 
+from act.build_types import BUILD_STEP_TIMEOUT_SECONDS
 from act.toolchain import CompilerType, Toolchain
 
 
@@ -53,6 +54,8 @@ class Config(BaseModel):
     ref_model_type: RefModelType  # Inferred from ref_model_exe by model validator
     include_priv_tests: bool = True
     harts: int = Field(default=1, ge=1)
+    # Seconds that one reference-model run may take. Large VLEN configurations need more than the default.
+    ref_model_timeout: int = Field(default=BUILD_STEP_TIMEOUT_SECONDS, ge=1)
 
     model_config = {"frozen": True}
 
