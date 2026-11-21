@@ -203,6 +203,44 @@ ISS can compare. No IME mismatch was found.
 - Not covered: the 108 testcases above, and any IME behavior that the ACT ELFs do not exercise. The UDB `ime/fp-mx`
   tests remain the ISS-side IME regression.
 
+## Step 6: VLEN up to 16384 (`3a630142c`, `c98f90764`, `0db19a052`, `b31647e48`, `8db59d195`)
+
+- Before: every IME data label, the λ lists and the signature reservation were sized for `VLEN_MAX = 1024`. λ 16 and
+  32 were never generated, a DUT above VLEN 1024 read past its data labels and wrote past the signature area, and
+  `RVTEST_VLEN_MAX` rejected it.
+- Sail `0ebfc810` derives the supported λ from VLEN (`ime_lambda_supported_value_for_vsew`), so it needs only
+  `vlen_exp: 14`. Measured with a bare-metal loop: one `vmmacc.vv` at e8, m8 and the largest λ takes 1.4 s at VLEN
+  16384, one `vfmmacc.vv` at e16 1.9 s, against milliseconds at VLEN 1024.
+- Sizes. One data label per testcase at VLEN 16384 would make the largest test file about 58 MB (3.6 MB at 1024). The
+  IME testcases of one instruction now share their background data; a testcase with its own element 0 writes one
+  storage element over it after the load. Runs of equal values are `.rept` blocks.
+- Signature. `SIGUPD_COUNT` is `S + V * ((UDB_VLEN + 1023) / 1024)`, with V the VLEN-sized checks counted at 1024.
+  This is a generic change: the other vector suites keep the same size up to VLEN 1024. A check of 1,708 generated
+  Vx, Vls, Vf and Zvbb files shows no other change once `.rept` blocks are expanded.
+- Exact FP data. A dot product at VLEN 16384 has up to 256 nonzero terms (λ·LMUL at SEW 16). Nonzero A and B inputs
+  now sit only in storage elements whose index is a multiple of 2 (FP16 C) or 4 (BF16 C), twice that for
+  microscaled rows. Sums stay below 1024 (FP16) and 128 (BF16), where those formats resolve 0.5. FP32 and FP64 sums
+  stay below 2^14.
+- `cp_fp_subdot` and `cp_fp_rnd`: the C window outside C[0][0] is the constant 0.5. Those elements have only zero
+  products, so their value does not matter. Tile MACC tiles cover only the VLENs that permit their λ.
+- ACT killed reference-model runs after 300 s. `test_config.yaml` now takes `ref_model_timeout`; the 16384
+  configuration sets 3600 s.
+- `config/ime/sail-ime-rv64-v16384`: `sail-ime-rv64` with VLEN 16384, `Zvl2048b`–`Zvl16384b`, λ lists SEW8 [16, 32],
+  SEW16 [8, 16, 32], SEW32 [8, 16], SEW64 [4, 8, 16], and Sail's FP profile for each of these λ.
+- Coverage: the `cr_lambda_lmul` bins already list every λ value, so no covergroup changes.
+- Generated tests: 85 rv64i files, 121 MB → 71 MB; ExceptionsZvvm 0.75 MB → 2.7 MB (its tile data label is per SEW);
+  testcases 10,313 → 11,507 (the λ 16 and 32 bins). The other IME tests change their data (shared labels, new random
+  draws), so they are not byte for byte equal to `87073e242`.
+- Results, Sail as DUT, all IME suites at all SEWs:
+
+  | Config                 | Files | Sail signature runs: total, median, max | ELFs: total, largest | Wall time        |
+  | ---------------------- | ----- | --------------------------------------- | -------------------- | ---------------- |
+  | `sail-ime-rv64`        | 95/95 | 1,226 s, 11 s, 42 s                     | 93 MB, 2.4 MB        | 3.5 min, 24 CPUs |
+  | `sail-ime-rv64-v16384` | 95/95 | 19,323 s, 152 s, 805 s                  | 364 MB, 9.7 MB       | 58 min, 64 CPUs  |
+
+  Before this step the VLEN 1024 ELFs totalled 66 MB (93 files). The 16384 run proves that the tests build, stay
+  within their data and signature areas and run; Sail is both reference and DUT, so it does not check Sail itself.
+
 ## Decisions
 
 - **Family flags.** In UDB each type extension requires its family, and a family alone enables no type. In Sail a

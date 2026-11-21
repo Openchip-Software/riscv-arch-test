@@ -24,7 +24,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/`).
 
 | What                    | Where                                                                            | Pin                                                               |
 | ----------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 15 commits on `act4` `7569d06d6` (section 5)                      |
+| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 20 commits on `act4` `7569d06d6` (section 5)                      |
 | ACT4, reports           | `~/repo/ime/riscv-arch-test-docs` (worktree), branch `docs/act-ime-reports`      |                                                                   |
 | UDB                     | Openchip-Software/riscv-unified-db `ime/fp-mx`, worktree `~/repo/ime/udb-act`    | `f0045fec`; will merge into `ime/0.9.0`                           |
 | Sail (reference)        | Openchip-Software/sail-riscv `cleanup/ime-0.9.0`, worktree `~/repo/ime/sail-act` | `0ebfc810`; binary in `~/repo/ime/sail-act/build-act/c_emulator/` |
@@ -79,7 +79,7 @@ Other facts:
    - QEMU is not a priority. The SDK QEMU may be outdated, and it is not a source of truth. Its results are recorded
      but do not block any step, and QEMU failures are not investigated.
    - RV32 is out of scope for now. The CSVs keep `RV32=x`, but no RV32 configuration is planned.
-   - ACT must test VLEN up to 16384 (section 8).
+   - ACT must test VLEN up to 16384. `sail-ime-rv64-v16384` does (section 7).
 6. **OFP8 tests that Sail cannot run** go on the set-aside list in `udb-0.9.0.md`, with the test name, the extension
    and the Sail error. Do not work around them on this branch.
 
@@ -104,6 +104,11 @@ Commits on `cgomez/ime-udb-0.9.0`, oldest first. The first three are `port-ime-t
 | `588fc52d6` | ExceptionsZvvm: microscaled illegal cases, an operand on v0 and bs=1 with W·LMUL > SEW             |
 | `a833181b0` | Fallback disassembler: vm=0 `vmmacc.vv` and `vfmmacc.vv`, so `cp_ime_vm0` is sampled               |
 | `87073e242` | IME FP covergroups sample only their own formats (`altfmt`, `altfmt_A`, `altfmt_B`)                |
+| `3a630142c` | Vector signature area scales with `UDB_VLEN` (generic)                                             |
+| `c98f90764` | Runs of equal vector data are `.rept` blocks (generic)                                             |
+| `0db19a052` | `ref_model_timeout` in `test_config.yaml` (generic)                                                |
+| `b31647e48` | IME tests for VLEN up to 16384: `IME_VLEN_MAX`, shared background data, element-0 overlays         |
+| `8db59d195` | `config/ime/sail-ime-rv64-v16384`: Sail as DUT, VLEN 16384                                         |
 
 Suites. Each unprivileged suite expands per SEW (`Zvvmm8` … `Zvvmm64`).
 
@@ -118,8 +123,13 @@ Suites. Each unprivileged suite expands per SEW (`Zvvmm8` … `Zvvmm64`).
 Code in `generators/testgen/src/testgen/`:
 
 - `asm/vector_helpers.py`: `ime_lambdas`, `ime_lambda_condition`, `ime_vtype_value`, `ime_extend_label`,
-  `load_ime_vtype`. Only `vsetvl` sets λ. `lambda_=None` emits an `#if/#elif` chain over
+  `ime_overlay`, `load_ime_vtype`. Only `vsetvl` sets λ. `lambda_=None` emits an `#if/#elif` chain over
   `UDB_SUPPORTED_LAMBDA_SEW<sew>_<λ>` that picks the smallest supported λ.
+- VLEN. `IME_VLEN_MAX = 16384` (`constants.py`) sets the λ lists (`ime_lambdas`) and the size of every IME data
+  label. The IME types set `VectorTypeConfig.vlen_max` and `shared_data`: the testcases of one instruction share
+  their background data, and a testcase with its own element 0 (an edge, a base-suite value) writes one storage
+  element over it after the load (`ime_overlay`). The signature area scales with `UDB_VLEN` (`SIGUPD_COUNT`). Other
+  vector suites keep `VLEN_MAX = 1024`.
 - `data/params.py`: `lambda_`, `ime_guard`, `altfmt_a`, `altfmt_b`, `altfmt` (`vtype[8]`, the C format),
   `imm_lambda`, `ld`.
 - `formatters/types/mmacc_type.py`: `MMACC` and `FMMACC`. C is a 16-register window at v0 or v16, loaded and checked
@@ -143,10 +153,11 @@ FP disclosure. UDB has the parameters `ZVVM_FP_{GROUPING,PSM,RND}_SEW<s>_W<w>`, 
 such as `UDB_ZVVM_FP_RND_SEW32_W2_IDX0_FRM` (string values in uppercase) and `UDB_ZVVM_FP_PSM_SEW32_W2_MASK`. Sail
 computes G=1, psm=0, rnd=frm, so a profile-dependent testcase is generated for that profile and gated on it.
 
-| Config          | DUT         | VLEN | FP profile          | IME extensions                     |
-| --------------- | ----------- | ---- | ------------------- | ---------------------------------- |
-| `qemu-ime-rv64` | SDK QEMU    | 256  | G=1, psm=0, rnd=xct | all tested types, without Zvvmttls |
-| `sail-ime-rv64` | Sail (fork) | 1024 | G=1, psm=0, rnd=frm | all tested types and Zvvmttls      |
+| Config                 | DUT         | VLEN  | FP profile          | IME extensions                     |
+| ---------------------- | ----------- | ----- | ------------------- | ---------------------------------- |
+| `qemu-ime-rv64`        | SDK QEMU    | 256   | G=1, psm=0, rnd=xct | all tested types, without Zvvmttls |
+| `sail-ime-rv64`        | Sail (fork) | 1024  | G=1, psm=0, rnd=frm | all tested types and Zvvmttls      |
+| `sail-ime-rv64-v16384` | Sail (fork) | 16384 | G=1, psm=0, rnd=frm | as `sail-ime-rv64`; λ 16 and 32    |
 
 `sail.json` sets the family flags `Zvvmm` and `Zvvfmm` to false and each declared type to true, because a Sail family
 flag enables every type of the family.
@@ -161,6 +172,15 @@ E=Zvvfmm8,Zvvfmm16,Zvvfmm32,Zvvfmm64          # per-SEW names; EXTENSIONS=Zvvfmm
 uv run covergroupgen testplans --extensions $E
 uv run testgen testplans -o tests --extensions $E
 ~/repo/ime/act-udb-work/run-suites.sh sail-ime-rv64 <workdir> "$SAIL_IME_SIM" $E
+```
+
+VLEN 16384 runs on a compute node. `vlen-job.sh <config> <workdir>` runs every IME suite. It unpacks the gem bundle
+of the login host (`~/.cache/ime-cleanup/act-bundle.tar`; the nodes cannot build native gems), creates the node-local
+UDB `gen` directory, warms up the SDK image and passes `TIMEOUT=3600` to `run-suites.sh`. Generate the tests first.
+
+```bash
+~/.claude/skills/moon-job/scripts/moon-job --no-container --detach -n moon-oxn-n03 -c 64 -m 200G -t 12:00:00 \
+  -J vlen16k -d ~/repo/ime/act-udb-work -- bash ~/repo/ime/act-udb-work/vlen-job.sh sail-ime-rv64-v16384 <workdir>
 ```
 
 - `run-suites.sh <config> <workdir> <sail> <suites>` sources `env.sh`, builds with `act -k`, runs every ELF directory
@@ -178,11 +198,12 @@ uv run testgen testplans -o tests --extensions $E
 
 Results with Sail `0ebfc810`, all suites at all SEWs:
 
-| Config          | Result                                                                                                   |
-| --------------- | -------------------------------------------------------------------------------------------------------- |
-| `sail-ime-rv64` | 93/93 files pass at `a833181b0`, Zvvmttls and ExceptionsZvvm included                                    |
-| `qemu-ime-rv64` | Integer and tile suites pass. Fail: the 12 W>1 Zvvfmm files, ExceptionsZvvm 7/7, and `Zvvbf16mm` (below) |
-| UDB C++ ISS     | 9,716 of 9,858 IME results equal Sail; the other 142 have different setup (udb-0.9.0.md, step 5)         |
+| Config                 | Result                                                                                                   |
+| ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `sail-ime-rv64`        | 95/95 files pass at `b31647e48`, Zvvmttls and ExceptionsZvvm included                                    |
+| `sail-ime-rv64-v16384` | 95/95 files pass at `b31647e48` (moon-oxn-n03, 64 CPUs, 58 min)                                          |
+| `qemu-ime-rv64`        | Integer and tile suites pass. Fail: the 12 W>1 Zvvfmm files, ExceptionsZvvm 7/7, and `Zvvbf16mm` (below) |
+| UDB C++ ISS            | 9,716 of 9,858 IME results equal Sail; the other 142 have different setup (udb-0.9.0.md, step 5)         |
 
 The 78 files on Sail: the earlier 42 plus 4 OFP8, 3 OFP4 and 28 microscaled files, and an eighth ExceptionsZvvm file.
 Only the Zvvfmm suites were re-run (44/44) for these steps, and ExceptionsZvvm (8/8) for its microscaled illegal cases.
@@ -215,7 +236,11 @@ Known limits:
 
 - Mixed FP16 and BF16 inputs (`altfmt_A` ≠ `altfmt_B`) need both 16-bit extensions. No covergroup samples them
   until the mixed rows exist.
-- ACT caps VLEN at 1024, so bins for λ ≥ 16 stay uncovered. The target is VLEN 16384 (section 8).
+- The IME tests support VLEN up to 16384. λ = 64 needs VLEN ≥ 32768 at every SEW, so its bins stay uncovered.
+- Above VLEN 1024 only the IME suites are sized for the VLEN. The other vector suites still fill their data at
+  VLEN 1024. Their signature area scales with `UDB_VLEN`.
+- At VLEN 16384 a Sail run of one test takes up to 13 minutes (median 2.5 minutes). Run that configuration on a
+  compute node; `act-udb-work/vlen-job.sh` does it.
 - The microscaled covergroups sample only vm=0, but they do not check `vtype.bs`. `cp_mx_bs` records it. They have
   no `cp_vs1` or `cp_vs2`: with vm=0 the C window must be v16, so A and B can only be in v1–v15. The unscaled rows
   cover the operand fields, which vm does not change.
@@ -229,22 +254,9 @@ Known limits:
 
 | Step                                                                                                         | Notes                  |
 | ------------------------------------------------------------------------------------------------------------ | ---------------------- |
-| Test VLEN up to 16384 (below)                                                                                | rule 5                 |
 | Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9              |
 | Upstream work packages; pull request to `act4`                                                               | needs approval to push |
 | File the issue drafts in `reports/issues/INDEX.md`                                                           | needs approval         |
-
-VLEN 16384. Sail accepts `vlen_exp` up to 16, so VLEN 16384 is `vlen_exp: 14`. ACT limits VLEN in these places:
-
-- `generators/testgen/src/testgen/constants.py`: `VLEN_MAX = 1024`, used by `cp_masking_edges`, `cp_custom_vindex`
-  and `cp_custom_tile_macc`.
-- `cp_custom_tile_macc.py`: `UDB_VLENS = [128, 256, 512, 1024]`.
-- `generators/testgen/scripts/vector_testgen_common.py`: `maxVLEN = 1024`, used by the script-based vector generators
-  for data sizes and random VL.
-- `config/ime/sail-ime-rv64`: `VLEN: 1024`, `vlen_exp: 10`, and the λ lists for VLEN 1024.
-
-Raising the limits makes test data and signatures grow with VLEN. Check file sizes and run times before choosing
-between one larger limit and a per-config limit.
 
 For each new FP group:
 
