@@ -22,7 +22,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/`).
 
 | What                    | Where                                                                            | Pin                                                               |
 | ----------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 14 commits on `act4` `7569d06d6` (section 5)                      |
+| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 15 commits on `act4` `7569d06d6` (section 5)                      |
 | ACT4, reports           | `~/repo/ime/riscv-arch-test-docs` (worktree), branch `docs/act-ime-reports`      |                                                                   |
 | UDB                     | Openchip-Software/riscv-unified-db `ime/fp-mx`, worktree `~/repo/ime/udb-act`    | `f0045fec`; will merge into `ime/0.9.0`                           |
 | Sail (reference)        | Openchip-Software/sail-riscv `cleanup/ime-0.9.0`, worktree `~/repo/ime/sail-act` | `0ebfc810`; binary in `~/repo/ime/sail-act/build-act/c_emulator/` |
@@ -96,6 +96,7 @@ Commits on `cgomez/ime-udb-0.9.0`, oldest first. The first three are `port-ime-t
 | `89c7fdb33` | `Zvvx[n]i8*`, `Zvvx[n]i4*`: microscaled integer-input MACC (`vfwimmacc.vv` and the W=4, W=8 forms) |
 | `588fc52d6` | ExceptionsZvvm: microscaled illegal cases, an operand on v0 and bs=1 with W·LMUL > SEW             |
 | `a833181b0` | Fallback disassembler: vm=0 `vmmacc.vv` and `vfmmacc.vv`, so `cp_ime_vm0` is sampled               |
+| `87073e242` | IME FP covergroups sample only their own formats (`altfmt`, `altfmt_A`, `altfmt_B`)                |
 
 Suites. Each unprivileged suite expands per SEW (`Zvvmm8` … `Zvvmm64`).
 
@@ -202,9 +203,8 @@ Tests must not depend on it. See `reports/issues/ime-fp-internal-zero-sign/ISSUE
 
 Known limits:
 
-- The OFP8 input edge coverpoints filter on `altfmt_A` or `altfmt_B`. Other covergroups do not check `altfmt`,
-  `altfmt_A` or `altfmt_B`. The `Zvvfp16mm` and `Zvvbf16mm` covergroups both
-  sample every `vfmmacc.vv` at SEW=16. The FP16 and BF16 input rows at SEW=32 and 64 have the same problem.
+- Mixed FP16 and BF16 inputs (`altfmt_A` ≠ `altfmt_B`) need both 16-bit extensions. No covergroup samples them
+  until the mixed rows exist.
 - ACT caps VLEN at 1024, so bins for λ ≥ 16 stay uncovered.
 - The microscaled covergroups sample only vm=0, but they do not check `vtype.bs`. `cp_mx_bs` records it. They have
   no `cp_vs1` or `cp_vs2`: with vm=0 the C window must be v16, so A and B can only be in v1–v15. The unscaled rows
@@ -219,7 +219,6 @@ Known limits:
 
 | Step                                                                                                         | Notes                  |
 | ------------------------------------------------------------------------------------------------------------ | ---------------------- |
-| Coverage: filter the IME FP covergroups on `altfmt`, `altfmt_A` and `altfmt_B`                               | section 7              |
 | Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9              |
 | Upstream work packages; pull request to `act4`                                                               | needs approval to push |
 

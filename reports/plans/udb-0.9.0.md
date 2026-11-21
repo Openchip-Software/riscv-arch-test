@@ -142,6 +142,22 @@ an ACT-local UDB overlay, and used Sail `cgomez/0.16-plus-ime` `a545cc41`.
 - Check: the trapping words `0x50801857` and `0xe0800857` from the Sail trace match no decode entry and resolve to
   `vfmmacc.vv` and `vmmacc.vv`. pyslang compiles ExceptionsZvvm. No simulator here measures the bins.
 
+## Coverage: IME FP covergroups sample only their own formats (`87073e242`)
+
+- Type extensions that share an instruction and SEW differ only in `vtype.altfmt`, `altfmt_A` and `altfmt_B`
+  (spec tables "Output data type encoding", "FP input data type encoding" and `tbl-fp-encoding-map`). The Zvvfmm
+  sample function checked only vm, so for example `Zvvfp16mm` and `Zvvbf16mm` both sampled every SEW=16
+  `vfmmacc.vv`.
+- Each FMMACC and FMMACC_MX sample call now also requires `ime_fp_format(hart, issue, c, ab)`
+  (`RISCV_coverage_vector.svh`). covergroupgen derives the values from the type extension name: `altfmt` 1 for a
+  BF16 C, 0 for FP16, FP32 and FP64; `altfmt_A` and `altfmt_B` both 0 for FP16 inputs and both 1 for BF16 inputs.
+  OFP8 inputs and an OFP8 C take either value. OFP4, FP32, FP64 and integer inputs are not checked: the fields are
+  reserved, ignored, or select signedness.
+- Mixed FP16 and BF16 inputs need both extensions, so neither single-format covergroup samples them. They wait for
+  the mixed rows.
+- Check: all 17,361 `vsetvl` vtype values in the 44 generated Zvvfmm files satisfy the condition of their row, so
+  no testcase loses its sample. pyslang compiles Zvvfmm16/32/64. No simulator here measures the bins.
+
 ## Step 5: UDB ISS cross-check
 
 Diagnostic only. Nothing is committed to ACT or UDB. Result: the ISS and Sail agree on every IME result that the
