@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
+from testgen.constants import VLEN_MAX
 from testgen.data.params import InstructionParams
 from testgen.data.state import TestData
 from testgen.data.test_chunk import TestChunk
@@ -58,6 +59,9 @@ class VectorTypeConfig:
         fixed_emul: Registers whose EMUL does not depend on LMUL (e.g. {"vd": 16} for the IME C register window)
         edge_no_overlap: Pairs of vector registers that cannot overlap when the operands hold edge values or other
             dedicated data, in addition to overlap_constraints
+        vlen_max: Largest VLEN that the length-suite data of this type fills
+        shared_data: Length-suite testcases of one instruction share their random data labels instead of each
+            registering its own
     """
 
     overlap_constraints: set[tuple[str, str]] = field(default_factory=set)
@@ -72,6 +76,8 @@ class VectorTypeConfig:
     require_zero_vstart: bool = False
     fixed_emul: dict[str, int] = field(default_factory=dict)
     edge_no_overlap: set[tuple[str, str]] = field(default_factory=set)
+    vlen_max: int = VLEN_MAX
+    shared_data: bool = False
 
 
 @dataclass

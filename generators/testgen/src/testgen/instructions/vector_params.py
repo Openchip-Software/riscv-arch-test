@@ -523,14 +523,21 @@ def generate_random_vector_params(
             test_data.vec_regs.allocate_operand(register, params_dict[register], width, suppress_overlap=True)
 
         if register.startswith("v") and params_dict[f"{register}_val_pointer"] is None:
-            # Set the label
-            label = f"{register}_random_{suite}_{test_count:03d}"
+            vector_data = instr_type_config.vector_data
+            eew = int(sew * info.get_size_multiplier(register, sew, vector_data))
+            label_emul = vector_data.fixed_emul.get(register, lmul)
+            element_count = 1 if suite == "base" else math.ceil(vector_data.vlen_max * label_emul / sew)
+            shared = vector_data.shared_data and suite == "length"
+            label = (
+                f"{register}_shared_e{eew}_n{element_count}"
+                if shared
+                else f"{register}_random_{suite}_{test_count:03d}"
+            )
             setattr(params, f"{register}_val_pointer", label)  # params.register_val_pointer = label
+            if shared and label in test_data.vector_labels:
+                continue
 
             # Register the label
-            eew = int(sew * info.get_size_multiplier(register, sew, instr_type_config.vector_data))
-            label_emul = instr_type_config.vector_data.fixed_emul.get(register, lmul)
-            element_count = 1 if suite == "base" else math.ceil(VLEN_MAX * label_emul / sew)
             if instr_type_config.vector_data.random_element_generator:
                 elements = instr_type_config.vector_data.random_element_generator(element_count, eew, register)
                 test_data.register_vector_data(label, eew, elements=elements)
@@ -565,13 +572,14 @@ def generate_random_vector_params(
         and params.maskval is None
     ):
         # Generate a whole mask worth of data
-        element_count = math.ceil(VLEN_MAX / sew)
-        params.maskval = f"maskval_random_{suite}_{test_count:03d}"
-        test_data.register_vector_data(
-            f"maskval_random_{suite}_{test_count:03d}",
-            sew,
-            random_elements=element_count,
-        )
+        vector_data = instr_type_config.vector_data
+        element_count = math.ceil(vector_data.vlen_max / sew)
+        if vector_data.shared_data:
+            params.maskval = f"maskval_shared_e{sew}_n{element_count}"
+        else:
+            params.maskval = f"maskval_random_{suite}_{test_count:03d}"
+        if params.maskval not in test_data.vector_labels:
+            test_data.register_vector_data(params.maskval, sew, random_elements=element_count)
 
     params.temp_reg = test_data.int_regs.get_register(exclude_regs=[0])
     params.sew = sew

@@ -16,12 +16,13 @@ from testgen.asm.vector_helpers import (
     ime_extend_label,
     ime_lambda_condition,
     ime_lambdas,
+    ime_overlay,
     load_ime_vtype,
     load_vec_regs,
     prep_mask_v,
     write_sigupd_v_len,
 )
-from testgen.constants import VLEN_MAX
+from testgen.constants import IME_VLEN_MAX
 from testgen.data.params import InstructionParams
 from testgen.data.state import TestData
 from testgen.formatters.registry import InstructionTypeConfig, VectorTypeConfig, add_instruction_formatter
@@ -30,16 +31,16 @@ from testgen.formatters.registry import InstructionTypeConfig, VectorTypeConfig,
 vlt_config = InstructionTypeConfig(
     required_params={"vd", "rs1", "rs2"},
     instruction_class=["load"],
-    vector_data=VectorTypeConfig(masked_constraints={("vd", "v0")}),
+    vector_data=VectorTypeConfig(masked_constraints={("vd", "v0")}, vlen_max=IME_VLEN_MAX, shared_data=True),
 )
 vst_config = InstructionTypeConfig(
     required_params={"vs3", "rs1", "rs2"},
     instruction_class=["store"],
-    vector_data=VectorTypeConfig(),
+    vector_data=VectorTypeConfig(vlen_max=IME_VLEN_MAX, shared_data=True),
 )
 
 # Every LD is at most 2*linesize, so a tile with VL <= VLMAX spans less than 2*LMUL*VLEN/8 bytes from rs1.
-# One data label per SEW covers that span at LMUL=8 and VLEN=VLEN_MAX.
+# One data label per SEW covers that span at LMUL=8 and VLEN=IME_VLEN_MAX.
 TILE_SPAN_REGS = 16
 
 
@@ -47,7 +48,7 @@ def tile_data_label(test_data: TestData, sew: int) -> str:
     """Register the data label that every tile load and store of this SEW reads or writes."""
     label = f"ime_tile_data_e{sew}"
     if label not in test_data.vector_labels:
-        test_data.register_vector_data(label, sew, random_elements=TILE_SPAN_REGS * VLEN_MAX // sew)
+        test_data.register_vector_data(label, sew, random_elements=TILE_SPAN_REGS * IME_VLEN_MAX // sew)
     return label
 
 
@@ -87,18 +88,20 @@ def tile_setup(
     sew = params.sew
     lmul = int(params.lmul)
 
-    # Base-suite callers pass VL=1 and one-element data labels. They run at VL=VLMAX with a full register group.
+    # Base-suite callers pass VL=1 and one-element data labels. They run at VL=VLMAX with a full register group:
+    # shared background data with the label's elements written over element 0.
+    head = None
     if params.vector_suite == "base":
         params.vl = "vlmax"
         label = getattr(params, f"{data_reg}_val_pointer")
-        setattr(params, f"{data_reg}_val_pointer", ime_extend_label(test_data, label, data_reg, sew, lmul))
+        background_label, head = ime_extend_label(test_data, label, data_reg, sew, lmul)
+        setattr(params, f"{data_reg}_val_pointer", background_label)
     ld = params.ld or "padded"
 
     data_label = tile_data_label(test_data, sew)
     reg_label = getattr(params, f"{data_reg}_val_pointer")
-    test_data.test_chunk.vector_labels.extend(
-        [(data_label, *test_data.vector_labels[data_label]), (reg_label, *test_data.vector_labels[reg_label])]
-    )
+    labels = [data_label, reg_label] if head is None else [data_label, reg_label, head]
+    test_data.test_chunk.vector_labels.extend((label, *test_data.vector_labels[label]) for label in labels)
 
     # An immediate lambda sets the line size. vtype.lambda then takes a different supported value, so the test
     # also shows that the immediate overrides vtype.
@@ -114,6 +117,9 @@ def tile_setup(
         setup.extend(prep_mask_v(params.maskval, test_data, params))
     load_code, _ = load_vec_regs([VectorLoad(reg=data_reg)], replace(params, vl="vlmax"), test_data)
     setup.extend(load_code)
+    if head is not None:
+        assert params.temp_reg is not None, "temp_reg must be provided for tile instructions"
+        setup.extend(ime_overlay(getattr(params, data_reg), head, sew, params.temp_reg))
     setup.append(f"LA (x{params.rs1}, {data_label})")
 
     # The natural LD of a transposing tile instruction is M = VLEN/(SEW*lambda), which depends on VLEN. Each lambda

@@ -7,9 +7,8 @@
 ##################################
 
 from testgen.asm.vector_helpers import ime_lambdas
-from testgen.constants import VLEN_MAX
+from testgen.constants import IME_VLEN_MAX
 from testgen.coverpoints.registry import add_coverpoint_generator
-from testgen.data.random import random_range
 from testgen.data.state import TestData, return_testcase_registers
 from testgen.data.test_chunk import TestChunk
 from testgen.formatters import format_single_testcase
@@ -18,7 +17,6 @@ from testgen.formatters.types.mmacc_type import (
     C_WINDOW_REGS,
     WIDENING,
     fp_bits,
-    fp_c_range,
     fp_input_format,
     fp_operand_format,
     fp_output_format,
@@ -27,6 +25,8 @@ from testgen.instructions.vector_params import generate_random_vector_params
 
 FRM_NAMES = ["rne", "rtz", "rdn", "rup", "rmm"]
 PRECISION = {"fp16": 11, "bf16": 8, "fp32": 24, "fp64": 53}
+# Every C element other than C[0][0] has only zero products, so it keeps this exact value
+C_BACKGROUND = 0.5
 
 # (SEW, W) -> (C0, [(A, B) for the nonzero products of C[0][0]]) for W > 1. The products are exact, and their sum S is
 # not exact in fp<SEW>. C0 = -round(S), so a rounded S gives 0 and an unrounded S gives the rounding error of S.
@@ -103,18 +103,15 @@ def make_fp_rnd(instr_name: str, instr_type: str, coverpoint: str, test_data: Te
             f" && ((UDB_ZVVM_FP_PSM_SEW{sew}_W{w}_MASK & {1 << index}) == 0)"
         )
         for frm, frm_name in enumerate(FRM_NAMES):
-            count = VLEN_MAX * lmul // sew
+            count = IME_VLEN_MAX * lmul // sew
             a = [sum(fp_bits(av, input_fmt) << (i * lane_bits) for i, (av, _) in enumerate(products))] + [0] * (
                 count - 1
             )
             b = [sum(fp_bits(bv, input_fmt) << (i * lane_bits) for i, (_, bv) in enumerate(products))] + [0] * (
                 count - 1
             )
-            c_count = VLEN_MAX * C_WINDOW_REGS // sew
-            c_range = fp_c_range(output_fmt)
-            c = [fp_bits(c0, output_fmt)] + [
-                fp_bits(random_range(-c_range, c_range) + 0.5, output_fmt) for _ in range(c_count - 1)
-            ]
+            c_count = IME_VLEN_MAX * C_WINDOW_REGS // sew
+            c = [fp_bits(c0, output_fmt)] + [fp_bits(C_BACKGROUND, output_fmt)] * (c_count - 1)
             labels = {}
             for reg, data in (("vs1", a), ("vs2", b), ("vd", c)):
                 labels[f"{reg}_val_pointer"] = f"{reg}_rnd_l{lambda_value}_{frm_name}"

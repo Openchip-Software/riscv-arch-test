@@ -21,7 +21,7 @@ def make_lambda_lmul(instr_name: str, instr_type: str, coverpoint: str, test_dat
     Generate IME tests crossing lambda with every integer LMUL at VL=VLMAX. The cr_lambda_lmul_lte<n> variant stops
     at LMUL=n, for microscaled rows with block size 16, which require W*LMUL <= SEW.
 
-    A lambda is legal only when VLEN/(SEW*lambda^2) is at least 1, so lambdas that no VLEN up to VLEN_MAX allows
+    A lambda is legal only when VLEN/(SEW*lambda^2) is at least 1, so lambdas that no VLEN up to IME_VLEN_MAX allows
     are not generated. Each testcase is guarded by UDB_SUPPORTED_LAMBDA_SEW<SEW>_<lambda> in its formatter.
     """
     assert test_data.config.sew is not None, "SEW must be set for vector tests"

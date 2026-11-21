@@ -361,7 +361,7 @@ def trap_cases(test_data: TestData, row: TestPlanData, coverpoint: str) -> list[
                     )
                 )
             case "cp_ime_imm_lambda_unsupported":
-                # lambda = 64 needs VLEN >= SEW*4096, so no DUT with VLEN <= VLEN_MAX supports it
+                # lambda = 64 needs VLEN >= SEW*4096, so no DUT with VLEN <= IME_VLEN_MAX supports it
                 chunks.append(
                     case.chunk(
                         sew,

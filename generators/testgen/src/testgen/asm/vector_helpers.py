@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from testgen.asm.helpers import write_sigupd
-from testgen.constants import INDENT, VLEN_MAX
+from testgen.constants import IME_VLEN_MAX, INDENT, VLEN_MAX
 from testgen.data.params import InstructionParams, PresetMask, VectorLength
 from testgen.data.random import random_int, random_range
 from testgen.data.state import TestData
@@ -683,10 +683,10 @@ IME_LAMBDAS = [1, 2, 4, 8, 16, 32, 64]
 
 def ime_lambdas(sew: int) -> list[int]:
     """
-    Return the lambda values that some VLEN up to VLEN_MAX permits at this SEW. A lambda is legal only when
+    Return the lambda values that some VLEN up to IME_VLEN_MAX permits at this SEW. A lambda is legal only when
     EMUL_C = VLEN/(SEW*lambda^2) is at least 1.
     """
-    return [lambda_value for lambda_value in IME_LAMBDAS if sew * lambda_value * lambda_value <= VLEN_MAX]
+    return [lambda_value for lambda_value in IME_LAMBDAS if sew * lambda_value * lambda_value <= IME_VLEN_MAX]
 
 
 def ime_lambda_macro(sew: int, lambda_value: int) -> str:
@@ -700,19 +700,36 @@ def ime_lambda_condition(sew: int, lambda_values: list[int]) -> str:
     return terms[0] if len(terms) == 1 else f"({' || '.join(terms)})"
 
 
-def ime_extend_label(test_data: TestData, label: str, reg: str, sew: int, emul: float) -> str:
+def ime_extend_label(test_data: TestData, label: str, reg: str, sew: int, emul: float) -> tuple[str, str]:
     """
-    Register a label of SEW-wide storage elements that fills emul registers at VLEN_MAX. It starts with the elements
-    of label, packed into the storage elements in standard element order, and continues with random elements.
+    Return the background and head labels that together give emul registers of SEW-wide storage elements at
+    IME_VLEN_MAX. The background holds random storage elements and is shared by every testcase. The head is one
+    storage element: the elements of label, packed in standard element order, with the other lanes taken from the
+    background. ime_overlay writes the head over the first storage element after the background is loaded.
     """
     elements, eew = test_data.vector_labels[label]
     lanes = sew // eew
-    count = int(VLEN_MAX * emul) // sew
-    narrow = elements + [random_int(eew, signed=False) for _ in range(count * lanes - len(elements))]
-    storage = [sum(narrow[j * lanes + i] << (i * eew) for i in range(lanes)) for j in range(count)]
-    new_label = f"{reg}_ime_{test_data.test_count:03d}"
-    test_data.register_vector_data(new_label, sew, elements=storage)
-    return new_label
+    assert len(elements) <= lanes, "An IME head is one storage element"
+    count = int(IME_VLEN_MAX * emul) // sew
+    background = f"{reg}_ime_shared_e{sew}_n{count}"
+    if background not in test_data.vector_labels:
+        test_data.register_vector_data(background, sew, random_elements=count)
+    first = test_data.vector_labels[background][0][0]
+    mask = (1 << eew) - 1
+    narrow = elements + [(first >> (i * eew)) & mask for i in range(len(elements), lanes)]
+    head = f"{reg}_ime_head_{test_data.test_count:03d}"
+    test_data.register_vector_data(head, sew, elements=[sum(value << (i * eew) for i, value in enumerate(narrow))])
+    return background, head
+
+
+def ime_overlay(reg: int, head: str, sew: int, temp_reg: int) -> list[str]:
+    """Write the one storage element of head over element 0 of vector register reg. Clobbers vl and vtype."""
+    return [
+        f"# Element 0 of v{reg} from {head}",
+        f"vsetivli x0, 1, e{sew}, m1, tu, mu",
+        f"LA (x{temp_reg}, {head})",
+        f"vle{sew}.v v{reg}, (x{temp_reg})",
+    ]
 
 
 def ime_vtype_value(params: InstructionParams, lambda_value: int, xlen: int) -> int | str:

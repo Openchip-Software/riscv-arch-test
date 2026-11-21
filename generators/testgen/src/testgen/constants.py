@@ -163,3 +163,6 @@ SKIP_COVERPOINTS = frozenset(
 MIN_SEW_MIN = 8
 ELEN_MAX = 64
 VLEN_MAX = 1024
+# The IME tests support VLEN up to IME_VLEN_MAX. Their data labels fill registers at this VLEN, and the testcases
+# of each instruction share their background data to keep test files small.
+IME_VLEN_MAX = 16384

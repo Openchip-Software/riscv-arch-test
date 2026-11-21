@@ -17,11 +17,12 @@ from testgen.asm.vector_helpers import (
     ime_extend_label,
     ime_lambda_condition,
     ime_lambdas,
+    ime_overlay,
     load_ime_vtype,
     load_vec_regs,
     write_sigupd_v_len,
 )
-from testgen.constants import VLEN_MAX
+from testgen.constants import IME_VLEN_MAX
 from testgen.data.params import InstructionParams
 from testgen.data.random import random_range
 from testgen.data.state import TestData
@@ -36,6 +37,8 @@ mmacc_config = InstructionTypeConfig(
         fixed_emul={"vd": 16},
         maskable=False,
         require_zero_vstart=True,
+        vlen_max=IME_VLEN_MAX,
+        shared_data=True,
     ),
 )
 
@@ -46,6 +49,8 @@ C_WINDOW_LMUL = 8
 C_WINDOW_SEGMENTS = 2
 # Labels of data built by cp_fp_subdot, cp_fp_rnd and cp_scale carry these tags. The formatter keeps that data.
 DEDICATED_DATA_TAGS = ("_subdot_", "_rnd_", "_scale_")
+# Only storage elements whose index is a multiple of this stride hold nonzero A and B inputs (see fp_exact_data)
+NONZERO_STRIDE = {"fp16": 2, "bf16": 4}
 
 
 # Floating-point multiply-accumulate. A, B and C hold small integers and half-integers, so every product, partial
@@ -60,6 +65,8 @@ fmmacc_config = InstructionTypeConfig(
         fixed_emul={"vd": 16},
         maskable=False,
         require_zero_vstart=True,
+        vlen_max=IME_VLEN_MAX,
+        shared_data=True,
     ),
 )
 
@@ -75,6 +82,8 @@ fmmacc_mx_config = InstructionTypeConfig(
         maskable=False,
         require_zero_vstart=True,
         edge_no_overlap={("vs1", "vs2")},
+        vlen_max=IME_VLEN_MAX,
+        shared_data=True,
     ),
 )
 
@@ -194,33 +203,43 @@ def fp_exact_data(
     mx: bool = False,
 ) -> str:
     """
-    Register a label of SEW-wide storage elements that fills emul registers at VLEN_MAX with exact FP data.
+    Return a label of SEW-wide storage elements that fills emul registers at IME_VLEN_MAX with exact FP data. The
+    label is registered once per instruction and shared by every testcase with the same arguments.
 
     A and B inputs are sparse integers in [-2, 2], packed W per storage element. C holds half-integers k + 0.5 with
-    |k| <= 128, so no C value is ever zero. A dot product has at most lambda*W*LMUL <= 64 terms at fp16 (VLEN_MAX
-    limits lambda), so every running sum stays below 512 in magnitude, where fp16 still has a 0.25 resolution. Every
-    value is therefore exact in fp16, bf16 (inputs only), fp32 and fp64. Integers in [-2, 2] are exact in E4M3, E5M2
-    and E2M1.
+    |k| <= 128, so no C value is ever zero. The bounds below hold for every value of the random data.
 
-    A BF16 C resolves 0.5 only below 128. For a BF16 C, the inputs are in [-1, 1] and |k| <= 31, so every running
-    sum stays below 96 in magnitude.
+    A dot product has lambda*W*LMUL terms. Up to IME_VLEN_MAX, lambda*LMUL is at most 256 at SEW=16, the only SEW of
+    an FP16 or BF16 C. A widening row with an FP16 or BF16 C puts at most one nonzero input in each storage element.
+    For an FP16 or BF16 C, only the storage elements whose index is a multiple of NONZERO_STRIDE hold nonzero inputs.
+    Register r of A holds row i in the storage elements r*M*lambda + i*lambda + t, 0 <= t < lambda. A row then has at
+    most lambda*LMUL/stride nonzero storage elements when lambda >= stride, and at most LMUL when lambda < stride.
 
-    A widening row with an FP16 or BF16 C has up to lambda*W*LMUL = 256 terms. Its storage elements then hold at
-    most one nonzero input, which keeps the nonzero terms of a dot product at lambda*LMUL <= 64 and the bounds above.
-
-    With background set, every input element (or every C element) holds that value instead.
+    - FP16 C: stride 2, so a dot product has at most 128 nonzero products, each at most 4 in magnitude. Every running
+      sum stays below 512 + 128.5 < 1024, where fp16 resolves 0.5.
+    - BF16 C: the inputs are in [-1, 1], |k| <= 31 and the stride is 4, so a dot product has at most 64 nonzero
+      products of magnitude 1. Every running sum stays below 64 + 31.5 < 128, where bf16 resolves 0.5.
+    - FP32 and FP64 C: at most 1024 products of magnitude 4, so every running sum stays below 2^14, also with mx.
 
     With mx set (microscaled rows), the random block scales multiply each partial sum by 2^-1, 2^0 or 2^1, so every
-    value is a multiple of 0.5. An FP16 C sum stays below 64*4*2 + 128.5 < 1024, where fp16 resolves 0.5. For a BF16
-    C, the odd storage elements of A and B are zero. Register r of A holds row i in the storage elements
-    r*M*lambda + i*lambda + t, 0 <= t < lambda, and M is even. A row then has at most lambda*LMUL/2 nonzero storage
-    elements for lambda >= 2, and LMUL for lambda = 1. A BF16 C sum stays below 32*2 + 31.5 < 128.
+    value is a multiple of 0.5. The stride doubles: an FP16 C sum stays below 64*4*2 + 128.5 < 1024, and a BF16 C
+    sum below 32*2 + 31.5 < 128.
+
+    Every value is therefore exact in fp16, bf16 (inputs only), fp32 and fp64, in every order of summation. Integers
+    in [-2, 2] are exact in E4M3, E5M2 and E2M1.
+
+    With background set, every input element (or every C element) holds that value instead.
     """
-    count = int(VLEN_MAX * emul) // sew
+    count = int(IME_VLEN_MAX * emul) // sew
+    background_name = "" if background is None else "_bg" + str(background).replace("-", "m").replace(".", "p")
+    label = f"{reg}_fp_{input_fmt}_{output_fmt}_w{w}_e{sew}_n{count}{background_name}{'_mx' if mx else ''}"
+    if label in test_data.vector_labels:
+        return label
     lane_bits = sew // w
     c_range = fp_c_range(output_fmt)
     input_range = 1 if output_fmt == "bf16" else 2
     one_lane = w > 1 and output_fmt in ("fp16", "bf16")
+    stride = NONZERO_STRIDE.get(output_fmt, 1) * (2 if mx and output_fmt in NONZERO_STRIDE else 1)
     elements = []
     for index in range(count):
         if reg == "vd":
@@ -229,7 +248,7 @@ def fp_exact_data(
         else:
             if background is not None:
                 lanes = [background] * w
-            elif mx and output_fmt == "bf16" and index % 2:
+            elif index % stride:
                 lanes = [0] * w
             elif one_lane:
                 lanes = [0.0] * w
@@ -238,27 +257,26 @@ def fp_exact_data(
             else:
                 lanes = [random_range(-input_range, input_range) if random_range(0, 3) == 0 else 0 for _ in range(w)]
             elements.append(sum(fp_bits(float(v), input_fmt) << (i * lane_bits) for i, v in enumerate(lanes)))
-    label = f"{reg}_fp_ime_{test_data.test_count:03d}"
     test_data.register_vector_data(label, sew, elements=elements)
     return label
 
 
 def fp_edge_data(
     test_data: TestData, reg: str, edge_label: str, sew: int, w: int, input_fmt: str, output_fmt: str, emul: float
-) -> str:
+) -> tuple[str, str]:
     """
-    Register exact background data for reg with the edge value of edge_label in input element 0 (C element 0 for
-    vd). An A or B edge has a background of 0, a C edge a background of exact random C values.
+    Return the background and head labels for reg with the edge value of edge_label in input element 0 (C element 0
+    for vd). An A or B edge has a background of 0, a C edge a background of exact random C values. The head is
+    storage element 0 of the background with the edge value in its first lane.
     """
     elements, _ = test_data.vector_labels[edge_label]
     lane_bits = sew // w if reg != "vd" else sew
     label = fp_exact_data(test_data, reg, sew, w, input_fmt, output_fmt, emul, background=None if reg == "vd" else 0.0)
     data, _ = test_data.vector_labels[label]
     mask = (1 << lane_bits) - 1
-    edge_data = [(data[0] & ~mask) | (elements[0] & mask), *data[1:]]
-    edge_label_full = f"{reg}_fp_edge_ime_{test_data.test_count:03d}"
-    test_data.register_vector_data(edge_label_full, sew, elements=edge_data)
-    return edge_label_full
+    head = f"{reg}_fp_edge_ime_{test_data.test_count:03d}"
+    test_data.register_vector_data(head, sew, elements=[(data[0] & ~mask) | (elements[0] & mask)])
+    return label, head
 
 
 def mx_scale_data(
@@ -269,17 +287,21 @@ def mx_scale_data(
     label: str | None = None,
 ) -> str:
     """
-    Register a label of paired E8M0 scales that fills v0 at VLEN_MAX. Every scale_A is scale_a and every scale_B is
-    scale_b. A scale left as None is a random choice of RANDOM_SCALES_A or RANDOM_SCALES_B for each element. first
-    replaces the (scale_A, scale_B) pair of element 0: row 0 of A and column 0 of B^T in block 0. label defaults to
-    a name from the test count.
+    Register a label of paired E8M0 scales that fills v0 at IME_VLEN_MAX. Every scale_A is scale_a and every scale_B
+    is scale_b. A scale left as None is a random choice of RANDOM_SCALES_A or RANDOM_SCALES_B for each element. first
+    replaces the (scale_A, scale_B) pair of element 0: row 0 of A and column 0 of B^T in block 0. Without first and
+    label, every testcase with the same scale_a and scale_b shares one label.
     """
+    if first is None and label is None:
+        label = "v0_scale_ime_" + "_".join("r" if scale is None else str(scale) for scale in (scale_a, scale_b))
+        if label in test_data.vector_labels:
+            return label
     pairs = [
         (
             scale_a if scale_a is not None else RANDOM_SCALES_A[random_range(0, 1)],
             scale_b if scale_b is not None else RANDOM_SCALES_B[random_range(0, 1)],
         )
-        for _ in range(VLEN_MAX // SCALE_PAIR_BITS)
+        for _ in range(IME_VLEN_MAX // SCALE_PAIR_BITS)
     ]
     if first is not None:
         pairs[0] = first
@@ -348,6 +370,7 @@ def format_fp_mmacc(
             unit = None if not dedicated else E8M0_BIAS
             params.scale_val_pointer = mx_scale_data(test_data, scale_a=unit, scale_b=unit)
     backgrounds: dict[str, float | None] = {"vs1": None, "vs2": None, "vd": None}
+    heads: dict[str, str] = {}
     if edge_reg == "vd":
         backgrounds["vs1"] = backgrounds["vs2"] = 0.0
     elif edge_reg is not None:
@@ -357,7 +380,7 @@ def format_fp_mmacc(
             continue  # cp_fp_subdot, cp_fp_rnd and cp_scale build complete data
         input_fmt = input_fmts[reg]
         if reg == edge_reg:
-            label = fp_edge_data(
+            label, heads[reg] = fp_edge_data(
                 test_data, reg, getattr(params, f"{reg}_val_pointer"), params.sew, w, input_fmt, output_fmt, emul
             )
         else:
@@ -369,7 +392,7 @@ def format_fp_mmacc(
         params.vs2_val_pointer = params.vs1_val_pointer  # A and B share one register and its data
     params.vector_suite = "length"
 
-    setup, test, check = mmacc_code(instr_str, test_data, params, scale_label=params.scale_val_pointer)
+    setup, test, check = mmacc_code(instr_str, test_data, params, scale_label=params.scale_val_pointer, heads=heads)
     handle_vector_fp(setup, check, params.csr_frm_val, test_data)
     if nv_preset:
         # The specification does not say whether an E5M2 NaN can be signaling. With NV already set, fflags and the
@@ -386,12 +409,19 @@ def format_mmacc(
 
 
 def mmacc_code(
-    instr_str: str, test_data: TestData, params: InstructionParams, *, scale_label: str | None = None
+    instr_str: str,
+    test_data: TestData,
+    params: InstructionParams,
+    *,
+    scale_label: str | None = None,
+    heads: dict[str, str] | None = None,
 ) -> tuple[list[str], list[str], list[str]]:
     """
     Load A, B and the C window, run the multiply-accumulate and check the C window. With scale_label, v0 holds those
-    block scales and the instruction has vm=0.
+    block scales and the instruction has vm=0. heads maps vs1, vs2 or vd to a label whose one storage element is
+    written over element 0 of that operand after its data is loaded.
     """
+    heads = dict(heads or {})
     assert params.vs1 is not None and params.vs1_val_pointer is not None, "vs1 must be provided for MMACC"
     assert params.vs2 is not None and params.vs2_val_pointer is not None, "vs2 must be provided for MMACC"
     assert params.vd is not None and params.vd_val_pointer is not None, "vd must be provided for MMACC"
@@ -402,18 +432,19 @@ def mmacc_code(
     assert test_data.test_chunk is not None, "format_mmacc must be used with an active TestChunk"
 
     # Every MMACC testcase checks the whole C window. Base-suite callers pass VL=1 and register short data labels
-    # (one element, or one edge value at the input width). They run at VL=VLMAX, and their labels are extended to
-    # fill A, B and the C window.
+    # (one element, or one edge value at the input width). They run at VL=VLMAX with shared background data in A, B
+    # and the C window, and their labels are written over element 0.
     if params.vector_suite == "base":
         params.vl = "vlmax"
         for reg, emul in (("vs1", params.lmul), ("vs2", params.lmul), ("vd", C_WINDOW_REGS)):
             label = getattr(params, f"{reg}_val_pointer")
-            setattr(params, f"{reg}_val_pointer", ime_extend_label(test_data, label, reg, params.sew, emul))
+            background, heads[reg] = ime_extend_label(test_data, label, reg, params.sew, emul)
+            setattr(params, f"{reg}_val_pointer", background)
 
     # A preset vd reserves only its first register, so reserve the whole window before temporaries are taken
     test_data.vec_regs.allocate_operand("vd", params.vd, C_WINDOW_REGS, suppress_overlap=True)
 
-    labels = [params.vs1_val_pointer, params.vs2_val_pointer, params.vd_val_pointer]
+    labels = [params.vs1_val_pointer, params.vs2_val_pointer, params.vd_val_pointer, *heads.values()]
     if scale_label is not None:
         labels.append(scale_label)
     test_data.test_chunk.vector_labels.extend(
@@ -430,13 +461,18 @@ def mmacc_code(
         f"slli x{stride_reg}, x{stride_reg}, 3",
         f"add x{params.temp_reg}, x{params.temp_reg}, x{stride_reg}",
         f"vle{params.sew}.v v{params.vd + C_WINDOW_LMUL}, (x{params.temp_reg})",
-        f"# A (vs1 = v{params.vs1}) and B (vs2 = v{params.vs2}) at LMUL={params.lmul}, VL=VLMAX",
     ]
+    if "vd" in heads:
+        setup.extend(ime_overlay(params.vd, heads["vd"], params.sew, params.temp_reg))
+    setup.append(f"# A (vs1 = v{params.vs1}) and B (vs2 = v{params.vs2}) at LMUL={params.lmul}, VL=VLMAX")
     test_data.int_regs.return_register(stride_reg)
 
     # A and B are loaded at VLMAX whatever the test VL is. load_ime_vtype sets the test VL.
     load_code, _ = load_vec_regs([VectorLoad(reg="vs1"), VectorLoad(reg="vs2")], replace(params, vl="vlmax"), test_data)
     setup.extend(load_code)
+    for reg in ("vs1", "vs2"):
+        if reg in heads:
+            setup.extend(ime_overlay(getattr(params, reg), heads[reg], params.sew, params.temp_reg))
     if scale_label is not None:
         setup.extend(
             [

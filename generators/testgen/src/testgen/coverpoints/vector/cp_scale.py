@@ -7,7 +7,7 @@
 
 from typing import Any
 
-from testgen.constants import VLEN_MAX
+from testgen.constants import IME_VLEN_MAX
 from testgen.coverpoints.registry import add_coverpoint_generator
 from testgen.data.state import TestData, return_testcase_registers
 from testgen.data.test_chunk import TestChunk
@@ -91,7 +91,7 @@ def make_scale(instr_name: str, instr_type: str, coverpoint: str, test_data: Tes
         labels: dict[str, Any] = {"scale_val_pointer": scale_label}
         if value is not None:
             # A[0][0] = value and every other element of A is 0; every element of B is value
-            count = VLEN_MAX // sew
+            count = IME_VLEN_MAX // sew
             lane = fp_bits(value, input_fmt)
             a = [lane] + [0] * (count - 1)
             b = [sum(lane << (i * lane_bits) for i in range(w))] * count

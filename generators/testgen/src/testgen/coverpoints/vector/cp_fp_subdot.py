@@ -6,9 +6,8 @@
 # SPDX-License-Identifier: Apache-2.0
 ##################################
 
-from testgen.constants import VLEN_MAX
+from testgen.constants import IME_VLEN_MAX
 from testgen.coverpoints.registry import add_coverpoint_generator
-from testgen.data.random import random_range
 from testgen.data.state import TestData, return_testcase_registers
 from testgen.data.test_chunk import TestChunk
 from testgen.formatters import format_single_testcase
@@ -17,7 +16,6 @@ from testgen.formatters.types.mmacc_type import (
     C_WINDOW_REGS,
     WIDENING,
     fp_bits,
-    fp_c_range,
     fp_input_format,
     fp_operand_format,
     fp_output_format,
@@ -33,6 +31,8 @@ SUBDOT_VALUES = {
     (64, 4): (2.0**52, 0.5, 0.5),  # ULP(2^52) in fp64 = 1
 }
 PRECISION = {"fp16": 11, "bf16": 8, "fp32": 24, "fp64": 53}
+# Every C element other than C[0][0] has only zero products, so it keeps this exact value
+C_BACKGROUND = 0.5
 
 
 def subdot_values(sew: int, w: int, input_family: str, output_fmt: str) -> tuple[float, float, float]:
@@ -60,7 +60,6 @@ def make_fp_subdot(instr_name: str, instr_type: str, coverpoint: str, test_data:
     input_fmt = fp_operand_format(input_family, altfmt=False)
     output_fmt = fp_output_format(test_data, sew)
     c0, a_value, b_value = subdot_values(sew, w, input_family, output_fmt)
-    c_range = fp_c_range(output_fmt)
     lane_bits = sew // w
     lmul = 1
     vector_data = get_instruction_type_config(instr_type).vector_data
@@ -69,13 +68,11 @@ def make_fp_subdot(instr_name: str, instr_type: str, coverpoint: str, test_data:
 
     test_chunks = []
     for frm, frm_name in enumerate(FRM_NAMES):
-        count = VLEN_MAX * lmul // sew
+        count = IME_VLEN_MAX * lmul // sew
         a = [sum(fp_bits(a_value, input_fmt) << (i * lane_bits) for i in range(w))] + [0] * (count - 1)
         b = [sum(fp_bits(b_value, input_fmt) << (i * lane_bits) for i in range(w))] + [0] * (count - 1)
-        c_count = VLEN_MAX * C_WINDOW_REGS // sew
-        c = [fp_bits(c0, output_fmt)] + [
-            fp_bits(random_range(-c_range, c_range) + 0.5, output_fmt) for _ in range(c_count - 1)
-        ]
+        c_count = IME_VLEN_MAX * C_WINDOW_REGS // sew
+        c = [fp_bits(c0, output_fmt)] + [fp_bits(C_BACKGROUND, output_fmt)] * (c_count - 1)
         labels = {}
         for reg, data in (("vs1", a), ("vs2", b), ("vd", c)):
             labels[f"{reg}_val_pointer"] = f"{reg}_subdot_{frm_name}"

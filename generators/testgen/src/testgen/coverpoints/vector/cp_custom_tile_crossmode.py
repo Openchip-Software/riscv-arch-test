@@ -15,7 +15,7 @@ from testgen.asm.vector_helpers import (
     load_ime_vtype,
     write_sigupd_v_len,
 )
-from testgen.constants import VLEN_MAX
+from testgen.constants import IME_VLEN_MAX
 from testgen.coverpoints.registry import add_coverpoint_generator
 from testgen.data.params import InstructionParams
 from testgen.data.state import TestData
@@ -61,7 +61,7 @@ def make_tile_crossmode(instr_name: str, instr_type: str, coverpoint: str, test_
     src_label = tile_data_label(test_data, sew)
     dst_label = f"ime_tile_dst_e{sew}"
     if dst_label not in test_data.vector_labels:
-        test_data.register_vector_data(dst_label, sew, random_elements=SPAN_REGS * VLEN_MAX // sew)
+        test_data.register_vector_data(dst_label, sew, random_elements=SPAN_REGS * IME_VLEN_MAX // sew)
 
     test_chunks = []
     for lambda_value in ime_lambdas(sew):

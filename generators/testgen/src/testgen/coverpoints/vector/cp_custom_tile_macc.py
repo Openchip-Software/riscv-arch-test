@@ -16,26 +16,28 @@ from testgen.asm.vector_helpers import (
     load_ime_vtype,
     write_sigupd_v_len,
 )
-from testgen.constants import VLEN_MAX
+from testgen.constants import IME_VLEN_MAX
 from testgen.coverpoints.registry import add_coverpoint_generator
 from testgen.data.params import InstructionParams
 from testgen.data.state import TestData
 from testgen.data.test_chunk import TestChunk
 
 IME_LMULS = [1, 2, 4, 8]
-UDB_VLENS = [128, 256, 512, 1024]
+UDB_VLENS = [128, 256, 512, 1024, 2048, 4096, 8192, 16384]
 A_REG, B_REG, C_REG = 0, 8, 16
 C_WINDOW_REGS = 16
+MAX_EMUL_C = 16
 
 
 def tile_macc_data(sew: int, lambda_value: int, lmul: int) -> tuple[list[int], list[int]]:
     """
-    Return the A and B tiles in memory, row-major with LD = K = lambda*LMUL, for M rows at VLEN_MAX.
+    Return the A and B tiles in memory, row-major with LD = K = lambda*LMUL, for the M = VLEN/(SEW*lambda) rows of
+    the largest VLEN that supports lambda: IME_VLEN_MAX, or 16*SEW*lambda^2 (EMUL_C = 16) if that is smaller.
     With K >= 2: A[i] = (i, 1, 0, ...) and B_tile[j] = (f, j, 0, ...), so C[i][j] = f*i + j names its row and column.
     f is 256, or 16 at SEW=8. With K = 1: A[i] = 1 and B_tile[j] = j, so C[i][j] = j.
     """
     k = lambda_value * lmul
-    rows = VLEN_MAX // (sew * lambda_value)
+    rows = min(IME_VLEN_MAX, MAX_EMUL_C * sew * lambda_value * lambda_value) // (sew * lambda_value)
     mask = (1 << sew) - 1
     factor = 256 if sew >= 16 else 16
     a = [0] * (rows * k)
@@ -66,7 +68,7 @@ def make_tile_macc(instr_name: str, instr_type: str, coverpoint: str, test_data:
 
     out_label = f"ime_tile_macc_c_e{sew}"
     if out_label not in test_data.vector_labels:
-        test_data.register_vector_data(out_label, sew, random_elements=C_WINDOW_REGS * VLEN_MAX // sew)
+        test_data.register_vector_data(out_label, sew, random_elements=C_WINDOW_REGS * IME_VLEN_MAX // sew)
 
     test_chunks = []
     for lambda_value in ime_lambdas(sew):
