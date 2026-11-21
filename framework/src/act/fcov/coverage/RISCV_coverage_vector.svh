@@ -491,6 +491,17 @@ function int ime_column_vl(int hart, int issue);
   return (1 << (lambda_field - 1)) * (1 << vlmul);
 endfunction
 
+// IME floating-point multiply-accumulate: check the format fields of vtype. vtype[8] (altfmt) selects the C format
+// with SEW, and altfmt_A and altfmt_B select the input formats. A value of -1 accepts either setting.
+function bit ime_fp_format(int hart, int issue, int c_altfmt, int ab_altfmt);
+  `XLEN_BITS vtype = get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "vtype");
+  int altfmt_a = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "altfmt_a"));
+  int altfmt_b = int'(get_csr_val(hart, issue, `SAMPLE_BEFORE, "vtype", "altfmt_b"));
+  if (c_altfmt >= 0 && int'(vtype[8]) != c_altfmt) return 0;
+  if (ab_altfmt >= 0 && (altfmt_a != ab_altfmt || altfmt_b != ab_altfmt)) return 0;
+  return 1;
+endfunction
+
 typedef enum {
   ime_ld_x0,
   ime_ld_zero,

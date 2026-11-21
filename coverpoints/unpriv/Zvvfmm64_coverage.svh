@@ -2285,39 +2285,39 @@ function void zvvfmm64_sample(int hart, int issue, ins_t ins);
         case (inst_name)
         "vf8wimmacc.vv"     : begin
 `ifdef ZVVXI8FP64MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm64Zvvxi8fp64mm_vf8wimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm64Zvvxi8fp64mm_vf8wimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXNI8FP64MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm64Zvvxni8fp64mm_vf8wimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm64Zvvxni8fp64mm_vf8wimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
         end
         "vf8wmmacc.vv"     : begin
 `ifdef ZVVOFP8FP64MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm64Zvvofp8fp64mm_vf8wmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm64Zvvofp8fp64mm_vf8wmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
 `ifdef ZVVXNOFP8FP64MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm64Zvvxnofp8fp64mm_vf8wmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm64Zvvxnofp8fp64mm_vf8wmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXOFP8FP64MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm64Zvvxofp8fp64mm_vf8wmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm64Zvvxofp8fp64mm_vf8wmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
         end
 `ifdef ZVVFP64MM_SUPPORTED
         "vfmmacc.vv"     : begin
-            if (ins.current.insn[25] == 1'b1) Zvvfmm64Zvvfp64mm_vfmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm64Zvvfp64mm_vfmmacc_vv_cg.sample(ins); // vm=1: unscaled
         end
 `endif
         "vfqmmacc.vv"     : begin
 `ifdef ZVVBF16FP64MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm64Zvvbf16fp64mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, 1)) Zvvfmm64Zvvbf16fp64mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
 `ifdef ZVVFP16FP64MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm64Zvvfp16fp64mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, 0)) Zvvfmm64Zvvfp16fp64mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
         end
 `ifdef ZVVFP32FP64MM_SUPPORTED
         "vfwmmacc.vv"     : begin
-            if (ins.current.insn[25] == 1'b1) Zvvfmm64Zvvfp32fp64mm_vfwmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm64Zvvfp32fp64mm_vfwmmacc_vv_cg.sample(ins); // vm=1: unscaled
         end
 `endif
             default: ; // a case needs at least one item, and some configurations select none

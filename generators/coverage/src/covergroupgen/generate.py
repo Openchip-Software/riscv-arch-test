@@ -716,6 +716,28 @@ def _guard(extension: tuple[str, ...], content: str) -> str:
     return content
 
 
+# IME floating-point type extension: optional microscaled prefix (x for block size 32, xn for 16), the input format,
+# then the C format when it differs from the input format.
+_IME_FP_TYPE_RE = re.compile(r"Zvv(?:xn|x)?(i4|i8|ofp4|ofp8|fp16|bf16|fp32|fp64)(ofp8|fp16|bf16|fp32|fp64)?mm")
+
+
+def _ime_fp_format(extension: tuple[str, ...]) -> str:
+    """
+    Sample condition that selects the encodings of an IME floating-point type extension. vtype.altfmt selects the C
+    format together with SEW: BF16 needs 1, FP16, FP32 and FP64 need 0, and an OFP8 C takes either. altfmt_A and
+    altfmt_B select a 16-bit input format: FP16 needs both 0 and BF16 both 1. Mixed FP16 and BF16 inputs need both
+    extensions, so neither single-format row samples them. The other inputs are not checked: OFP8 takes either
+    value, OFP4 rejects 1, FP32 and FP64 ignore the fields, and for integer inputs they select signedness.
+    """
+    match = _IME_FP_TYPE_RE.fullmatch(extension[-1]) if extension else None
+    if not match:
+        return ""
+    inputs, c_format = match.group(1), match.group(2) or match.group(1)
+    c_altfmt = {"bf16": 1, "fp16": 0, "fp32": 0, "fp64": 0}.get(c_format, -1)
+    ab_altfmt = {"bf16": 1, "fp16": 0}.get(inputs, -1)
+    return f" && ime_fp_format(hart, issue, {c_altfmt}, {ab_altfmt})"
+
+
 def _extra_name(arch: str, extension: tuple[str, ...]) -> str:
     """Name prefix for an ExtraExtensions group: the suite followed by its extensions, e.g. ZfaZfhD for Zfh:D."""
     return arch + "".join(extension)
@@ -746,9 +768,11 @@ def _gen_covergroup_samples(
     covergroup_case_sample_T template when it exists, which can restrict the encodings that the row samples.
     """
 
-    def case_sample(row_arch: str, instr: str, instr_type: str) -> str:
+    def case_sample(extension: tuple[str, ...], instr: str, instr_type: str) -> str:
         name = f"covergroup_case_sample_{instr_type}"
-        return customize_template(templates, name if name in templates else "covergroup_case_sample", row_arch, instr)
+        template = name if name in templates else "covergroup_case_sample"
+        call = customize_template(templates, template, _extra_name(arch, extension), instr)
+        return call.replace("@FPFORMAT@", _ime_fp_format(extension))
 
     lines: list[str] = []
     done: set[str] = set()
@@ -765,7 +789,7 @@ def _gen_covergroup_samples(
             done.add(instr)
             base_calls = [customize_template(templates, "covergroup_case_sample", arch, instr)] if key in tp else []
             extra_calls = {
-                ext: case_sample(_extra_name(arch, ext), instr, row_type)
+                ext: case_sample(ext, instr, row_type)
                 for ext, group in sorted(extras.items())
                 for row_instr, row_type in group
                 if row_instr == instr

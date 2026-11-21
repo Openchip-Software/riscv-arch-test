@@ -3160,53 +3160,53 @@ function void zvvfmm32_sample(int hart, int issue, ins_t ins);
         case (inst_name)
         "vf8wimmacc.vv"     : begin
 `ifdef ZVVXI4FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxi4fp32mm_vf8wimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvxi4fp32mm_vf8wimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXNI4FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxni4fp32mm_vf8wimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvxni4fp32mm_vf8wimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
         end
         "vf8wmmacc.vv"     : begin
 `ifdef ZVVOFP4FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm32Zvvofp4fp32mm_vf8wmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvofp4fp32mm_vf8wmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
 `ifdef ZVVXNOFP4FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxnofp4fp32mm_vf8wmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvxnofp4fp32mm_vf8wmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXOFP4FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxofp4fp32mm_vf8wmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvxofp4fp32mm_vf8wmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
         end
 `ifdef ZVVFP32MM_SUPPORTED
         "vfmmacc.vv"     : begin
-            if (ins.current.insn[25] == 1'b1) Zvvfmm32Zvvfp32mm_vfmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvfp32mm_vfmmacc_vv_cg.sample(ins); // vm=1: unscaled
         end
 `endif
         "vfqimmacc.vv"     : begin
 `ifdef ZVVXI8FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxi8fp32mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvxi8fp32mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXNI8FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxni8fp32mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvxni8fp32mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
         end
         "vfqmmacc.vv"     : begin
 `ifdef ZVVOFP8FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvofp8fp32mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
 `ifdef ZVVXNOFP8FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxnofp8fp32mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvxnofp8fp32mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXOFP8FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm32Zvvxofp8fp32mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm32Zvvxofp8fp32mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
         end
         "vfwmmacc.vv"     : begin
 `ifdef ZVVBF16FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm32Zvvbf16fp32mm_vfwmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, 1)) Zvvfmm32Zvvbf16fp32mm_vfwmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
 `ifdef ZVVFP16FP32MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm32Zvvfp16fp32mm_vfwmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, 0)) Zvvfmm32Zvvfp16fp32mm_vfwmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
         end
             default: ; // a case needs at least one item, and some configurations select none

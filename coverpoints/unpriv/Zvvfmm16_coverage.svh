@@ -5391,78 +5391,78 @@ function void zvvfmm16_sample(int hart, int issue, ins_t ins);
         case (inst_name)
         "vfmmacc.vv"     : begin
 `ifdef ZVVBF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm16Zvvbf16mm_vfmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 1, 1)) Zvvfmm16Zvvbf16mm_vfmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
 `ifdef ZVVFP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm16Zvvfp16mm_vfmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, 0)) Zvvfmm16Zvvfp16mm_vfmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
         end
         "vfqimmacc.vv"     : begin
 `ifdef ZVVXI4BF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxi4bf16mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 1, -1)) Zvvfmm16Zvvxi4bf16mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXI4FP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxi4fp16mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm16Zvvxi4fp16mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXNI4BF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxni4bf16mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 1, -1)) Zvvfmm16Zvvxni4bf16mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXNI4FP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxni4fp16mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm16Zvvxni4fp16mm_vfqimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
         end
         "vfqmmacc.vv"     : begin
 `ifdef ZVVOFP4BF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm16Zvvofp4bf16mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 1, -1)) Zvvfmm16Zvvofp4bf16mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
 `ifdef ZVVOFP4FP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm16Zvvofp4fp16mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm16Zvvofp4fp16mm_vfqmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
 `ifdef ZVVXNOFP4BF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxnofp4bf16mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 1, -1)) Zvvfmm16Zvvxnofp4bf16mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXNOFP4FP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxnofp4fp16mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm16Zvvxnofp4fp16mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXOFP4BF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxofp4bf16mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 1, -1)) Zvvfmm16Zvvxofp4bf16mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXOFP4FP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxofp4fp16mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm16Zvvxofp4fp16mm_vfqmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
         end
         "vfwimmacc.vv"     : begin
 `ifdef ZVVXI8BF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxi8bf16mm_vfwimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 1, -1)) Zvvfmm16Zvvxi8bf16mm_vfwimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXI8FP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxi8fp16mm_vfwimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm16Zvvxi8fp16mm_vfwimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXNI8BF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxni8bf16mm_vfwimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 1, -1)) Zvvfmm16Zvvxni8bf16mm_vfwimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXNI8FP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxni8fp16mm_vfwimmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm16Zvvxni8fp16mm_vfwimmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
         end
         "vfwmmacc.vv"     : begin
 `ifdef ZVVOFP8BF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm16Zvvofp8bf16mm_vfwmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 1, -1)) Zvvfmm16Zvvofp8bf16mm_vfwmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
 `ifdef ZVVOFP8FP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b1) Zvvfmm16Zvvofp8fp16mm_vfwmmacc_vv_cg.sample(ins); // vm=1: unscaled
+            if (ins.current.insn[25] == 1'b1 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm16Zvvofp8fp16mm_vfwmmacc_vv_cg.sample(ins); // vm=1: unscaled
 `endif
 `ifdef ZVVXNOFP8BF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxnofp8bf16mm_vfwmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 1, -1)) Zvvfmm16Zvvxnofp8bf16mm_vfwmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXNOFP8FP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxnofp8fp16mm_vfwmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm16Zvvxnofp8fp16mm_vfwmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXOFP8BF16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxofp8bf16mm_vfwmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 1, -1)) Zvvfmm16Zvvxofp8bf16mm_vfwmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
 `ifdef ZVVXOFP8FP16MM_SUPPORTED
-            if (ins.current.insn[25] == 1'b0) Zvvfmm16Zvvxofp8fp16mm_vfwmmacc_vv_cg.sample(ins); // vm=0: microscaled
+            if (ins.current.insn[25] == 1'b0 && ime_fp_format(hart, issue, 0, -1)) Zvvfmm16Zvvxofp8fp16mm_vfwmmacc_vv_cg.sample(ins); // vm=0: microscaled
 `endif
         end
             default: ; // a case needs at least one item, and some configurations select none
