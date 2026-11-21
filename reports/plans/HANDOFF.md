@@ -7,6 +7,8 @@ Read this file first. It is self-contained: what exists, how to run it, the rule
 - [udb-0.9.0.md](udb-0.9.0.md): log of the move to riscv-unified-db and spec `58810918`, step by step.
 - [ime-act-testplan-design.md](ime-act-testplan-design.md): the testplan design (option C).
 - [upstream-ci/](upstream-ci/README.md): work packages for upstream CI.
+- [progress-2026-11-21.md](progress-2026-11-21.md): progress summary and what is missing.
+- [../issues/INDEX.md](../issues/INDEX.md): bugs and issues found, with drafts to file (none filed).
 
 State as of 2026-11-21.
 
@@ -189,7 +191,9 @@ QEMU deviations from the spec. An ELF stops at the first one, so later bins of a
 1. MACC with `vstart` ≠ 0 or with VL not a multiple of λ·LMUL runs instead of trapping.
 2. Tile loads and stores with `vill`, immediate λ L64 (double trap), VL not a multiple, or masked `vd = v0` run
    instead of trapping.
-3. `vmttl.v` and `vmtts.v` are not decoded.
+3. [Unverified] `vmttl.v` and `vmtts.v` were reported as not decoded. QEMU `d856b96` decodes both
+   (`trans_rvzvmtls.c.inc`, behind `ext_zvvmtls`), and the SDK binary contains their helpers. Run a Zvvmttls file on
+   QEMU before reporting anything.
 4. W>1 FP MACC adds each product into C with its own rounding. The spec forms the group sum S first, so
    `cp_fp_subdot` fails.
 5. `vtype[8]` (`altfmt`) is reserved unless `x-zvfbfa=true`. `vsetvl` then sets `vill`, and a BF16-accumulator MACC
@@ -221,6 +225,7 @@ Known limits:
 | ------------------------------------------------------------------------------------------------------------ | ---------------------- |
 | Mixed FP16/BF16 rows; `vf8wmmacc.vv` rows; tile layout tests (design §4.4); `ramp` bin; `frm`-sensitive data | design §9              |
 | Upstream work packages; pull request to `act4`                                                               | needs approval to push |
+| File the issue drafts in `reports/issues/INDEX.md`                                                           | needs approval         |
 
 For each new FP group:
 
@@ -232,8 +237,7 @@ For each new FP group:
 
 Step 5 tools are in `~/repo/ime/act-udb-work`: `iss-job.sh act-ime-rv64` builds the ISS on a compute node from
 `udb-iss` with `udb-iss-act-diagnostic.patch` applied, and `ime-cmp-one.sh <out> <elf>` compares one ELF with Sail.
-The patch is diagnostic only. Its two UDB bugs (S-mode translation with H, vector loads at LMUL > 1) are worth an
-upstream report.
+The patch is diagnostic only. The UDB bugs it works around have issue drafts in `reports/issues/` (`udb-*`).
 
 When `ime/fp-mx` merges into `ime/0.9.0`, move the `udb-act` worktree to `ime/0.9.0`. Nothing else changes.
 

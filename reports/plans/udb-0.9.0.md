@@ -195,7 +195,8 @@ ISS can compare. No IME mismatch was found.
 - Result over the 93 ELFs: 9,858 IME instructions compared, 9,716 equal.
   - 108 have different inputs. Their setup uses V instructions that the ISS does not implement: the `v0` mask in the
     masked and agnostic tile load and store testcases (`vslideup` and others), and the zeroed C window in the
-    `Zvvmm*Zvvmtls` testcases (`vmv.v.i`).
+    `Zvvmm*Zvvmtls` testcases. That window is zeroed with `vmv.v.i` at LMUL=8, and the UDB operation writes only the
+    first register of a group.
   - 34 are `vmts.v` stores in the `Zvvmm*Zvvmtls` testcases. Each stores the C window of the `vmmacc.vv` just before
     it, which had different inputs. `ime-cmp.py` checks only the first register of a store group, so it reports
     them as result differences.

@@ -36,6 +36,9 @@ cited line range is inside the file.
 or of an exact zero group sum, so C = −0 with all −0 products has no defined result. Sail starts S at +0. Cited at
 spec `e99d9065` and Sail `7707a9a1`.
 
+`INDEX.md` lists every bug and issue found during the port, with its target repository and status. The drafts
+listed there are not filed.
+
 `sail-ime-wmmacc-partial-sum/`: obsolete draft, kept because Report 2 links to it. The W>1 partial-sum bug it
 describes is fixed in Sail (`ime_fp_group_sum`). The SDK QEMU still has it.
 
