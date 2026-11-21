@@ -153,7 +153,7 @@ def write_sigupd_v_len(
     emul_for_bytes = int(max(1, lmul)) if not mask_producing else 8
     max_bytes = VLEN_MAX * emul_for_bytes // 8
     sig_sew = vdsew if not mask_producing else 8
-    test_data.test_chunk.sigupd_count += vector_sigupd_bytes(max_bytes, test_data, sig_sew) * segments
+    test_data.test_chunk.vector_sigupd_count += vector_sigupd_bytes(max_bytes, test_data, sig_sew) * segments
 
     sig_reg = test_data.int_regs.sig_reg
     link_reg = test_data.int_regs.link_reg
@@ -214,7 +214,7 @@ def write_sigupd_v_mask_prod(
     worst_bytes = VLEN_MAX * emul_for_bytes // 8
     sig_stride = max(test_data.xlen, test_data.flen, 8) // 8
     offset_bytes = (worst_bytes + 4 + 7) & ~7
-    test_data.test_chunk.sigupd_count += max(1, (offset_bytes + sig_stride - 1) // sig_stride)
+    test_data.test_chunk.vector_sigupd_count += max(1, (offset_bytes + sig_stride - 1) // sig_stride)
 
     sig_reg = test_data.int_regs.sig_reg
     link_reg = test_data.int_regs.link_reg

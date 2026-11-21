@@ -32,6 +32,7 @@ class TestChunk:
         data_strings: Debug strings for the test data section
         vector_labels: Values for vector registers given in (label, data, sew) triples
         sigupd_count: Number of signature updates
+        vector_sigupd_count: Number of signature updates whose size grows with VLEN, counted at VLEN_MAX
         trap_sigupd_count: Number of traps this chunk adds to its file's TRAP_SIGUPD_COUNT
         num_testcases: Number of individual testcases (for split counting)
         split_name: Optional named-split marker. A non-None value starts a new
@@ -50,6 +51,7 @@ class TestChunk:
     data_strings: list[str] = field(default_factory=list)
     vector_labels: list[tuple[str, list[int], int]] = field(default_factory=list)
     sigupd_count: int = 0
+    vector_sigupd_count: int = 0
     trap_sigupd_count: int = 0
     num_testcases: int = 0
     split_name: str | None = None
