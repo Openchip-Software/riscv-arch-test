@@ -80,6 +80,9 @@ Other facts:
      but do not block any step, and QEMU failures are not investigated.
    - RV32 is out of scope for now. The CSVs keep `RV32=x`, but no RV32 configuration is planned.
    - ACT must test VLEN up to 16384. `sail-ime-rv64-v16384` does (section 7).
+   - VLEN 16384 is a local test only. CI stays at VLEN 1024. The IME configs are already off in CI
+     (`config/ime/ci.yaml`), but `IME_VLEN_MAX = 16384` still sizes the generated IME tests for 16384 everywhere.
+     Open step: default it to 1024 and raise it to 16384 only for local runs.
 6. **OFP8 tests that Sail cannot run** go on the set-aside list in `udb-0.9.0.md`, with the test name, the extension
    and the Sail error. Do not work around them on this branch.
 
