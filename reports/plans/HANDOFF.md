@@ -24,7 +24,7 @@ All paths are under `/srv/nfs/shared/home/constantino.gomez/` (written `~/`).
 
 | What                    | Where                                                                            | Pin                                                               |
 | ----------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 20 commits on `act4` `7569d06d6` (section 5)                      |
+| ACT4, code              | `~/repo/ime/riscv-arch-test`, branch `cgomez/ime-udb-0.9.0`                      | 21 commits on `act4` `7569d06d6` (section 5)                      |
 | ACT4, reports           | `~/repo/ime/riscv-arch-test-docs` (worktree), branch `docs/act-ime-reports`      |                                                                   |
 | UDB                     | Openchip-Software/riscv-unified-db `ime/fp-mx`, worktree `~/repo/ime/udb-act`    | `f0045fec`; will merge into `ime/0.9.0`                           |
 | Sail (reference)        | Openchip-Software/sail-riscv `cleanup/ime-0.9.0`, worktree `~/repo/ime/sail-act` | `0ebfc810`; binary in `~/repo/ime/sail-act/build-act/c_emulator/` |
@@ -80,9 +80,8 @@ Other facts:
      but do not block any step, and QEMU failures are not investigated.
    - RV32 is out of scope for now. The CSVs keep `RV32=x`, but no RV32 configuration is planned.
    - ACT must test VLEN up to 16384. `sail-ime-rv64-v16384` does (section 7).
-   - VLEN 16384 is a local test only. CI stays at VLEN 1024. The IME configs are already off in CI
-     (`config/ime/ci.yaml`), but `IME_VLEN_MAX = 16384` still sizes the generated IME tests for 16384 everywhere.
-     Open step: default it to 1024 and raise it to 16384 only for local runs.
+   - VLEN 16384 is a local test only. CI stays at VLEN 1024. The IME configs are off in CI (`config/ime/ci.yaml`),
+     and testgen sizes the IME tests for VLEN 1024 unless `ACT_IME_VLEN_MAX` is set (`abe176881`).
 6. **OFP8 tests that Sail cannot run** go on the set-aside list in `udb-0.9.0.md`, with the test name, the extension
    and the Sail error. Do not work around them on this branch.
 
@@ -112,6 +111,7 @@ Commits on `cgomez/ime-udb-0.9.0`, oldest first. The first three are `port-ime-t
 | `0db19a052` | `ref_model_timeout` in `test_config.yaml` (generic)                                                |
 | `b31647e48` | IME tests for VLEN up to 16384: `IME_VLEN_MAX`, shared background data, element-0 overlays         |
 | `8db59d195` | `config/ime/sail-ime-rv64-v16384`: Sail as DUT, VLEN 16384                                         |
+| `abe176881` | `IME_VLEN_MAX` defaults to 1024; `ACT_IME_VLEN_MAX=16384` for the local VLEN 16384 config          |
 
 Suites. Each unprivileged suite expands per SEW (`Zvvmm8` … `Zvvmm64`).
 
@@ -128,7 +128,7 @@ Code in `generators/testgen/src/testgen/`:
 - `asm/vector_helpers.py`: `ime_lambdas`, `ime_lambda_condition`, `ime_vtype_value`, `ime_extend_label`,
   `ime_overlay`, `load_ime_vtype`. Only `vsetvl` sets λ. `lambda_=None` emits an `#if/#elif` chain over
   `UDB_SUPPORTED_LAMBDA_SEW<sew>_<λ>` that picks the smallest supported λ.
-- VLEN. `IME_VLEN_MAX = 16384` (`constants.py`) sets the λ lists (`ime_lambdas`) and the size of every IME data
+- VLEN. `IME_VLEN_MAX` (`constants.py`; 1024, or `ACT_IME_VLEN_MAX` up to 16384) sets the λ lists (`ime_lambdas`) and the size of every IME data
   label. The IME types set `VectorTypeConfig.vlen_max` and `shared_data`: the testcases of one instruction share
   their background data, and a testcase with its own element 0 (an edge, a base-suite value) writes one storage
   element over it after the load (`ime_overlay`). The signature area scales with `UDB_VLEN` (`SIGUPD_COUNT`). Other
@@ -179,7 +179,10 @@ uv run testgen testplans -o tests --extensions $E
 
 VLEN 16384 runs on a compute node. `vlen-job.sh <config> <workdir>` runs every IME suite. It unpacks the gem bundle
 of the login host (`~/.cache/ime-cleanup/act-bundle.tar`; the nodes cannot build native gems), creates the node-local
-UDB `gen` directory, warms up the SDK image and passes `TIMEOUT=3600` to `run-suites.sh`. Generate the tests first.
+UDB `gen` directory, and warms up the SDK image. It generates the tests with `ACT_IME_VLEN_MAX` set to the config's
+VLEN into `<workdir>-tests`, and passes that directory (`TESTDIR`) and `TIMEOUT=3600` to `run-suites.sh`. `tests/`
+keeps the VLEN 1024 tests. A build for the 16384 config from tests generated without the variable stops with the
+`RVTEST_VLEN_MAX` error.
 
 ```bash
 ~/.claude/skills/moon-job/scripts/moon-job --no-container --detach -n moon-oxn-n03 -c 64 -m 200G -t 12:00:00 \

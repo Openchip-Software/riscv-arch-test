@@ -241,6 +241,11 @@ ISS can compare. No IME mismatch was found.
   Before this step the VLEN 1024 ELFs totalled 66 MB (93 files). The 16384 run proves that the tests build, stay
   within their data and signature areas and run; Sail is both reference and DUT, so it does not check Sail itself.
 
+- Follow-up (`abe176881`): VLEN 16384 is a local test, and CI stays at VLEN 1024. `IME_VLEN_MAX` now defaults to 1024. `ACT_IME_VLEN_MAX=16384` raises it for the `sail-ime-rv64-v16384` runs, which `vlen-job.sh` generates into a
+  directory of their own. With the default, the IME tests total 30 MB, `RVTEST_VLEN_MAX` is 1024, and all 93 IME
+  files pass on `sail-ime-rv64` (93 files, since the λ 16 and 32 cases are not generated). The 16384 run was not
+  repeated: with the variable set, the generated tests are those of step 6.
+
 ## Decisions
 
 - **Family flags.** In UDB each type extension requires its family, and a family alone enables no type. In Sail a
