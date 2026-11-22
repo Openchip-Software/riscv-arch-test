@@ -56,8 +56,13 @@ Zvvmttls and the tests gated on rnd=frm.
 
 ## `sail-ime-rv64-v16384`
 
-`sail-ime-rv64-v16384` is `sail-ime-rv64` with VLEN 16384, the largest VLEN that the IME tests support
-(`IME_VLEN_MAX` in testgen). It covers the lambda values 16 and 32, which no VLEN up to 1024 permits.
+`sail-ime-rv64-v16384` is `sail-ime-rv64` with VLEN 16384. It covers the lambda values 16 and 32, which no VLEN
+up to 1024 permits. It is a local test, not a CI configuration.
+
+By default testgen sizes the IME tests for VLEN 1024 (`IME_VLEN_MAX` in `testgen/constants.py`), and a build for
+this config stops with the `RVTEST_VLEN_MAX` error from `check_defines.h`. Generate the tests for this config with
+`ACT_IME_VLEN_MAX=16384`, for example `ACT_IME_VLEN_MAX=16384 uv run testgen testplans -o tests --extensions ...`.
+Regenerate without the variable before building for any other config.
 
 - UDB `VLEN: 16384` with `Zvl2048b` to `Zvl16384b`, and `sail.json` `vlen_exp: 14`.
 - The lambda lists are `SUPPORTED_LAMBDA_SEW8: [16, 32]`, `SUPPORTED_LAMBDA_SEW16: [8, 16, 32]`,

@@ -8,6 +8,8 @@
 
 """Package-wide constants for testgen."""
 
+import os
+
 # Assembly indentations
 INDENT = "  "
 
@@ -164,5 +166,20 @@ MIN_SEW_MIN = 8
 ELEN_MAX = 64
 VLEN_MAX = 1024
 # The IME tests support VLEN up to IME_VLEN_MAX. Their data labels fill registers at this VLEN, and the testcases
-# of each instruction share their background data to keep test files small.
-IME_VLEN_MAX = 16384
+# of each instruction share their background data to keep test files small. The default matches VLEN_MAX. Set the
+# environment variable ACT_IME_VLEN_MAX (a power of two, at most 16384) to generate IME tests for a larger VLEN,
+# such as the local-only config/ime/sail-ime-rv64-v16384.
+IME_VLEN_MAX_LIMIT = 16384
+
+
+def _ime_vlen_max() -> int:
+    value = os.environ.get("ACT_IME_VLEN_MAX")
+    if value is None:
+        return VLEN_MAX
+    vlen = int(value)
+    if vlen < VLEN_MAX or vlen > IME_VLEN_MAX_LIMIT or vlen & (vlen - 1):
+        raise ValueError(f"ACT_IME_VLEN_MAX={value} must be a power of two from {VLEN_MAX} to {IME_VLEN_MAX_LIMIT}")
+    return vlen
+
+
+IME_VLEN_MAX = _ime_vlen_max()
