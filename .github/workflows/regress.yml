@@ -254,6 +254,80 @@ jobs:
           name: spike-rv64-experimental-logs
           path: work/spike-rv64-experimental/logs
 
+  # IME suites on the Sail IME fork. The official Sail release and udb gem do not define IME yet,
+  # so install-sail-ime.sh builds the fork and checks out the UDB commit that defines IME.
+  sail-rv64-experimental:
+    name: Sail (experimental extensions)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up tools
+        uses: $/.github/actions/setup-tools
+        with:
+          install-architecture-tools: "true"
+
+      - name: Install runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgmp-dev
+
+      - name: Compute simulator cache key
+        id: sail-ime-cache-key
+        run: |
+          hash="$(sha256sum .github/scripts/install-sail-ime.sh)"
+          echo "key=sail-ime-${hash:0:12}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore cached simulator
+        id: cache-restore
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ github.workspace }}/sail-ime
+          key: ${{ steps.sail-ime-cache-key.outputs.key }}
+
+      - name: Install simulator
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: bash .github/scripts/install-sail-ime.sh "${GITHUB_WORKSPACE}/sail-ime"
+
+      - name: Save cached simulator
+        if: github.ref == 'refs/heads/act4' && steps.cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ${{ github.workspace }}/sail-ime
+          key: ${{ steps.sail-ime-cache-key.outputs.key }}
+
+      # Prepended to PATH, so this sail_riscv_sim replaces the official release from setup-tools.
+      - name: Add simulator and UDB to the environment
+        run: | # zizmor: ignore[github-env]
+          echo "$GITHUB_WORKSPACE/sail-ime/bin" >> "$GITHUB_PATH"
+          echo "UDB_LOCAL_PATH=$GITHUB_WORKSPACE/sail-ime/riscv-unified-db" >> "$GITHUB_ENV"
+
+      - name: Install UDB gems
+        working-directory: framework/src/act/data
+        run: bundle install
+
+      - name: Build ELFs
+        run: |
+          ENABLE_EXPERIMENTAL_EXTENSIONS=True \
+          EXTENSIONS=Zvvmm8,Zvvmm16,Zvvmm32,Zvvmm64,Zvvfmm8,Zvvfmm16,Zvvfmm32,Zvvfmm64,Zvvmtls8,Zvvmtls16,Zvvmtls32,Zvvmtls64,Zvvmttls8,Zvvmttls16,Zvvmttls32,Zvvmttls64,ExceptionsZvvm \
+          CONFIG_FILES=config/sail/sail-rv64-experimental/test_config.yaml \
+          make elfs
+
+      - name: Run tests
+        run: |
+          ./run_tests.py "$(cat config/sail/sail-rv64-experimental/run_cmd.txt)" \
+            work/sail-rv64-experimental/elfs
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: sail-rv64-experimental-logs
+          path: work/sail-rv64-experimental/logs
+
   vector-testgen:
     name: Vector Testgen
     runs-on: ubuntu-latest
@@ -384,6 +458,7 @@ jobs:
         lint,
         regress,
         spike-rv64-experimental,
+        sail-rv64-experimental,
         vector-testgen,
         check-tests,
         python-versions,
