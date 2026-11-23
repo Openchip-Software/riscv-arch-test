@@ -3,6 +3,9 @@
 # CI configuration for Sail reference model
 
 ci_enabled: true
+# Run the IME suites in their dedicated workflow job, with the Sail IME fork.
+exclude_configs:
+  - sail-rv64-experimental
 exclude_extensions: []
 shards: 1
 config_shards:
