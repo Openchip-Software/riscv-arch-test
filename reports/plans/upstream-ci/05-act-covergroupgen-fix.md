@@ -16,6 +16,9 @@ Prepared, not pushed, pull request not opened. The user approves the push and th
 - Worktree: `/srv/nfs/shared/home/constantino.gomez/repo/ime/riscv-arch-test-bugfix-covergroupgen`.
 - The fix also stays on the feature branch `cgomez/ime-udb-0.9.0` as `0bb9717a4`.
 - `make tests` on the branch leaves `git status` clean.
+- `mise run prek` did not complete: mise is too old for `.mise.toml`, the SDK image has no mise or git, and prek
+  0.5.7 hangs while it installs hook environments in the shared cache. Ruff, `ruff format --check`, Pyright and
+  codespell pass on `generate.py`. Run `mise run prek` before the push.
 - A copy of `testplans/Zvbc.csv` that gives `vclmul.vx` the `ExtraExtensions` entry `Zbc` gets a
   `Zvbc64Zbc_vclmul_vx_cg` covergroup with the fix and none without it. With `Zbc` on every row, the code before the
   fix raises `KeyError: ()`.
