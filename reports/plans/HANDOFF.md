@@ -189,8 +189,10 @@ keeps the VLEN 1024 tests. A build for the 16384 config from tests generated wit
   -J vlen16k -d ~/repo/ime/act-udb-work -- bash ~/repo/ime/act-udb-work/vlen-job.sh sail-ime-rv64-v16384 <workdir>
 ```
 
-- `run-suites.sh <config> <workdir> <sail> <suites>` sources `env.sh`, builds with `act -k`, runs every ELF directory
-  with `run_tests.py`, and restores `Gemfile.lock`. Logs are in `<workdir>/<config>/elfs/rv64i/logs/`.
+- `run-suites.sh <config> <workdir> <sail> <suites>` sources `env.sh` and generates the tests of `<suites>` into
+  `<workdir>/tests` from the current generators, sized for the VLEN of the config (`ACT_IME_VLEN_MAX`), so a run never
+  uses stale tests. It then builds with `act -k`, runs every ELF directory with `run_tests.py`, and restores
+  `Gemfile.lock`. `TESTDIR=<dir>` uses existing tests instead. Logs are in `<workdir>/<config>/elfs/rv64i/logs/`.
 - `make tests` uses stamps that ignore `EXTENSIONS`, so call `testgen` and `covergroupgen` directly.
 - To check that existing tests do not change, generate from `HEAD` in a scratch worktree into another directory and
   compare with `diff -r`.
