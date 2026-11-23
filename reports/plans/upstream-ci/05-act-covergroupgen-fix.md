@@ -5,7 +5,22 @@
 Repository: `riscv/riscv-arch-test`, target branch `act4`. Source commit: `0bb9717a4` on
 `Openchip-Software/riscv-arch-test`, branch `port-ime-tests-to-act4` (local clone `~/repo/ime/riscv-arch-test`).
 
-State as of 2026-11-09.
+State as of 2026-11-23.
+
+## Status
+
+Prepared, not pushed, pull request not opened. The user approves the push and the pull request.
+
+- Branch `upstream-bugfix/covergroupgen-extraextensions-per-sew`, commit `e254e5250`, on `upstream/act4` `95ca74cb2`
+  (2026-11-23). The cherry-pick of `0bb9717a4` applied without conflicts. The commit message is unchanged.
+- Worktree: `/srv/nfs/shared/home/constantino.gomez/repo/ime/riscv-arch-test-bugfix-covergroupgen`.
+- The fix also stays on the feature branch `cgomez/ime-udb-0.9.0` as `0bb9717a4`.
+- `make tests` on the branch leaves `git status` clean.
+- A copy of `testplans/Zvbc.csv` that gives `vclmul.vx` the `ExtraExtensions` entry `Zbc` gets a
+  `Zvbc64Zbc_vclmul_vx_cg` covergroup with the fix and none without it. With `Zbc` on every row, the code before the
+  fix raises `KeyError: ()`.
+- The coverage package has no unit-test layout, so the pull request states how the fix was checked (task 4).
+- Pull request description draft: `../../issues/act-covergroupgen-extraextensions-per-sew/PR.md`.
 
 ## Why
 
